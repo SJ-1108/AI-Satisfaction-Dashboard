@@ -1,0 +1,84 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { empNoToEmail } from "@/lib/empno";
+
+/**
+ * 사번 로그인 폼.
+ * 입력은 사번+비밀번호. 제출 직전에만 사번 → 이메일로 내부 변환하여
+ * Supabase Auth 로 로그인한다 (이메일은 화면에 노출하지 않음).
+ */
+export default function LoginForm() {
+  const router = useRouter();
+  const [empNo, setEmpNo] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!empNo.trim() || !password) {
+      setError("사번과 비밀번호를 입력하세요.");
+      return;
+    }
+
+    setLoading(true);
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: empNoToEmail(empNo), // 내부 변환 (비가시)
+      password,
+    });
+
+    if (signInError) {
+      // 보안상 사번/비밀번호 어느 쪽이 틀렸는지 구분하지 않는다.
+      setError("사번 또는 비밀번호가 올바르지 않습니다.");
+      setLoading(false);
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      {error && <p className="error-msg">{error}</p>}
+
+      <div className="field">
+        <label htmlFor="empNo">사번</label>
+        <input
+          id="empNo"
+          name="empNo"
+          type="text"
+          inputMode="numeric"
+          autoComplete="username"
+          placeholder="예) 20240278"
+          value={empNo}
+          onChange={(e) => setEmpNo(e.target.value)}
+          disabled={loading}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="password">비밀번호</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={loading}
+        />
+      </div>
+
+      <button className="btn-primary" type="submit" disabled={loading}>
+        {loading ? "로그인 중…" : "로그인"}
+      </button>
+    </form>
+  );
+}

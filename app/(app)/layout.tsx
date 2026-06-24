@@ -1,0 +1,73 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { emailToEmpNo } from "@/lib/empno";
+import Sidebar from "@/components/sidebar";
+import SignOutButton from "@/components/sign-out-button";
+
+/**
+ * 인증된 영역의 공통 셸 (메뉴 ①②③).
+ * 서버에서 사용자/프로필을 조회해 사번·이름을 표시한다 (이메일 비노출).
+ * 미인증 접근은 middleware가 1차 차단하지만, 여기서도 방어적으로 확인한다.
+ */
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const configured = isSupabaseConfigured();
+
+  let empNo = "dummy";
+  let name = "더미 모드";
+
+  if (configured) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      redirect("/login");
+    }
+
+    // 화면 표시는 사번/이름 기준 (profiles). 조회 실패 시 이메일에서 사번만 추출해 폴백.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("emp_no, name")
+      .eq("id", user.id)
+      .single();
+
+    empNo = profile?.emp_no ?? emailToEmpNo(user.email ?? "");
+    name = profile?.name ?? "";
+  }
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">만족도 평가 대시보드</div>
+        <Sidebar />
+        <div className="spacer" />
+        <div className="user-box">
+          <div>
+            {name ? `${name} ` : ""}
+            <strong>{empNo}</strong>
+          </div>
+          {configured && (
+            <div style={{ marginTop: 8 }}>
+              <SignOutButton />
+            </div>
+          )}
+        </div>
+      </aside>
+      <main className="main">
+        {!configured && (
+          <div className="dev-banner">
+            더미 모드 — Supabase 미설정 상태입니다. 인증이 비활성화되어 있으며
+            데이터는 샘플/세션 메모리로만 동작합니다.
+          </div>
+        )}
+        {children}
+      </main>
+    </div>
+  );
+}
