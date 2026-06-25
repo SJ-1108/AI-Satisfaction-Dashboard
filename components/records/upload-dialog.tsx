@@ -7,6 +7,7 @@ import {
   type ParseResult,
 } from "@/lib/ingest/parse-satisfaction";
 import { reasonLabel } from "@/lib/reasons";
+import { formatKstDateTime } from "@/lib/format-date";
 import type { ParsedSatisfaction } from "@/lib/types";
 
 /**
@@ -74,7 +75,7 @@ export default function UploadDialog({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h2>데이터 업로드 (CSV / XLSX)</h2>
           <button className="btn-ghost" onClick={onClose}>
@@ -109,7 +110,7 @@ export default function UploadDialog({
               <span>총 {result.totalRows}행</span>
               <span className="ok">유효 {result.valid.length}</span>
               <span className="bad">오류 {result.errors.length}</span>
-              <span>파일내 중복 {result.duplicateInFile}</span>
+              <span>파일 내 중복 {result.duplicateInFile}</span>
             </div>
 
             {/* 컬럼 자동 매핑 결과 */}
@@ -150,32 +151,44 @@ export default function UploadDialog({
             {preview.length > 0 && (
               <div className="preview">
                 <div className="preview-title">미리보기 (최대 5행)</div>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>rating</th>
-                      <th>reason</th>
-                      <th>created_at</th>
-                      <th>query</th>
-                      <th>summary_text</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.map((r) => (
-                      <tr key={r.record_key}>
-                        <td>
-                          <span className={`badge ${r.rating}`}>
-                            {r.rating === "up" ? "👍 up" : "👎 down"}
-                          </span>
-                        </td>
-                        <td>{reasonLabel(r.reason)}</td>
-                        <td>{r.created_at.slice(0, 16).replace("T", " ")}</td>
-                        <td className="ellipsis">{r.query}</td>
-                        <td className="ellipsis">{r.summary_text}</td>
+                <div className="table-scroll">
+                  <table className="data-table preview-table">
+                    <thead>
+                      <tr>
+                        <th>No.</th>
+                        <th>평가</th>
+                        <th>사유</th>
+                        <th>평가시각</th>
+                        <th>질의어</th>
+                        <th>AI 답변</th>
+                        <th>의견</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {preview.map((r, i) => (
+                        <tr key={r.record_key}>
+                          <td className="mono">{i + 1}</td>
+                          <td>
+                            <span className={`badge ${r.rating}`}>
+                              {r.rating === "up" ? "👍 up" : "👎 down"}
+                            </span>
+                          </td>
+                          <td className="nowrap">{reasonLabel(r.reason)}</td>
+                          <td className="nowrap">{formatKstDateTime(r.created_at)}</td>
+                          <td className="ellipsis" title={r.query ?? undefined}>
+                            {r.query ?? "-"}
+                          </td>
+                          <td className="ellipsis" title={r.summary_text ?? undefined}>
+                            {r.summary_text ?? "-"}
+                          </td>
+                          <td className="ellipsis" title={r.comment ?? undefined}>
+                            {r.comment ?? "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 

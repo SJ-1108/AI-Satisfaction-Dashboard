@@ -13,7 +13,9 @@ import {
   countByStatus,
   handledRate,
 } from "@/lib/data/feedback-stats";
-import { reasonLabel } from "@/lib/reasons";
+import { reasonLabel, REASON_LABELS } from "@/lib/reasons";
+import { formatKstDateTime, kstDatePart } from "@/lib/format-date";
+import { exportRows, type ExportFormat } from "@/lib/export";
 import {
   FEEDBACK_STATUSES,
   type Feedback,
@@ -32,6 +34,11 @@ const STATUS_CLASS: Record<FeedbackStatus, string> = {
   조치완료: "st-done",
   보류: "st-hold",
 };
+
+/** 평가 사유 드롭다운 옵션 (코드값 기준 필터, 한글 라벨 표시). "미지정"은 옵션에서 제외 */
+const REASON_OPTIONS: { value: string; label: string }[] = Object.entries(
+  REASON_LABELS,
+).map(([value, label]) => ({ value, label }));
 
 /**
  * 메뉴 ③ 불만족 관리 (FR-4) — 누적 데이터 기준.
@@ -54,6 +61,7 @@ export default function FeedbackClient({
   useEffect(() => setFeedback(initialFeedback), [initialFeedback]);
 
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | "all">("all");
+  const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<FeedbackRow | null>(null);
@@ -74,23 +82,15 @@ export default function FeedbackClient({
     const q = search.trim().toLowerCase();
     return allRows.filter((r) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      // 평가 사유 필터 (DB reason 코드 기준)
+      if (reasonFilter !== "all" && r.reason !== reasonFilter) return false;
+      // 검색 대상은 질의어(query)로만 제한
       if (q) {
-        const hay = [
-          String(r.record_no),
-          r.query,
-          r.summary_text,
-          r.comment,
-          r.detail_reason,
-          r.cause_category,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!hay.includes(q)) return false;
+        if (!(r.query ?? "").toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [allRows, statusFilter, search]);
+  }, [allRows, statusFilter, reasonFilter, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -147,6 +147,24 @@ export default function FeedbackClient({
     setPage(1);
   }
 
+  /** 현재 검색/상태 필터 결과(filtered)를 한글 컬럼으로 내보낸다 (FR-3.3 재사용). */
+  function onExport(format: ExportFormat) {
+    const flat = filtered.map((r) => ({
+      "No.": r.record_no,
+      평가시각: kstDatePart(r.created_at),
+      질의어: r.query ?? "",
+      "평가 사유": r.reason ? reasonLabel(r.reason) : "",
+      의견: r.comment ?? "",
+      상태: r.status,
+      "원인 분류": r.cause_category ?? "",
+      "조치 내용": r.action ?? "",
+      메모: r.memo ?? "",
+      "최종 수정자": r.updated_by ?? "",
+      수정일시: r.updated_at ? formatKstDateTime(r.updated_at) : "",
+    }));
+    exportRows(flat, `feedback_${new Date().toISOString().slice(0, 10)}`, format);
+  }
+
   return (
     <div>
       <h1 className="page-title">③ 불만족 관리</h1>
@@ -156,8 +174,8 @@ export default function FeedbackClient({
 
       {toast && <div className="toast">{toast}</div>}
 
-      {/* 통계 (FR-4.4) */}
-      <div className="kpi-grid">
+      {/* 통계 (FR-4.4) — 5개 항목 한 줄 표시 */}
+      <div className="kpi-grid-5">
         <div className="kpi-card">
           <div className="kpi-label">불만족 총건수</div>
           <div className="kpi-value down">{allRows.length}</div>
@@ -208,13 +226,28 @@ export default function FeedbackClient({
         <div className="toolbar-row">
           <input
             className="input grow"
-            placeholder="검색 (No./검색어/요약/의견/상세사유/원인분류)"
+            placeholder="검색 (질의어)"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
               setPage(1);
             }}
           />
+          <select
+            className="input"
+            value={reasonFilter}
+            onChange={(e) => {
+              setReasonFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="all">전체 사유</option>
+            {REASON_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
           <select
             className="input"
             value={statusFilter}
@@ -229,6 +262,21 @@ export default function FeedbackClient({
               </option>
             ))}
           </select>
+          <div className="spacer" />
+          <button
+            className="btn-ghost"
+            disabled={filtered.length === 0}
+            onClick={() => onExport("csv")}
+          >
+            CSV 내보내기
+          </button>
+          <button
+            className="btn-ghost"
+            disabled={filtered.length === 0}
+            onClick={() => onExport("xlsx")}
+          >
+            XLSX 내보내기
+          </button>
         </div>
       </div>
 
@@ -237,24 +285,25 @@ export default function FeedbackClient({
       </div>
 
       {/* 목록 (FR-4.1) */}
-      <div className="card no-pad">
-        <table className="data-table">
+      <div className="card no-pad table-scroll">
+        <table className="data-table feedback-table">
           <thead>
             <tr>
               <th>No.</th>
               <th>평가시각</th>
-              <th>검색어</th>
+              <th>질의어</th>
               <th>평가 사유</th>
+              <th>의견</th>
               <th>상태</th>
               <th>원인 분류</th>
-              <th>최종 수정자</th>
-              <th></th>
+              <th>담당자</th>
+              <th className="action-cell"></th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="empty">
+                <td colSpan={9} className="empty">
                   조건에 맞는 불만족 건이 없습니다.
                 </td>
               </tr>
@@ -262,12 +311,15 @@ export default function FeedbackClient({
               rows.map((r) => (
                 <tr key={r.satisfaction_id}>
                   <td className="mono">{r.record_no}</td>
-                  <td className="nowrap">
-                    {r.created_at.slice(0, 16).replace("T", " ")}
+                  <td className="nowrap">{kstDatePart(r.created_at)}</td>
+                  <td className="ellipsis" title={r.query ?? undefined}>
+                    {r.query ?? "-"}
                   </td>
-                  <td className="ellipsis">{r.query}</td>
                   <td className="nowrap">
                     {r.reason ? reasonLabel(r.reason) : "-"}
+                  </td>
+                  <td className="ellipsis" title={r.comment || undefined}>
+                    {r.comment || ""}
                   </td>
                   <td>
                     <select
@@ -285,10 +337,16 @@ export default function FeedbackClient({
                       ))}
                     </select>
                   </td>
-                  <td className="nowrap">{r.cause_category ?? "-"}</td>
-                  <td className="mono">{r.updated_by ?? "-"}</td>
-                  <td>
-                    <button className="btn-ghost" onClick={() => setEditing(r)}>
+                  <td className="ellipsis cause-cell" title={r.cause_category ?? undefined}>
+                    {r.cause_category
+                      ? r.cause_category.length > 10
+                        ? `${r.cause_category.slice(0, 10)}…`
+                        : r.cause_category
+                      : "-"}
+                  </td>
+                  <td className="nowrap">{r.updated_by ?? "-"}</td>
+                  <td className="action-cell">
+                    <button className="btn-feedback" onClick={() => setEditing(r)}>
                       피드백
                     </button>
                   </td>

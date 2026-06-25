@@ -56,6 +56,14 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* 화면 폭/반응형/가로 스크롤과 무관하게 좌측 메뉴를 항상 고정 노출.
+     (fixed: 뷰포트에 고정 → 본문 가로 스크롤 시에도 사라지지 않음) */
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 20;
 }
 
 .sidebar .brand {
@@ -97,6 +105,8 @@ textarea {
   flex: 1;
   padding: 28px 32px;
   max-width: 1200px;
+  /* 고정 사이드바(220px) 와 겹치지 않도록 본문을 우측으로 밀어준다. */
+  margin-left: 220px;
 }
 
 .page-title {
@@ -194,6 +204,35 @@ textarea {
   border-radius: 8px;
   padding: 8px 12px;
   color: var(--muted);
+  white-space: nowrap;
+}
+
+/* 불만족 관리 — 피드백 액션 버튼 (클릭 가능한 액션임을 명확히) */
+.btn-feedback {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 6px 16px;
+  color: var(--primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-feedback:hover {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+}
+
+.btn-feedback:active {
+  background: #c7d2fe;
+}
+
+/* 액션 컬럼 — 버튼이 잘리지 않도록 폭 확보 */
+.data-table td.action-cell,
+.data-table th.action-cell {
+  white-space: nowrap;
+  width: 1%;
+  text-align: right;
 }
 
 .btn-ghost:disabled {
@@ -312,11 +351,18 @@ textarea {
 }
 
 .badge {
-  display: inline-block;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 2px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  min-width: 58px;
+  vertical-align: middle;
 }
 
 .badge.up {
@@ -380,6 +426,27 @@ textarea {
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 16px;
+}
+
+/* 불만족 관리 통계 — 5개 항목을 데스크톱 한 줄에 표시 (수치 로직 영향 없음) */
+.kpi-grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.kpi-grid-5 .kpi-card {
+  padding: 14px 16px;
+}
+
+.kpi-grid-5 .kpi-label {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.kpi-grid-5 .kpi-value {
+  font-size: 22px;
 }
 
 .kpi-card {
@@ -561,6 +628,42 @@ textarea {
   padding: 24px;
   width: 720px;
   max-width: 100%;
+}
+
+/* 데이터 미리보기가 많은 업로드 모달 — 더 넓게 */
+.modal.wide {
+  width: 1040px;
+}
+
+/* 표 가로 스크롤 컨테이너 (모달/카드 공통) */
+.table-scroll {
+  overflow-x: auto;
+}
+
+/* card.no-pad(overflow:hidden) 보다 우선해 가로 스크롤 허용 */
+.card.no-pad.table-scroll {
+  overflow-x: auto;
+}
+
+/* 업로드 미리보기 표 — 컬럼이 과도하게 압축되지 않도록 최소 폭 확보 */
+.preview-table {
+  min-width: 880px;
+}
+
+/* 불만족 관리 표 — 컬럼이 많아 피드백 버튼이 잘리지 않도록 최소 폭 + 가로 스크롤 */
+.feedback-table {
+  min-width: 1040px;
+}
+
+/* 원인 분류 컬럼 — 길이와 무관하게 폭 고정(말줄임). 버튼 영역을 밀어내지 않도록 */
+.data-table td.cause-cell {
+  max-width: 140px;
+  min-width: 100px;
+}
+
+.preview-table td.ellipsis {
+  max-width: 280px;
+  min-width: 160px;
 }
 
 .modal-head {

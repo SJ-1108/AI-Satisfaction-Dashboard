@@ -1,4 +1,5 @@
 import type { Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
+import { computeDisplayNo } from "@/lib/data/display-no";
 
 /**
  * 불만족(down) 평가 ↔ feedback 1:1 조인 뷰 (FR-4).
@@ -10,7 +11,7 @@ import type { Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
 export interface FeedbackRow {
   // 평가 원본 (satisfaction)
   satisfaction_id: string; // = satisfaction.id (feedback 연결키)
-  record_no: number; // 화면 표시용 누적 번호
+  record_no: number; // 화면 표시용 누적 번호(display No., created_at 과거순 1..N)
   query: string | null;
   summary_text: string | null;
   reason: string | null;
@@ -37,30 +38,37 @@ export function buildFeedbackRows(
   const byId = new Map<string, Feedback>();
   for (const f of feedback) byId.set(f.satisfaction_id, f);
 
-  return satisfaction
-    .filter((s) => s.rating === "down")
-    .map((s) => {
-      const f = byId.get(s.id);
-      return {
-        satisfaction_id: s.id,
-        record_no: s.record_no,
-        query: s.query,
-        summary_text: s.summary_text,
-        reason: s.reason,
-        comment: s.comment,
-        created_at: s.created_at,
+  // 불만족 관리 전용 No.: rating=down 건만 대상으로 평가시각 과거순 1..N (과거=1).
+  // 전체 satisfaction 의 display_no 와 무관한 독립 넘버링. (필터와 무관하게 고정)
+  const downRecords = satisfaction.filter((s) => s.rating === "down");
+  const displayNo = computeDisplayNo(downRecords);
 
-        hasFeedback: Boolean(f),
-        status: f?.status ?? "미확인",
-        detail_reason: f?.detail_reason ?? null,
-        cause_category: f?.cause_category ?? null,
-        action: f?.action ?? null,
-        memo: f?.memo ?? null,
-        created_by: f?.created_by ?? null,
-        updated_by: f?.updated_by ?? null,
-        updated_at: f?.updated_at ?? null,
-      };
-    });
+  const rows = downRecords.map((s) => {
+    const f = byId.get(s.id);
+    return {
+      satisfaction_id: s.id,
+      record_no: displayNo.get(s.id) ?? 0,
+      query: s.query,
+      summary_text: s.summary_text,
+      reason: s.reason,
+      comment: s.comment,
+      created_at: s.created_at,
+
+      hasFeedback: Boolean(f),
+      status: f?.status ?? "미확인",
+      detail_reason: f?.detail_reason ?? null,
+      cause_category: f?.cause_category ?? null,
+      action: f?.action ?? null,
+      memo: f?.memo ?? null,
+      created_by: f?.created_by ?? null,
+      updated_by: f?.updated_by ?? null,
+      updated_at: f?.updated_at ?? null,
+    };
+  });
+
+  // 화면 정렬: 평가시각 최신순 (최상단 = 가장 최근 = 가장 큰 No.)
+  rows.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  return rows;
 }
 
 /** 한 건의 편집 결과를 feedback 목록에 반영(upsert). 작성자/수정자 자동 기록. */

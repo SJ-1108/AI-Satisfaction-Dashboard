@@ -10,8 +10,10 @@ import {
   type SortKey,
 } from "@/lib/data/satisfaction-query";
 import { accumulateSatisfaction } from "@/lib/data/accumulate-satisfaction";
+import { computeDisplayNo } from "@/lib/data/display-no";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { reasonLabel } from "@/lib/reasons";
+import { formatKstDateTime, isDateRangeInvalid } from "@/lib/format-date";
 import type {
   ParsedSatisfaction,
   Rating,
@@ -52,8 +54,8 @@ export default function RecordsClient({
   const [reason, setReason] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("record_no");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -64,12 +66,18 @@ export default function RecordsClient({
 
   const reasons = useMemo(() => distinctReasons(records), [records]);
 
+  // No.(표시번호): 전체 누적 데이터 평가시각 과거순 1..N (created_at 기준)
+  const displayNo = useMemo(() => computeDisplayNo(records), [records]);
+
+  // 시작일이 종료일보다 미래면 잘못된 조합 → 필터 적용 차단 + 안내
+  const dateRangeInvalid = isDateRangeInvalid(dateFrom, dateTo);
+
   const params: QueryParams = {
     search,
     rating,
     reason,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
+    dateFrom: dateRangeInvalid ? undefined : dateFrom || undefined,
+    dateTo: dateRangeInvalid ? undefined : dateTo || undefined,
     sortKey,
     sortDir,
     page,
@@ -94,7 +102,7 @@ export default function RecordsClient({
       setSortDir(sortDir === "asc" ? "desc" : "asc");
     } else {
       setSortKey(key);
-      setSortDir(key === "record_no" ? "asc" : "desc");
+      setSortDir("desc");
     }
     setPage(1);
   }
@@ -105,9 +113,13 @@ export default function RecordsClient({
   }
 
   function onExport(format: ExportFormat) {
-    const all = querySatisfaction(records, { ...params, page: 1, pageSize: result.total || 1 });
+    const all = querySatisfaction(records, {
+      ...params,
+      page: 1,
+      pageSize: result.total || 1,
+    });
     const flat = all.rows.map((r) => ({
-      no: r.record_no,
+      no: displayNo.get(r.id) ?? r.record_no,
       rating: r.rating,
       reason: r.reason ?? "",
       reason_label: reasonLabel(r.reason),
@@ -122,7 +134,7 @@ export default function RecordsClient({
   function showSummaryToast(s: UploadSummary) {
     setLastSummary(s);
     setToast(
-      `적재 완료 — 신규 ${s.inserted_count} · 갱신 ${s.updated_count} · 중복 ${s.duplicate_count} · 실패 ${s.failed_count}`,
+      `적재 완료 — 신규 ${s.inserted_count} · 갱신 ${s.updated_count} · 파일 내 중복 ${s.duplicate_count} · 실패 ${s.failed_count}`,
     );
     setTimeout(() => setToast(null), 5000);
   }
@@ -208,7 +220,13 @@ export default function RecordsClient({
       {toast && <div className="toast">{toast}</div>}
 
       {/* 최근 업로드 이력 */}
-      {batches.length > 0 && (
+      {batches.length === 0 ? (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <p className="placeholder" style={{ margin: 0 }}>
+            아직 업로드 이력이 없습니다.
+          </p>
+        </div>
+      ) : (
         <details className="card" style={{ marginBottom: 16 }}>
           <summary>최근 업로드 이력 ({batches.length})</summary>
           <table className="data-table" style={{ marginTop: 12 }}>
@@ -220,7 +238,7 @@ export default function RecordsClient({
                 <th>행</th>
                 <th>신규</th>
                 <th>갱신</th>
-                <th>중복</th>
+                <th>파일 내 중복</th>
                 <th>실패</th>
                 <th>상태</th>
               </tr>
@@ -229,10 +247,8 @@ export default function RecordsClient({
               {batches.map((b) => (
                 <tr key={b.id}>
                   <td className="ellipsis">{b.file_name ?? "-"}</td>
-                  <td className="mono">{b.uploaded_by ?? "-"}</td>
-                  <td className="nowrap">
-                    {b.uploaded_at.slice(0, 16).replace("T", " ")}
-                  </td>
+                  <td className="nowrap">{b.uploaded_by ?? "-"}</td>
+                  <td className="nowrap">{formatKstDateTime(b.uploaded_at)}</td>
                   <td>{b.row_count}</td>
                   <td>{b.inserted_count}</td>
                   <td>{b.updated_count}</td>
@@ -251,7 +267,7 @@ export default function RecordsClient({
         <div className="toolbar-row">
           <input
             className="input grow"
-            placeholder="검색 (No./검색어/요약/의견)"
+            placeholder="검색 (질의어)"
             value={search}
             onChange={(e) => resetPage(setSearch)(e.target.value)}
           />
@@ -261,8 +277,8 @@ export default function RecordsClient({
             onChange={(e) => resetPage(setRating)(e.target.value as Rating | "all")}
           >
             <option value="all">전체 평가</option>
-            <option value="up">👍 만족</option>
-            <option value="down">👎 불만족</option>
+            <option value="up">👍 up</option>
+            <option value="down">👎 down</option>
           </select>
           <select
             className="input"
@@ -272,7 +288,7 @@ export default function RecordsClient({
             <option value="all">전체 사유</option>
             {reasons.map((rc) => (
               <option key={rc} value={rc}>
-                {reasonLabel(rc)} ({rc})
+                {reasonLabel(rc)}
               </option>
             ))}
           </select>
@@ -285,6 +301,7 @@ export default function RecordsClient({
               type="date"
               className="input"
               value={dateFrom}
+              max={dateTo || undefined}
               onChange={(e) => resetPage(setDateFrom)(e.target.value)}
             />
             ~
@@ -292,9 +309,15 @@ export default function RecordsClient({
               type="date"
               className="input"
               value={dateTo}
+              min={dateFrom || undefined}
               onChange={(e) => resetPage(setDateTo)(e.target.value)}
             />
           </label>
+          {dateRangeInvalid && (
+            <span className="error-msg" style={{ margin: 0 }}>
+              시작일이 종료일보다 늦습니다 — 기간을 다시 선택하세요.
+            </span>
+          )}
           <button className="btn-ghost" onClick={resetFilters}>
             필터 초기화
           </button>
@@ -318,22 +341,20 @@ export default function RecordsClient({
       </div>
 
       {/* 표 */}
-      <div className="card no-pad">
+      <div className="card no-pad table-scroll">
         <table className="data-table">
           <thead>
             <tr>
-              <th className="sortable" onClick={() => toggleSort("record_no")}>
-                No.{sortMark("record_no")}
+              <th className="sortable" onClick={() => toggleSort("created_at")}>
+                No.{sortMark("created_at")}
               </th>
               <th className="sortable" onClick={() => toggleSort("created_at")}>
                 평가시각{sortMark("created_at")}
               </th>
-              <th className="sortable" onClick={() => toggleSort("rating")}>
-                평가{sortMark("rating")}
-              </th>
+              <th>평가</th>
+              <th>질의어</th>
+              <th>AI 답변</th>
               <th>사유</th>
-              <th>검색어</th>
-              <th>AI 요약</th>
               <th>의견</th>
             </tr>
           </thead>
@@ -347,19 +368,23 @@ export default function RecordsClient({
             ) : (
               result.rows.map((r) => (
                 <tr key={r.id}>
-                  <td className="mono">{r.record_no}</td>
-                  <td className="nowrap">
-                    {r.created_at.slice(0, 16).replace("T", " ")}
-                  </td>
+                  <td className="mono">{displayNo.get(r.id) ?? r.record_no}</td>
+                  <td className="nowrap">{formatKstDateTime(r.created_at)}</td>
                   <td>
                     <span className={`badge ${r.rating}`}>
                       {r.rating === "up" ? "👍 up" : "👎 down"}
                     </span>
                   </td>
+                  <td className="ellipsis" title={r.query ?? undefined}>
+                    {r.query ?? "-"}
+                  </td>
+                  <td className="ellipsis" title={r.summary_text ?? undefined}>
+                    {r.summary_text ?? "-"}
+                  </td>
                   <td className="nowrap">{r.reason ? reasonLabel(r.reason) : "-"}</td>
-                  <td className="ellipsis">{r.query}</td>
-                  <td className="ellipsis">{r.summary_text}</td>
-                  <td className="ellipsis">{r.comment ?? "-"}</td>
+                  <td className="ellipsis" title={r.comment ?? undefined}>
+                    {r.comment ?? "-"}
+                  </td>
                 </tr>
               ))
             )}

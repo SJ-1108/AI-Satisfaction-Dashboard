@@ -1,4 +1,5 @@
 import type { Rating, Satisfaction } from "@/lib/types";
+import { kstDatePart } from "@/lib/format-date";
 
 /**
  * 원본 조회용 검색/필터/정렬/페이징 (FR-3.2).
@@ -6,7 +7,7 @@ import type { Rating, Satisfaction } from "@/lib/types";
  * 동일한 파라미터 형태를 재사용할 수 있게 한다.
  */
 
-export type SortKey = "created_at" | "rating" | "record_no";
+export type SortKey = "created_at" | "rating";
 export type SortDir = "asc" | "desc";
 
 export interface QueryParams {
@@ -37,11 +38,6 @@ const DEFAULTS: Required<
   pageSize: 10,
 };
 
-/** created_at(ISO)에서 날짜 부분(YYYY-MM-DD)만 추출 */
-function datePart(iso: string): string {
-  return iso.slice(0, 10);
-}
-
 export function querySatisfaction(
   records: Satisfaction[],
   params: QueryParams = {},
@@ -60,37 +56,28 @@ export function querySatisfaction(
     if (params.reason && params.reason !== "all" && r.reason !== params.reason) {
       return false;
     }
-    if (params.dateFrom && datePart(r.created_at) < params.dateFrom) {
+    // 기간 필터는 KST 날짜 기준(시작일 00:00:00 ~ 종료일 23:59:59 포함)
+    if (params.dateFrom && kstDatePart(r.created_at) < params.dateFrom) {
       return false;
     }
-    if (params.dateTo && datePart(r.created_at) > params.dateTo) {
+    if (params.dateTo && kstDatePart(r.created_at) > params.dateTo) {
       return false;
     }
+    // 검색 대상은 질의어(query)로만 제한
     if (search) {
-      const haystack = [
-        String(r.record_no),
-        r.query,
-        r.summary_text,
-        r.comment,
-        r.reason,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+      const haystack = (r.query ?? "").toLowerCase();
       if (!haystack.includes(search)) return false;
     }
     return true;
   });
 
-  // 2) 정렬 (record_no 는 숫자 비교, 그 외는 문자열 비교)
+  // 2) 정렬 (created_at 은 시각 비교, rating 은 문자열 비교)
   filtered = filtered.slice().sort((a, b) => {
     let cmp: number;
-    if (sortKey === "record_no") {
-      cmp = (a.record_no ?? 0) - (b.record_no ?? 0);
+    if (sortKey === "created_at") {
+      cmp = Date.parse(a.created_at) - Date.parse(b.created_at);
     } else {
-      const av = a[sortKey] ?? "";
-      const bv = b[sortKey] ?? "";
-      cmp = String(av).localeCompare(String(bv));
+      cmp = String(a.rating).localeCompare(String(b.rating));
     }
     return sortDir === "asc" ? cmp : -cmp;
   });

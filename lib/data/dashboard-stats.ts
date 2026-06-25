@@ -1,5 +1,6 @@
 import type { Satisfaction } from "@/lib/types";
-import { reasonLabel } from "@/lib/reasons";
+import { reasonLabel, REASON_UNSET_LABEL } from "@/lib/reasons";
+import { kstDatePart } from "@/lib/format-date";
 
 /**
  * 대시보드 통계 계산 (FR-2). 순수 함수로 분리해 추후 Supabase 집계로 교체 가능.
@@ -7,9 +8,9 @@ import { reasonLabel } from "@/lib/reasons";
 
 export type Granularity = "day" | "week" | "month";
 
-/** YYYY-MM-DD 만 추출 */
+/** KST 기준 날짜(YYYY-MM-DD) 추출 — 기간 필터·버킷 모두 KST 기준으로 통일 */
 function datePart(iso: string): string {
-  return iso.slice(0, 10);
+  return kstDatePart(iso);
 }
 
 /** 기간(시작~종료, YYYY-MM-DD) 필터 — created_at 기준 */
@@ -112,16 +113,17 @@ export interface ReasonCount {
 export function computeReasonBreakdown(
   records: Satisfaction[],
 ): ReasonCount[] {
+  const UNSET = "__unset__";
   const map = new Map<string, number>();
   for (const r of records) {
     if (r.rating !== "down") continue;
-    const code = r.reason ?? "(미지정)";
+    const code = r.reason || UNSET;
     map.set(code, (map.get(code) ?? 0) + 1);
   }
   return Array.from(map.entries())
     .map(([reason, count]) => ({
       reason,
-      label: reason === "(미지정)" ? "(미지정)" : reasonLabel(reason),
+      label: reason === UNSET ? REASON_UNSET_LABEL : reasonLabel(reason),
       count,
     }))
     .sort((a, b) => b.count - a.count);

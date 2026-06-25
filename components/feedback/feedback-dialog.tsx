@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FEEDBACK_STATUSES, type FeedbackStatus } from "@/lib/types";
 import { reasonLabel } from "@/lib/reasons";
+import { formatKstDateTime } from "@/lib/format-date";
 import type { FeedbackRow, FeedbackEdit } from "@/lib/data/feedback-view";
 
 /**
@@ -63,7 +64,7 @@ export default function FeedbackDialog({
             <span>{row.reason ? reasonLabel(row.reason) : "-"}</span>
           </div>
           <div className="fb-origin-row">
-            <span className="fb-origin-label">사용자 의견</span>
+            <span className="fb-origin-label">의견</span>
             <span>{row.comment ?? "-"}</span>
           </div>
         </div>
@@ -131,9 +132,7 @@ export default function FeedbackDialog({
           <p className="fb-meta">
             작성자 <strong>{row.created_by ?? "-"}</strong> · 최종수정{" "}
             <strong>{row.updated_by ?? "-"}</strong>
-            {row.updated_at
-              ? ` (${row.updated_at.slice(0, 16).replace("T", " ")})`
-              : ""}
+            {row.updated_at ? ` (${formatKstDateTime(row.updated_at)})` : ""}
           </p>
         )}
 

@@ -36,30 +36,36 @@ export async function loadSatisfaction(): Promise<Satisfaction[]> {
   return (data ?? []) as Satisfaction[];
 }
 
-/** 사번 매핑: profiles(id → emp_no) */
-async function loadEmpNoMap(
+/**
+ * 작성자 표시명 매핑: profiles(id → 이름).
+ * 이름이 있으면 이름, 없으면 사번, 둘 다 없으면 uuid 폴백.
+ */
+async function loadActorNameMap(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<Map<string, string>> {
-  const { data } = await supabase.from("profiles").select("id, emp_no");
+  const { data } = await supabase.from("profiles").select("id, emp_no, name");
   const map = new Map<string, string>();
   for (const p of data ?? []) {
-    if (p.id) map.set(p.id as string, (p.emp_no as string) ?? "");
+    if (!p.id) continue;
+    const display =
+      (p.name as string | null) || (p.emp_no as string | null) || (p.id as string);
+    map.set(p.id as string, display);
   }
   return map;
 }
 
-/** feedback 로드. created_by/updated_by(uuid)를 표시용 사번으로 변환 */
+/** feedback 로드. created_by/updated_by(uuid)를 표시용 이름(없으면 사번)으로 변환 */
 export async function loadFeedback(): Promise<Feedback[]> {
   if (isDummyMode()) return DUMMY_FEEDBACK;
 
   const supabase = await createClient();
-  const [{ data, error }, empMap] = await Promise.all([
+  const [{ data, error }, actorMap] = await Promise.all([
     supabase
       .from("feedback")
       .select(
         "id, satisfaction_id, status, detail_reason, cause_category, action, memo, created_by, updated_by, created_at, updated_at",
       ),
-    loadEmpNoMap(supabase),
+    loadActorNameMap(supabase),
   ]);
 
   if (error) {
@@ -75,29 +81,59 @@ export async function loadFeedback(): Promise<Feedback[]> {
     cause_category: (f.cause_category as string | null) ?? null,
     action: (f.action as string | null) ?? null,
     memo: (f.memo as string | null) ?? null,
-    created_by: f.created_by ? (empMap.get(f.created_by as string) ?? null) : null,
-    updated_by: f.updated_by ? (empMap.get(f.updated_by as string) ?? null) : null,
+    created_by: f.created_by
+      ? (actorMap.get(f.created_by as string) ?? (f.created_by as string))
+      : null,
+    updated_by: f.updated_by
+      ? (actorMap.get(f.updated_by as string) ?? (f.updated_by as string))
+      : null,
     created_at: f.created_at as string,
     updated_at: f.updated_at as string,
   }));
 }
 
-/** 최근 업로드 이력 로드 (DB 모드만). 더미 모드는 빈 배열 */
+/** 사번 → 이름 매핑 (profiles). 업로더 표시명 변환용 */
+async function loadEmpNoToNameMap(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<Map<string, string>> {
+  const { data } = await supabase.from("profiles").select("emp_no, name");
+  const map = new Map<string, string>();
+  for (const p of data ?? []) {
+    const emp = p.emp_no as string | null;
+    const name = p.name as string | null;
+    if (emp && name) map.set(emp, name);
+  }
+  return map;
+}
+
+/**
+ * 최근 업로드 이력 로드 (DB 모드만). 더미 모드는 빈 배열.
+ * uploaded_by(사번)는 표시용 이름으로 변환한다(없으면 사번 폴백).
+ * DB 의 upload_batches.uploaded_by 값 자체는 변경하지 않는다.
+ */
 export async function loadRecentBatches(limit = 5): Promise<UploadBatch[]> {
   if (isDummyMode()) return [];
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("upload_batches")
-    .select(
-      "id, file_name, uploaded_by, uploaded_at, row_count, inserted_count, updated_count, failed_count, duplicate_count, status, error_message",
-    )
-    .order("uploaded_at", { ascending: false })
-    .limit(limit);
+  const [{ data, error }, nameMap] = await Promise.all([
+    supabase
+      .from("upload_batches")
+      .select(
+        "id, file_name, uploaded_by, uploaded_at, row_count, inserted_count, updated_count, failed_count, duplicate_count, status, error_message",
+      )
+      .order("uploaded_at", { ascending: false })
+      .limit(limit),
+    loadEmpNoToNameMap(supabase),
+  ]);
 
   if (error) {
     console.error("loadRecentBatches 실패:", error.message);
     return [];
   }
-  return (data ?? []) as UploadBatch[];
+  return (data ?? []).map((b) => ({
+    ...(b as UploadBatch),
+    uploaded_by: b.uploaded_by
+      ? (nameMap.get(b.uploaded_by as string) ?? (b.uploaded_by as string))
+      : null,
+  }));
 }

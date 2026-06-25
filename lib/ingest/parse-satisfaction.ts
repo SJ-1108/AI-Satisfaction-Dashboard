@@ -95,10 +95,48 @@ function normalizeRating(value: string): Rating | null {
   return null;
 }
 
-/** created_at 정규화: 파싱 가능하면 ISO 문자열로 */
-function normalizeDate(value: string): string | null {
-  const v = value.trim();
+/**
+ * Excel serial date → ISO 문자열.
+ * 엑셀의 날짜/시간 숫자값(예: 46198.0549)을 KST 벽시계로 해석한 뒤
+ * 실제 UTC instant 로 환산해 일관된 ISO 문자열로 만든다.
+ * (25569 = 1970-01-01 의 Excel serial. serial 을 UTC 벽시계로 본 instant 에서
+ *  KST(+09:00) 해석을 위해 9시간을 뺀다.)
+ */
+function excelSerialToISO(serial: number): string | null {
+  if (!Number.isFinite(serial) || serial <= 0) return null;
+  const wallMs = Math.round((serial - 25569) * 86400 * 1000);
+  const utcMs = wallMs - 9 * 60 * 60 * 1000;
+  const d = new Date(utcMs);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+/**
+ * created_at 정규화: 다양한 입력을 일관된 ISO 문자열로 변환한다.
+ * - 문자열 날짜(2026-06-25, 2026-06-25 10:30:00, ...T...+09:00) → Date.parse
+ * - Date 객체 → toISOString
+ * - 숫자(Excel serial date) → KST 벽시계로 해석해 변환
+ * - 숫자 문자열("46198.0549") → Excel serial 로 간주
+ */
+function normalizeDate(value: unknown): string | null {
+  if (value == null) return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+
+  if (typeof value === "number") {
+    return excelSerialToISO(value);
+  }
+
+  const v = String(value).trim();
   if (!v) return null;
+
+  // 숫자만으로 이루어진 문자열 → Excel serial date 로 간주
+  if (/^\d+(\.\d+)?$/.test(v)) {
+    return excelSerialToISO(Number(v));
+  }
+
   const t = Date.parse(v);
   if (Number.isNaN(t)) return null;
   return new Date(t).toISOString();
@@ -125,6 +163,13 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
     return raw == null ? "" : String(raw);
   };
 
+  // created_at 은 숫자(Excel serial)/Date 형식을 살려야 하므로 원본 값 그대로 읽는다.
+  const getRaw = (row: Record<string, unknown>, field: keyof RawFields): unknown => {
+    const header = mapping[field];
+    if (!header) return undefined;
+    return row[header];
+  };
+
   // 필수 컬럼이 없으면 행 검증을 진행하지 않는다 (업로드 차단 신호만 반환).
   if (requiredMissing.length > 0) {
     return {
@@ -143,14 +188,15 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
   rows.forEach((row, i) => {
     const rowNum = i + 1;
     const ratingRaw = get(row, "rating");
-    const createdRaw = get(row, "created_at");
+    const createdRaw = getRaw(row, "created_at");
 
     const rowErrors: string[] = [];
     const rating = normalizeRating(ratingRaw);
     if (!rating) rowErrors.push(`rating 값 오류('${ratingRaw}') — up/down 필요`);
 
     const created_at = normalizeDate(createdRaw);
-    if (!created_at) rowErrors.push(`created_at 파싱 불가('${createdRaw}')`);
+    if (!created_at)
+      rowErrors.push("created_at 파싱 불가 — 문자열 날짜 또는 엑셀 날짜값만 지원");
 
     if (rowErrors.length > 0) {
       errors.push({ row: rowNum, message: rowErrors.join(", ") });

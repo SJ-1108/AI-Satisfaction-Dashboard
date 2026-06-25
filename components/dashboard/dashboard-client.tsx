@@ -22,6 +22,7 @@ import {
   filterByDate,
   type Granularity,
 } from "@/lib/data/dashboard-stats";
+import { isDateRangeInvalid } from "@/lib/format-date";
 
 // Chart.js 모듈 등록 (한 번만)
 ChartJS.register(
@@ -55,9 +56,15 @@ export default function DashboardClient({
   const [from, setFrom] = useState(range?.min ?? "");
   const [to, setTo] = useState(range?.max ?? "");
 
+  // 시작일이 종료일보다 미래면 잘못된 조합 → 필터 적용 차단 + 안내
+  const dateRangeInvalid = isDateRangeInvalid(from, to);
+
   const filtered = useMemo(
-    () => filterByDate(records, from || undefined, to || undefined),
-    [records, from, to],
+    () =>
+      dateRangeInvalid
+        ? records
+        : filterByDate(records, from || undefined, to || undefined),
+    [records, from, to, dateRangeInvalid],
   );
 
   const kpis = useMemo(() => computeKpis(filtered), [filtered]);
@@ -147,7 +154,7 @@ export default function DashboardClient({
               className="input"
               value={from}
               min={range?.min}
-              max={range?.max}
+              max={to || range?.max}
               onChange={(e) => setFrom(e.target.value)}
             />
             ~
@@ -155,11 +162,16 @@ export default function DashboardClient({
               type="date"
               className="input"
               value={to}
-              min={range?.min}
+              min={from || range?.min}
               max={range?.max}
               onChange={(e) => setTo(e.target.value)}
             />
           </label>
+          {dateRangeInvalid && (
+            <span className="error-msg" style={{ margin: 0 }}>
+              시작일이 종료일보다 늦습니다 — 기간을 다시 선택하세요.
+            </span>
+          )}
           <button className="btn-ghost" onClick={resetRange}>
             기간 초기화
           </button>
