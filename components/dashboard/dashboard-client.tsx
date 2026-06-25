@@ -13,7 +13,7 @@ import {
   Legend,
 } from "chart.js";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
-import { DUMMY_SATISFACTION } from "@/lib/data/dummy-satisfaction";
+import type { Satisfaction } from "@/lib/types";
 import {
   computeKpis,
   computeReasonBreakdown,
@@ -38,9 +38,12 @@ ChartJS.register(
 const UP_COLOR = "#16a34a";
 const DOWN_COLOR = "#dc2626";
 
-/** 메뉴 ① 대시보드 (FR-2) — 더미 데이터 기반. */
-export default function DashboardClient() {
-  const records = DUMMY_SATISFACTION;
+/** 메뉴 ① 대시보드 (FR-2) — 누적 데이터(DB 또는 더미) 기준. */
+export default function DashboardClient({
+  records,
+}: {
+  records: Satisfaction[];
+}) {
   const range = useMemo(() => dataDateRange(records), [records]);
 
   // Chart.js 는 브라우저 캔버스가 필요하므로, 클라이언트 mount 후에만 렌더한다.
@@ -120,7 +123,7 @@ export default function DashboardClient() {
     <div>
       <h1 className="page-title">① 대시보드</h1>
       <p className="page-desc">
-        총 데이터 수 · 구분값별 · 불만족 세부 사유별 통계 · 날짜 필터 — 더미 데이터
+        총 데이터 수 · 구분값별 · 불만족 세부 사유별 통계 · 날짜 필터 — 누적 데이터 기준
       </p>
 
       {/* 날짜 필터 (FR-2.4) */}

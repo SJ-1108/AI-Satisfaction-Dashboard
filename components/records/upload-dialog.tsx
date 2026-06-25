@@ -7,17 +7,26 @@ import {
   type ParseResult,
 } from "@/lib/ingest/parse-satisfaction";
 import { reasonLabel } from "@/lib/reasons";
-import type { Satisfaction } from "@/lib/types";
+import type { ParsedSatisfaction } from "@/lib/types";
 
 /**
  * 수동 업로드 모달 (FR-1.2).
- * 파일 선택 → 파싱·자동매핑·검증 → 미리보기 → 확정 시 onConfirm 으로 정상 행 전달.
+ * 파일 선택 → 파싱·자동매핑·검증 → 미리보기 → 확정 시 onConfirm 으로
+ * 검증 통과 행(valid)과 파일 통계(meta)를 전달한다.
+ * search_event_id 없이 record_key 로 중복을 판별한다.
  */
 export default function UploadDialog({
+  dbMode,
+  uploading,
   onConfirm,
   onClose,
 }: {
-  onConfirm: (rows: Satisfaction[]) => void;
+  dbMode: boolean;
+  uploading: boolean;
+  onConfirm: (
+    valid: ParsedSatisfaction[],
+    meta: { fileName: string; totalRows: number; failedCount: number },
+  ) => void;
   onClose: () => void;
 }) {
   const [fileName, setFileName] = useState<string>("");
@@ -50,7 +59,18 @@ export default function UploadDialog({
   }
 
   const preview = result?.valid.slice(0, 5) ?? [];
-  const canConfirm = (result?.valid.length ?? 0) > 0;
+  const requiredMissing = result?.requiredMissing ?? [];
+  const canConfirm =
+    (result?.valid.length ?? 0) > 0 && requiredMissing.length === 0 && !uploading;
+
+  function confirm() {
+    if (!result) return;
+    onConfirm(result.valid, {
+      fileName: fileName || "upload",
+      totalRows: result.totalRows,
+      failedCount: result.errors.length,
+    });
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -63,8 +83,11 @@ export default function UploadDialog({
         </div>
 
         <p className="page-desc">
-          헤더가 있는 CSV/XLSX 파일을 선택하세요. 컬럼은 자동 매핑되며, 검증 후
-          미리보기를 확인하고 적재합니다. 같은 search_event_id 는 갱신됩니다.
+          필수 컬럼: <code>query</code>, <code>summary_text</code>,{" "}
+          <code>rating</code>, <code>created_at</code> · 권장: <code>reason</code>,{" "}
+          <code>comment</code>. 같은 내용(record_key)은 갱신되어{" "}
+          <strong>중복 적재되지 않으며</strong>, 기존 데이터는 유지(누적)됩니다.
+          {dbMode ? " (실제 DB 저장)" : " (더미 모드 — 세션 메모리)"}
         </p>
 
         <input type="file" accept=".csv,.xlsx,.xls" onChange={onFile} />
@@ -75,10 +98,18 @@ export default function UploadDialog({
 
         {result && (
           <div className="upload-summary">
+            {/* 필수 컬럼 누락 → 업로드 차단 */}
+            {requiredMissing.length > 0 && (
+              <p className="error-msg">
+                필수 컬럼 누락: {requiredMissing.join(", ")} — 업로드할 수 없습니다.
+              </p>
+            )}
+
             <div className="counts">
               <span>총 {result.totalRows}행</span>
               <span className="ok">유효 {result.valid.length}</span>
               <span className="bad">오류 {result.errors.length}</span>
+              <span>파일내 중복 {result.duplicateInFile}</span>
             </div>
 
             {/* 컬럼 자동 매핑 결과 */}
@@ -122,17 +153,16 @@ export default function UploadDialog({
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>search_event_id</th>
                       <th>rating</th>
                       <th>reason</th>
                       <th>created_at</th>
                       <th>query</th>
+                      <th>summary_text</th>
                     </tr>
                   </thead>
                   <tbody>
                     {preview.map((r) => (
-                      <tr key={r.search_event_id}>
-                        <td>{r.search_event_id}</td>
+                      <tr key={r.record_key}>
                         <td>
                           <span className={`badge ${r.rating}`}>
                             {r.rating === "up" ? "👍 up" : "👎 down"}
@@ -141,6 +171,7 @@ export default function UploadDialog({
                         <td>{reasonLabel(r.reason)}</td>
                         <td>{r.created_at.slice(0, 16).replace("T", " ")}</td>
                         <td className="ellipsis">{r.query}</td>
+                        <td className="ellipsis">{r.summary_text}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -149,15 +180,15 @@ export default function UploadDialog({
             )}
 
             <div className="modal-actions">
-              <button className="btn-ghost" onClick={onClose}>
+              <button className="btn-ghost" onClick={onClose} disabled={uploading}>
                 취소
               </button>
               <button
                 className="btn-primary inline"
                 disabled={!canConfirm}
-                onClick={() => onConfirm(result.valid)}
+                onClick={confirm}
               >
-                {result.valid.length}건 적재
+                {uploading ? "적재 중…" : `${result.valid.length}건 적재`}
               </button>
             </div>
           </div>

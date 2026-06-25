@@ -1,7 +1,7 @@
 [
-  { "emp_no": "20240278", "name": "홍길동", "password": "CHANGE_ME_1" },
-  { "emp_no": "20240279", "name": "김철수", "password": "CHANGE_ME_2" },
-  { "emp_no": "20240280", "name": "이영희", "password": "CHANGE_ME_3" },
-  { "emp_no": "20240281", "name": "박민수", "password": "CHANGE_ME_4" },
-  { "emp_no": "20240282", "name": "최지은", "password": "CHANGE_ME_5" }
+  { "emp_no": "ms20812", "name": "사용자1" },
+  { "emp_no": "ms20813", "name": "사용자2" },
+  { "emp_no": "ms20814", "name": "사용자3" },
+  { "emp_no": "ms20815", "name": "사용자4" },
+  { "emp_no": "ms20816", "name": "사용자5" }
 ]

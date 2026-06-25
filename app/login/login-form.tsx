@@ -54,9 +54,8 @@ export default function LoginForm() {
           id="empNo"
           name="empNo"
           type="text"
-          inputMode="numeric"
           autoComplete="username"
-          placeholder="예) 20240278"
+          placeholder="예) ms20812"
           value={empNo}
           onChange={(e) => setEmpNo(e.target.value)}
           disabled={loading}

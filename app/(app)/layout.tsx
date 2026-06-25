@@ -33,9 +33,14 @@ export default async function AppLayout({
     // 화면 표시는 사번/이름 기준 (profiles). 조회 실패 시 이메일에서 사번만 추출해 폴백.
     const { data: profile } = await supabase
       .from("profiles")
-      .select("emp_no, name")
+      .select("emp_no, name, must_change_password")
       .eq("id", user.id)
       .single();
+
+    // 최초 로그인(비밀번호 변경 전)이면 대시보드 접근 차단 → 변경 화면으로 (FR-0.2).
+    if (profile?.must_change_password) {
+      redirect("/change-password");
+    }
 
     empNo = profile?.emp_no ?? emailToEmpNo(user.email ?? "");
     name = profile?.name ?? "";

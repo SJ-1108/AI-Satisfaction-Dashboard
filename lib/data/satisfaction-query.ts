@@ -6,7 +6,7 @@ import type { Rating, Satisfaction } from "@/lib/types";
  * 동일한 파라미터 형태를 재사용할 수 있게 한다.
  */
 
-export type SortKey = "created_at" | "rating" | "search_event_id";
+export type SortKey = "created_at" | "rating" | "record_no";
 export type SortDir = "asc" | "desc";
 
 export interface QueryParams {
@@ -68,7 +68,7 @@ export function querySatisfaction(
     }
     if (search) {
       const haystack = [
-        r.search_event_id,
+        String(r.record_no),
         r.query,
         r.summary_text,
         r.comment,
@@ -82,11 +82,16 @@ export function querySatisfaction(
     return true;
   });
 
-  // 2) 정렬
+  // 2) 정렬 (record_no 는 숫자 비교, 그 외는 문자열 비교)
   filtered = filtered.slice().sort((a, b) => {
-    const av = a[sortKey] ?? "";
-    const bv = b[sortKey] ?? "";
-    const cmp = String(av).localeCompare(String(bv));
+    let cmp: number;
+    if (sortKey === "record_no") {
+      cmp = (a.record_no ?? 0) - (b.record_no ?? 0);
+    } else {
+      const av = a[sortKey] ?? "";
+      const bv = b[sortKey] ?? "";
+      cmp = String(av).localeCompare(String(bv));
+    }
     return sortDir === "asc" ? cmp : -cmp;
   });
 

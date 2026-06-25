@@ -466,6 +466,71 @@ textarea {
   font-size: 13px;
 }
 
+/* 불만족 관리 — 상태 셀렉트 (색상으로 상태 구분) */
+.status-select {
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.status-select.st-new {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.status-select.st-progress {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-select.st-done {
+  background: #dcfce7;
+  color: var(--up);
+}
+
+.status-select.st-hold {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+/* 피드백 모달 — 평가 원본 요약 */
+.fb-origin {
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 12px 0 18px;
+  font-size: 13px;
+}
+
+.fb-origin-row {
+  display: flex;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.fb-origin-label {
+  flex: 0 0 72px;
+  color: var(--muted);
+}
+
+.field textarea.input {
+  width: 100%;
+  resize: vertical;
+}
+
+.field select.input {
+  width: 100%;
+}
+
+.fb-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 16px 0 0;
+}
+
 /* 토스트 */
 .toast {
   background: #ecfdf5;
