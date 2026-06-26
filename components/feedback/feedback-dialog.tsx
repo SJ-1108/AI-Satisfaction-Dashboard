@@ -40,8 +40,10 @@ export default function FeedbackDialog({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    // 운영상 의도치 않은 닫힘 방지: 외부(backdrop) 클릭·ESC 로는 닫지 않는다.
+    // 닫힘은 취소/저장/닫기 버튼으로만 발생한다.
+    <div className="modal-backdrop">
+      <div className="modal">
         <div className="modal-head">
           <h2>불만족 피드백 — No.{row.record_no}</h2>
           <button className="btn-ghost" onClick={onClose}>

@@ -14,7 +14,11 @@ import {
   handledRate,
 } from "@/lib/data/feedback-stats";
 import { reasonLabel, REASON_LABELS } from "@/lib/reasons";
-import { formatKstDateTime, kstDatePart } from "@/lib/format-date";
+import {
+  formatKstDateTime,
+  kstDatePart,
+  isDateRangeInvalid,
+} from "@/lib/format-date";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import {
   FEEDBACK_STATUSES,
@@ -35,10 +39,20 @@ const STATUS_CLASS: Record<FeedbackStatus, string> = {
   보류: "st-hold",
 };
 
-/** 평가 사유 드롭다운 옵션 (코드값 기준 필터, 한글 라벨 표시). "미지정"은 옵션에서 제외 */
+/**
+ * 평가 사유 드롭다운 옵션 (코드값 기준 필터, 한글 라벨 표시).
+ * - "미지정"은 옵션에서 제외
+ * - 라벨 가나다 순 정렬, 단 "기타"(other)는 항상 최하단
+ */
 const REASON_OPTIONS: { value: string; label: string }[] = Object.entries(
   REASON_LABELS,
-).map(([value, label]) => ({ value, label }));
+)
+  .map(([value, label]) => ({ value, label }))
+  .sort((a, b) => {
+    if (a.value === "other") return 1;
+    if (b.value === "other") return -1;
+    return a.label.localeCompare(b.label, "ko");
+  });
 
 /**
  * 메뉴 ③ 불만족 관리 (FR-4) — 누적 데이터 기준.
@@ -63,6 +77,8 @@ export default function FeedbackClient({
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | "all">("all");
   const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<FeedbackRow | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -78,19 +94,36 @@ export default function FeedbackClient({
   const causeCounts = useMemo(() => countByCauseCategory(allRows), [allRows]);
   const handled = useMemo(() => handledRate(allRows), [allRows]);
 
+  // 시작일이 종료일보다 미래면 잘못된 조합 → 기간 필터 적용 차단 + 안내 (/records 와 동일)
+  const dateRangeInvalid = isDateRangeInvalid(dateFrom, dateTo);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const from = dateRangeInvalid ? "" : dateFrom;
+    const to = dateRangeInvalid ? "" : dateTo;
     return allRows.filter((r) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       // 평가 사유 필터 (DB reason 코드 기준)
       if (reasonFilter !== "all" && r.reason !== reasonFilter) return false;
+      // 기간 필터는 평가시각(created_at) KST 날짜 기준 (시작일~종료일 포함)
+      if (from && kstDatePart(r.created_at) < from) return false;
+      if (to && kstDatePart(r.created_at) > to) return false;
       // 검색 대상은 질의어(query)로만 제한
       if (q) {
         if (!(r.query ?? "").toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [allRows, statusFilter, reasonFilter, search]);
+  }, [allRows, statusFilter, reasonFilter, search, dateFrom, dateTo, dateRangeInvalid]);
+
+  function resetFilters() {
+    setSearch("");
+    setReasonFilter("all");
+    setStatusFilter("all");
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  }
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -156,10 +189,11 @@ export default function FeedbackClient({
       "평가 사유": r.reason ? reasonLabel(r.reason) : "",
       의견: r.comment ?? "",
       상태: r.status,
+      "상세 사유": r.detail_reason ?? "",
       "원인 분류": r.cause_category ?? "",
       "조치 내용": r.action ?? "",
       메모: r.memo ?? "",
-      "최종 수정자": r.updated_by ?? "",
+      담당자: r.updated_by ?? "",
       수정일시: r.updated_at ? formatKstDateTime(r.updated_at) : "",
     }));
     exportRows(flat, `feedback_${new Date().toISOString().slice(0, 10)}`, format);
@@ -262,6 +296,41 @@ export default function FeedbackClient({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="toolbar-row">
+          <label className="inline-label">
+            기간
+            <input
+              type="date"
+              className="input"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setPage(1);
+              }}
+            />
+            ~
+            <input
+              type="date"
+              className="input"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setPage(1);
+              }}
+            />
+          </label>
+          {dateRangeInvalid && (
+            <span className="error-msg" style={{ margin: 0 }}>
+              시작일이 종료일보다 늦습니다 — 기간을 다시 선택하세요.
+            </span>
+          )}
+          <button className="btn-ghost" onClick={resetFilters}>
+            필터 초기화
+          </button>
           <div className="spacer" />
           <button
             className="btn-ghost"
