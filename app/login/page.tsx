@@ -9,7 +9,7 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <h1>만족도 평가 대시보드</h1>
+        <h1>AI 답변 만족도 평가</h1>
         <p className="sub">사번과 비밀번호로 로그인하세요.</p>
         <LoginForm />
       </div>

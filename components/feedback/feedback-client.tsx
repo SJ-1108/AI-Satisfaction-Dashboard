@@ -13,7 +13,7 @@ import {
   countByStatus,
   handledRate,
 } from "@/lib/data/feedback-stats";
-import { reasonLabel, REASON_LABELS } from "@/lib/reasons";
+import { reasonLabel, REASON_OPTIONS } from "@/lib/reasons";
 import {
   formatKstDateTime,
   kstDatePart,
@@ -38,21 +38,6 @@ const STATUS_CLASS: Record<FeedbackStatus, string> = {
   조치완료: "st-done",
   보류: "st-hold",
 };
-
-/**
- * 평가 사유 드롭다운 옵션 (코드값 기준 필터, 한글 라벨 표시).
- * - "미지정"은 옵션에서 제외
- * - 라벨 가나다 순 정렬, 단 "기타"(other)는 항상 최하단
- */
-const REASON_OPTIONS: { value: string; label: string }[] = Object.entries(
-  REASON_LABELS,
-)
-  .map(([value, label]) => ({ value, label }))
-  .sort((a, b) => {
-    if (a.value === "other") return 1;
-    if (b.value === "other") return -1;
-    return a.label.localeCompare(b.label, "ko");
-  });
 
 /**
  * 메뉴 ③ 불만족 관리 (FR-4) — 누적 데이터 기준.
@@ -201,7 +186,7 @@ export default function FeedbackClient({
 
   return (
     <div>
-      <h1 className="page-title">③ 불만족 관리</h1>
+      <h1 className="page-title">③ 불만족 피드백 관리</h1>
       <p className="page-desc">
         불만족 건 조회 · 피드백 입력(작성자 자동 기록) · 진행 상태 · 상세 사유 통계 — 누적 데이터 기준
       </p>

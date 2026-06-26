@@ -1,5 +1,10 @@
-import type { Satisfaction } from "@/lib/types";
-import { reasonLabel, REASON_UNSET_LABEL } from "@/lib/reasons";
+import type { Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
+import { FEEDBACK_STATUSES } from "@/lib/types";
+import {
+  reasonLabel,
+  reasonOrderIndex,
+  REASON_UNSET_LABEL,
+} from "@/lib/reasons";
 import { kstDatePart } from "@/lib/format-date";
 
 /**
@@ -126,5 +131,69 @@ export function computeReasonBreakdown(
       label: reason === UNSET ? REASON_UNSET_LABEL : reasonLabel(reason),
       count,
     }))
-    .sort((a, b) => b.count - a.count);
+    // 화면 공통 사유 순서로 고정 (건수 내림차순 정렬하지 않음). "기타"는 항상 최하단.
+    .sort((a, b) => reasonOrderIndex(a.reason) - reasonOrderIndex(b.reason));
+}
+
+// ── 일자별 불만족 및 피드백 처리 현황 ───────────────────────────
+export interface DailyFeedbackStatusRow {
+  date: string; // YYYY-MM-DD (KST)
+  total: number; // 해당 일자 전체 평가 건수
+  down: number; // 해당 일자 불만족(rating=down) 건수
+  downRate: number; // 불만족률(%) = down/total*100
+  status: Record<FeedbackStatus, number>; // 불만족 건의 상태별 카운트(없으면 미확인)
+  handledRate: number | null; // 처리완료율(%) = 조치완료/down*100, down=0이면 null
+}
+
+function emptyStatusCounts(): Record<FeedbackStatus, number> {
+  const acc = {} as Record<FeedbackStatus, number>;
+  for (const s of FEEDBACK_STATUSES) acc[s] = 0;
+  return acc;
+}
+
+/**
+ * 일자별(KST created_at) 전체 평가·불만족·상태 분포 집계.
+ * 상태는 feedback.satisfaction_id 로 조인하며, 피드백이 없는 불만족 건은 "미확인"으로 집계.
+ * 날짜 오름차순 정렬. 기간 필터는 호출 측에서 records 를 미리 거른 뒤 전달한다.
+ */
+export function computeDailyFeedbackStatus(
+  records: Satisfaction[],
+  feedback: Feedback[],
+): DailyFeedbackStatusRow[] {
+  const statusById = new Map<string, FeedbackStatus>();
+  for (const f of feedback) statusById.set(f.satisfaction_id, f.status);
+
+  const map = new Map<string, DailyFeedbackStatusRow>();
+  for (const r of records) {
+    const d = datePart(r.created_at);
+    let row = map.get(d);
+    if (!row) {
+      row = {
+        date: d,
+        total: 0,
+        down: 0,
+        downRate: 0,
+        status: emptyStatusCounts(),
+        handledRate: null,
+      };
+      map.set(d, row);
+    }
+    row.total++;
+    if (r.rating === "down") {
+      row.down++;
+      const st = statusById.get(r.id) ?? "미확인";
+      row.status[st]++;
+    }
+  }
+
+  for (const row of map.values()) {
+    row.downRate =
+      row.total === 0 ? 0 : Math.round((row.down / row.total) * 1000) / 10;
+    row.handledRate =
+      row.down === 0
+        ? null
+        : Math.round((row.status["조치완료"] / row.down) * 1000) / 10;
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 }

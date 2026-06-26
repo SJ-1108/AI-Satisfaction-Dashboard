@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  distinctReasons,
   querySatisfaction,
   type QueryParams,
   type SortDir,
@@ -12,7 +11,7 @@ import {
 import { accumulateSatisfaction } from "@/lib/data/accumulate-satisfaction";
 import { computeDisplayNo } from "@/lib/data/display-no";
 import { exportRows, type ExportFormat } from "@/lib/export";
-import { reasonLabel } from "@/lib/reasons";
+import { reasonLabel, REASON_OPTIONS } from "@/lib/reasons";
 import { formatKstDateTime, isDateRangeInvalid } from "@/lib/format-date";
 import type {
   ParsedSatisfaction,
@@ -27,7 +26,7 @@ import UploadDialog from "./upload-dialog";
 const PAGE_SIZES = [10, 20, 50];
 
 /**
- * 메뉴 ② 메타베이스 데이터 조회 (FR-3) — 누적 데이터 기준.
+ * 메뉴 ② 만족도 평가 데이터 조회 (FR-3) — 누적 데이터 기준.
  * 검색/필터/정렬/페이징/내보내기 + 수동 업로드(FR-1.2) 누적 적재.
  * - dbMode=true  : 서버 액션으로 실제 DB 적재 후 새로고침
  * - dbMode=false : 세션 메모리에 누적(새로고침 시 초기화)
@@ -63,8 +62,6 @@ export default function RecordsClient({
   const [toast, setToast] = useState<string | null>(null);
   const [lastSummary, setLastSummary] = useState<UploadSummary | null>(null);
   const [uploading, setUploading] = useState(false);
-
-  const reasons = useMemo(() => distinctReasons(records), [records]);
 
   // No.(표시번호): 전체 누적 데이터 평가시각 과거순 1..N (created_at 기준)
   const displayNo = useMemo(() => computeDisplayNo(records), [records]);
@@ -212,7 +209,7 @@ export default function RecordsClient({
 
   return (
     <div>
-      <h1 className="page-title">② 메타베이스 데이터 조회</h1>
+      <h1 className="page-title">② 만족도 평가 데이터 조회</h1>
       <p className="page-desc">
         누적 원본 레코드 표 (검색 · 필터 · 정렬 · 페이징 · 내보내기 · 업로드)
       </p>
@@ -286,9 +283,9 @@ export default function RecordsClient({
             onChange={(e) => resetPage(setReason)(e.target.value)}
           >
             <option value="all">전체 사유</option>
-            {reasons.map((rc) => (
-              <option key={rc} value={rc}>
-                {reasonLabel(rc)}
+            {REASON_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>

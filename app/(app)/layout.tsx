@@ -49,7 +49,7 @@ export default async function AppLayout({
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand">만족도 평가 대시보드</div>
+        <div className="brand">AI 답변 만족도 평가</div>
         <Sidebar />
         <div className="spacer" />
         <div className="user-box">
