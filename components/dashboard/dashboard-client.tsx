@@ -244,9 +244,21 @@ export default function DashboardClient({
       legend: LEGEND_TOP,
       tooltip: {
         callbacks: {
+          // 기본 title(범례명 중복)을 비워 2줄로
+          title: () => "",
+          // 색상칩을 테두리 없는 단색으로 (조각의 흰 테두리에 묻히지 않게)
+          labelColor: (ctx: TooltipItem<"doughnut">) => {
+            const bg = (ctx.dataset.backgroundColor as string[])[ctx.dataIndex];
+            return {
+              borderColor: bg,
+              backgroundColor: bg,
+              borderWidth: 0,
+              borderRadius: 3,
+            };
+          },
           label: (ctx: TooltipItem<"doughnut">) => {
             const v = ctx.parsed;
-            return `${ctx.label}: ${v}건 (${pct(v, ratingTotal)})`;
+            return [`${ctx.label}`, `${v.toLocaleString()}건 (${pct(v, ratingTotal)})`];
           },
         },
       },

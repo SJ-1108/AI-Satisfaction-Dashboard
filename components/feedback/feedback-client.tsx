@@ -31,8 +31,32 @@ import FeedbackDialog from "./feedback-dialog";
 import Dropdown from "@/components/ui/dropdown";
 import DateRangePicker from "@/components/ui/date-range-picker";
 import Pager from "@/components/ui/pager";
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  type TooltipItem,
+} from "chart.js";
+import { Doughnut } from "react-chartjs-2";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.defaults.font.family = "Pretendard, -apple-system, sans-serif";
+ChartJS.defaults.color = "#8a909c";
 
 const PAGE_SIZE = 10;
+
+/** 원인 분류 도넛 색상 팔레트 (순환) */
+const CAUSE_COLORS = [
+  "#2f6bff",
+  "#f06b66",
+  "#10b981",
+  "#f5b73d",
+  "#7c83f5",
+  "#22a565",
+  "#e0635d",
+  "#d5d9e0",
+];
 
 /** 상태별 색상 (디자인 톤) */
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
@@ -133,6 +157,10 @@ export default function FeedbackClient({
   const [toast, setToast] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Chart.js 는 브라우저 캔버스가 필요하므로 mount 후에만 렌더
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const allRows = useMemo(
     () => buildFeedbackRows(satisfaction, feedback),
     [satisfaction, feedback],
@@ -141,6 +169,71 @@ export default function FeedbackClient({
   const statusCounts = useMemo(() => countByStatus(allRows), [allRows]);
   const causeCounts = useMemo(() => countByCauseCategory(allRows), [allRows]);
   const handled = useMemo(() => handledRate(allRows), [allRows]);
+
+  // 최근 처리된 5건 (상태가 미확인이 아닌 건, updated_at 최신순)
+  const recentHandled = useMemo(
+    () =>
+      allRows
+        .filter((r) => r.status !== "미확인")
+        .sort((a, b) => {
+          const ta = a.updated_at ? Date.parse(a.updated_at) : 0;
+          const tb = b.updated_at ? Date.parse(b.updated_at) : 0;
+          return tb - ta;
+        })
+        .slice(0, 5),
+    [allRows],
+  );
+
+  // 원인 분류 도넛
+  const causeTotal = causeCounts.reduce((s, c) => s + c.count, 0);
+  const causeChartData = {
+    labels: causeCounts.map((c) => c.category),
+    datasets: [
+      {
+        data: causeCounts.map((c) => c.count),
+        backgroundColor: causeCounts.map(
+          (_, i) => CAUSE_COLORS[i % CAUSE_COLORS.length],
+        ),
+        borderWidth: 4,
+        borderColor: "#fff",
+        hoverOffset: 6,
+      },
+    ],
+  };
+  const causeChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: "66%",
+    plugins: {
+      legend: {
+        position: "right" as const,
+        labels: { boxWidth: 12, boxHeight: 12, padding: 12, font: { size: 12 } },
+      },
+      tooltip: {
+        callbacks: {
+          // 기본 title(범례명 중복)을 비워 2줄로
+          title: () => "",
+          // 색상칩을 테두리 없는 단색으로 (조각의 흰 테두리에 묻히지 않게)
+          labelColor: (ctx: TooltipItem<"doughnut">) => {
+            const bg = (ctx.dataset.backgroundColor as string[])[ctx.dataIndex];
+            return {
+              borderColor: bg,
+              backgroundColor: bg,
+              borderWidth: 0,
+              borderRadius: 3,
+            };
+          },
+          label: (ctx: TooltipItem<"doughnut">) => {
+            const v = ctx.parsed;
+            const rate = causeTotal
+              ? `${(Math.round((v / causeTotal) * 1000) / 10).toFixed(1)}%`
+              : "0.0%";
+            return [`${ctx.label}`, `${v.toLocaleString()}건 (${rate})`];
+          },
+        },
+      },
+    },
+  };
 
   const dateRangeInvalid = isDateRangeInvalid(dateFrom, dateTo);
 
@@ -251,7 +344,7 @@ export default function FeedbackClient({
     ...FEEDBACK_STATUSES.map((s) => ({
       label: s,
       value: statusCounts[s],
-      color: "#1a1d23",
+      color: STATUS_COLOR[s],
     })),
   ];
 
@@ -309,37 +402,36 @@ export default function FeedbackClient({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1.6fr 1fr",
+          gridTemplateColumns: "2fr 3fr",
           gap: 16,
           marginBottom: 24,
         }}
       >
         <div style={card}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, letterSpacing: "-0.3px" }}>
-            원인 분류별 통계{" "}
-            <span style={{ fontSize: 12, fontWeight: 500, color: "#9aa1ad" }}>
-              (FR-4.4)
-            </span>
+            원인 분류별 통계
           </div>
           {causeCounts.length === 0 ? (
             <p style={{ color: "#8a909c", fontSize: 13 }}>데이터가 없습니다.</p>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "#f7f8fa" }}>
-                  <th style={th}>원인 분류</th>
-                  <th style={{ ...th, width: 100 }}>건수</th>
-                </tr>
-              </thead>
-              <tbody>
-                {causeCounts.map((c) => (
-                  <tr key={c.category} style={{ borderBottom: "1px solid #f1f3f5" }}>
-                    <td style={td}>{c.category}</td>
-                    <td style={{ ...td, color: "#6b7280" }}>{c.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ height: 260, position: "relative" }}>
+              {mounted ? (
+                <Doughnut data={causeChartData} options={causeChartOptions} />
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    color: "#8a909c",
+                    fontSize: 13,
+                  }}
+                >
+                  차트 로딩 중…
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -349,18 +441,82 @@ export default function FeedbackClient({
           </div>
           <div
             style={{
-              fontSize: 32,
-              fontWeight: 700,
-              letterSpacing: "-1px",
-              color: "#1a1d23",
-              marginBottom: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 16,
             }}
           >
-            {handled}%
+            <span style={{ fontSize: 13, color: "#8a909c" }}>
+              미확인 외 상태로 처리된 비율
+            </span>
+            <span
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                letterSpacing: "-1px",
+                color: "#1a1d23",
+              }}
+            >
+              {handled}%
+            </span>
           </div>
-          <div style={{ fontSize: 13, color: "#8a909c" }}>
-            미확인 외 상태로 처리된 비율
-          </div>
+
+          {/* 최근 처리 5건 */}
+          {recentHandled.length === 0 ? (
+            <p style={{ fontSize: 13, color: "#9aa1ad", margin: 0 }}>
+              처리된 건이 없습니다.
+            </p>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: "20%" }} />
+                <col style={{ width: "32%" }} />
+                <col style={{ width: "48%" }} />
+              </colgroup>
+              <thead>
+                <tr style={{ background: "#f7f8fa" }}>
+                  <th style={{ ...th, padding: "9px 12px" }}>상태</th>
+                  <th style={{ ...th, padding: "9px 12px" }}>원인 분류</th>
+                  <th style={{ ...th, padding: "9px 12px" }}>피드백 내용</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentHandled.map((r) => (
+                  <tr key={r.satisfaction_id} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                    <td
+                      style={{
+                        ...td,
+                        padding: "9px 12px",
+                        color: STATUS_COLOR[r.status],
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {r.status}
+                    </td>
+                    <td style={{ ...td, padding: "9px 12px", color: "#5a616e" }}>
+                      {r.cause_category?.trim() || "미분류"}
+                    </td>
+                    <td
+                      style={{
+                        ...td,
+                        padding: "9px 12px",
+                        color: "#3a4150",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={r.action ?? undefined}
+                    >
+                      {r.action || "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
