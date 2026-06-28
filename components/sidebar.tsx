@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const MENU = [
-  { href: "/dashboard", label: "① 현황 대시보드" },
-  { href: "/records", label: "② 만족도 평가 데이터 조회" },
-  { href: "/feedback", label: "③ 불만족 피드백 관리" },
+  { href: "/dashboard", label: "대시보드" },
+  { href: "/records", label: "데이터 조회" },
+  { href: "/feedback", label: "불만족 평가 관리" },
 ];
 
 /** 좌측 네비게이션 (현재 경로 active 표시). */
