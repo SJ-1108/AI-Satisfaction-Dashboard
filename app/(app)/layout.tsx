@@ -57,11 +57,9 @@ export default async function AppLayout({
             {name ? `${name} ` : ""}
             <strong>{empNo}</strong>
           </div>
-          {configured && (
-            <div style={{ marginTop: 8 }}>
-              <SignOutButton />
-            </div>
-          )}
+          <div style={{ marginTop: 12 }}>
+            <SignOutButton />
+          </div>
         </div>
       </aside>
       <main className="main">
