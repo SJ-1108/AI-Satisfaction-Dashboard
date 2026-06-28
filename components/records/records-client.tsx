@@ -22,14 +22,96 @@ import type {
 } from "@/lib/types";
 import { uploadSatisfaction } from "@/app/(app)/records/actions";
 import UploadDialog from "./upload-dialog";
+import Dropdown from "@/components/ui/dropdown";
+import DateRangePicker from "@/components/ui/date-range-picker";
+import Pager from "@/components/ui/pager";
 
 const PAGE_SIZES = [10, 20, 50];
 
+// ── 공통 인라인 스타일 (디자인 톤) ──
+const card: React.CSSProperties = {
+  background: "#fff",
+  border: "1px solid #eceef1",
+  borderRadius: 14,
+  padding: "20px 22px",
+  boxShadow: "0 1px 2px rgba(16,24,40,.03)",
+};
+const exportBtn: React.CSSProperties = {
+  height: 40,
+  padding: "0 16px",
+  fontSize: 13,
+  fontWeight: 600,
+  fontFamily: "Pretendard, sans-serif",
+  color: "#5a616e",
+  background: "#fff",
+  border: "1px solid #e2e5ea",
+  borderRadius: 10,
+  cursor: "pointer",
+};
+const primaryBtn: React.CSSProperties = {
+  height: 40,
+  padding: "0 18px",
+  fontSize: 13,
+  fontWeight: 700,
+  fontFamily: "Pretendard, sans-serif",
+  color: "#fff",
+  background: "#2f6bff",
+  border: "none",
+  borderRadius: 10,
+  cursor: "pointer",
+};
+const outlineBtn: React.CSSProperties = {
+  height: 42,
+  padding: "0 16px",
+  fontSize: 13,
+  fontWeight: 600,
+  fontFamily: "Pretendard, sans-serif",
+  color: "#2f6bff",
+  background: "#fff",
+  border: "1px solid #2f6bff",
+  borderRadius: 10,
+  cursor: "pointer",
+};
+const searchInput: React.CSSProperties = {
+  flex: 1,
+  minWidth: 200,
+  height: 42,
+  padding: "0 14px",
+  fontSize: 14,
+  fontFamily: "Pretendard, sans-serif",
+  color: "#1a1d23",
+  border: "1px solid #e2e5ea",
+  borderRadius: 10,
+  outline: "none",
+};
+const filterLabel: React.CSSProperties = {
+  fontSize: 13,
+  color: "#6b7280",
+  fontWeight: 500,
+};
+const th: React.CSSProperties = {
+  padding: "12px 14px",
+  fontWeight: 600,
+  color: "#6b7280",
+  borderBottom: "1px solid #edeff2",
+  textAlign: "center",
+  whiteSpace: "nowrap",
+};
+const td: React.CSSProperties = {
+  padding: "13px 14px",
+  textAlign: "center",
+  color: "#3a4150",
+};
+const tdEllipsis: React.CSSProperties = {
+  ...td,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
 /**
- * 메뉴 ② 만족도 평가 데이터 조회 (FR-3) — 누적 데이터 기준.
+ * 메뉴 ② 데이터 조회 (FR-3) — 누적 데이터 기준.
  * 검색/필터/정렬/페이징/내보내기 + 수동 업로드(FR-1.2) 누적 적재.
- * - dbMode=true  : 서버 액션으로 실제 DB 적재 후 새로고침
- * - dbMode=false : 세션 메모리에 누적(새로고침 시 초기화)
  */
 export default function RecordsClient({
   initialRecords,
@@ -44,7 +126,6 @@ export default function RecordsClient({
   const [records, setRecords] = useState<Satisfaction[]>(initialRecords);
   const [batches, setBatches] = useState<UploadBatch[]>(initialBatches);
 
-  // DB 모드: 서버가 진실원본. props 변경 시(새로고침 후) 상태 동기화.
   useEffect(() => setRecords(initialRecords), [initialRecords]);
   useEffect(() => setBatches(initialBatches), [initialBatches]);
 
@@ -58,15 +139,13 @@ export default function RecordsClient({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  const [histOpen, setHistOpen] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [lastSummary, setLastSummary] = useState<UploadSummary | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // No.(표시번호): 전체 누적 데이터 평가시각 과거순 1..N (created_at 기준)
   const displayNo = useMemo(() => computeDisplayNo(records), [records]);
-
-  // 시작일이 종료일보다 미래면 잘못된 조합 → 필터 적용 차단 + 안내
   const dateRangeInvalid = isDateRangeInvalid(dateFrom, dateTo);
 
   const params: QueryParams = {
@@ -104,9 +183,12 @@ export default function RecordsClient({
     setPage(1);
   }
 
-  function sortMark(key: SortKey) {
-    if (sortKey !== key) return "";
-    return sortDir === "asc" ? " ▲" : " ▼";
+  function sortArrow(key: SortKey) {
+    const active = sortKey === key;
+    return {
+      arrow: active ? (sortDir === "asc" ? "▲" : "▼") : "▼",
+      color: active ? "#2f6bff" : "#cdd2da",
+    };
   }
 
   function onExport(format: ExportFormat) {
@@ -136,7 +218,6 @@ export default function RecordsClient({
     setTimeout(() => setToast(null), 5000);
   }
 
-  /** 업로드 확정: 검증 통과 행 + 파일 통계 수신 */
   async function onUploadConfirm(
     valid: ParsedSatisfaction[],
     meta: { fileName: string; totalRows: number; failedCount: number },
@@ -144,7 +225,6 @@ export default function RecordsClient({
     setUploading(true);
     try {
       if (dbMode) {
-        // 실제 DB 적재 (서버 액션) → 성공 시 서버 데이터 새로고침
         const res = await uploadSatisfaction(valid, meta);
         if (!res.ok || !res.summary) {
           setToast(`업로드 실패 — ${res.error ?? "알 수 없는 오류"}`);
@@ -155,7 +235,6 @@ export default function RecordsClient({
         showSummaryToast(res.summary);
         router.refresh();
       } else {
-        // 더미/세션 모드: 인메모리 누적
         const batchId = crypto.randomUUID();
         const { merged, inserted, updated, duplicate } = accumulateSatisfaction(
           records,
@@ -172,7 +251,6 @@ export default function RecordsClient({
           failed_count: meta.failedCount,
           duplicate_count: duplicate,
         };
-        // 세션 이력에도 추가
         setBatches((prev) => [
           {
             id: batchId,
@@ -207,219 +285,314 @@ export default function RecordsClient({
     setPage(1);
   }
 
+  const ratingOptions = [
+    { label: "전체 평가", value: "all" },
+    { label: "👍 만족", value: "up" },
+    { label: "👎 불만족", value: "down" },
+  ];
+  const reasonOptions = [
+    { label: "전체 사유", value: "all" },
+    ...REASON_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
+  ];
+
+  const noSort = sortArrow("created_at");
+
   return (
-    <div>
-      <h1 className="page-title">② 만족도 평가 데이터 조회</h1>
-      <p className="page-desc">
-        누적 원본 레코드 표 (검색 · 필터 · 정렬 · 페이징 · 내보내기 · 업로드)
-      </p>
+    <div style={{ maxWidth: 1280 }}>
+      <h1
+        style={{
+          margin: "0 0 28px",
+          fontSize: 22,
+          fontWeight: 700,
+          letterSpacing: "-0.5px",
+        }}
+      >
+        데이터 조회
+      </h1>
 
       {toast && <div className="toast">{toast}</div>}
 
       {/* 최근 업로드 이력 */}
-      {batches.length === 0 ? (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <p className="placeholder" style={{ margin: 0 }}>
-            아직 업로드 이력이 없습니다.
-          </p>
+      <div style={{ ...card, marginBottom: 20 }}>
+        <div
+          onClick={() => setHistOpen((v) => !v)}
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            letterSpacing: "-0.3px",
+            cursor: "pointer",
+            userSelect: "none",
+            marginBottom: histOpen && batches.length > 0 ? 14 : 0,
+          }}
+        >
+          <span style={{ fontSize: 10, color: "#9aa1ad" }}>
+            {histOpen ? "▼" : "▶"}
+          </span>{" "}
+          최근 업로드 이력{" "}
+          <span style={{ color: "#9aa1ad", fontWeight: 600 }}>
+            ({batches.length})
+          </span>
         </div>
-      ) : (
-        <details className="card" style={{ marginBottom: 16 }}>
-          <summary>최근 업로드 이력 ({batches.length})</summary>
-          <table className="data-table" style={{ marginTop: 12 }}>
-            <thead>
-              <tr>
-                <th>파일</th>
-                <th>업로더</th>
-                <th>시각</th>
-                <th>행</th>
-                <th>신규</th>
-                <th>갱신</th>
-                <th>파일 내 중복</th>
-                <th>실패</th>
-                <th>상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              {batches.map((b) => (
-                <tr key={b.id}>
-                  <td className="ellipsis">{b.file_name ?? "-"}</td>
-                  <td className="nowrap">{b.uploaded_by ?? "-"}</td>
-                  <td className="nowrap">{formatKstDateTime(b.uploaded_at)}</td>
-                  <td>{b.row_count}</td>
-                  <td>{b.inserted_count}</td>
-                  <td>{b.updated_count}</td>
-                  <td>{b.duplicate_count}</td>
-                  <td>{b.failed_count}</td>
-                  <td className="nowrap">{b.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </details>
-      )}
 
-      {/* 툴바 */}
-      <div className="toolbar card">
-        <div className="toolbar-row">
+        {histOpen &&
+          (batches.length === 0 ? (
+            <p style={{ margin: "12px 0 0", color: "#8a909c", fontSize: 13 }}>
+              아직 업로드 이력이 없습니다.
+            </p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: 13,
+                  minWidth: 820,
+                }}
+              >
+                <thead>
+                  <tr style={{ background: "#f7f8fa" }}>
+                    {["파일", "업로더", "시각", "행", "신규", "갱신", "파일 내 중복", "실패", "상태"].map(
+                      (h) => (
+                        <th key={h} style={th}>
+                          {h}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {batches.map((b) => (
+                    <tr key={b.id} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                      <td
+                        style={{
+                          ...td,
+                          color: "#2f6bff",
+                          fontWeight: 500,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {b.file_name ?? "-"}
+                      </td>
+                      <td style={td}>{b.uploaded_by ?? "-"}</td>
+                      <td style={{ ...td, whiteSpace: "nowrap" }}>
+                        {formatKstDateTime(b.uploaded_at)}
+                      </td>
+                      <td style={td}>{b.row_count}</td>
+                      <td style={td}>{b.inserted_count}</td>
+                      <td style={td}>{b.updated_count}</td>
+                      <td style={td}>{b.duplicate_count}</td>
+                      <td style={td}>{b.failed_count}</td>
+                      <td style={td}>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "3px 10px",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: b.status === "completed" ? "#1f9d6a" : "#6b7280",
+                            background:
+                              b.status === "completed" ? "#e7f7ef" : "#eef0f3",
+                            borderRadius: 6,
+                          }}
+                        >
+                          {b.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+      </div>
+
+      {/* 내보내기 / 업로드 */}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          justifyContent: "flex-end",
+          marginBottom: 14,
+          flexWrap: "wrap",
+        }}
+      >
+        <button style={exportBtn} onClick={() => onExport("csv")}>
+          CSV 내보내기
+        </button>
+        <button style={exportBtn} onClick={() => onExport("xlsx")}>
+          XLSX 내보내기
+        </button>
+        <button style={primaryBtn} onClick={() => setShowUpload(true)}>
+          업로드
+        </button>
+      </div>
+
+      {/* 필터 */}
+      <div style={{ ...card, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={filterLabel}>기간</span>
+            <DateRangePicker
+              from={dateFrom}
+              to={dateTo}
+              onChange={(f, t) => {
+                setDateFrom(f);
+                setDateTo(t);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={filterLabel}>평가</span>
+            <Dropdown
+              value={rating}
+              options={ratingOptions}
+              onChange={(v) => resetPage(setRating)(v as Rating | "all")}
+              width={120}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={filterLabel}>사유</span>
+            <Dropdown
+              value={reason}
+              options={reasonOptions}
+              onChange={(v) => resetPage(setReason)(v)}
+              width={150}
+            />
+          </div>
           <input
-            className="input grow"
-            placeholder="검색 (질의어)"
+            placeholder="질의어 입력"
+            style={searchInput}
             value={search}
             onChange={(e) => resetPage(setSearch)(e.target.value)}
           />
-          <select
-            className="input"
-            value={rating}
-            onChange={(e) => resetPage(setRating)(e.target.value as Rating | "all")}
-          >
-            <option value="all">전체 평가</option>
-            <option value="up">👍 up</option>
-            <option value="down">👎 down</option>
-          </select>
-          <select
-            className="input"
-            value={reason}
-            onChange={(e) => resetPage(setReason)(e.target.value)}
-          >
-            <option value="all">전체 사유</option>
-            {REASON_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="toolbar-row">
-          <label className="inline-label">
-            기간
-            <input
-              type="date"
-              className="input"
-              value={dateFrom}
-              max={dateTo || undefined}
-              onChange={(e) => resetPage(setDateFrom)(e.target.value)}
-            />
-            ~
-            <input
-              type="date"
-              className="input"
-              value={dateTo}
-              min={dateFrom || undefined}
-              onChange={(e) => resetPage(setDateTo)(e.target.value)}
-            />
-          </label>
-          {dateRangeInvalid && (
-            <span className="error-msg" style={{ margin: 0 }}>
-              시작일이 종료일보다 늦습니다 — 기간을 다시 선택하세요.
-            </span>
-          )}
-          <button className="btn-ghost" onClick={resetFilters}>
+          <button style={outlineBtn} onClick={resetFilters}>
             필터 초기화
           </button>
-          <div className="spacer" />
-          <button className="btn-ghost" onClick={() => onExport("csv")}>
-            CSV 내보내기
-          </button>
-          <button className="btn-ghost" onClick={() => onExport("xlsx")}>
-            XLSX 내보내기
-          </button>
-          <button className="btn-primary inline" onClick={() => setShowUpload(true)}>
-            업로드
-          </button>
         </div>
-      </div>
-
-      {/* 결과 요약 */}
-      <div className="result-meta">
-        총 <strong>{result.total}</strong>건 · {result.page}/{result.totalPages}{" "}
-        페이지
       </div>
 
       {/* 표 */}
-      <div className="card no-pad table-scroll">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th className="sortable" onClick={() => toggleSort("created_at")}>
-                No.{sortMark("created_at")}
-              </th>
-              <th className="sortable" onClick={() => toggleSort("created_at")}>
-                평가시각{sortMark("created_at")}
-              </th>
-              <th>평가</th>
-              <th>질의어</th>
-              <th>AI 답변</th>
-              <th>사유</th>
-              <th>의견</th>
-            </tr>
-          </thead>
-          <tbody>
-            {result.rows.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="empty">
-                  조건에 맞는 데이터가 없습니다.
-                </td>
+      <div style={card}>
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: 13,
+              tableLayout: "fixed",
+              minWidth: 940,
+            }}
+          >
+            <colgroup>
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "30%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "8%" }} />
+            </colgroup>
+            <thead>
+              <tr style={{ background: "#f7f8fa" }}>
+                <th
+                  style={{ ...th, cursor: "pointer", userSelect: "none" }}
+                  onClick={() => toggleSort("created_at")}
+                >
+                  No.{" "}
+                  <span style={{ color: noSort.color, fontSize: 10 }}>
+                    {noSort.arrow}
+                  </span>
+                </th>
+                <th
+                  style={{ ...th, cursor: "pointer", userSelect: "none" }}
+                  onClick={() => toggleSort("created_at")}
+                >
+                  평가시각{" "}
+                  <span style={{ color: noSort.color, fontSize: 10 }}>
+                    {noSort.arrow}
+                  </span>
+                </th>
+                <th style={th}>평가</th>
+                <th style={th}>질의어</th>
+                <th style={th}>AI 답변</th>
+                <th style={th}>사유</th>
+                <th style={th}>의견</th>
               </tr>
-            ) : (
-              result.rows.map((r) => (
-                <tr key={r.id}>
-                  <td className="mono">{displayNo.get(r.id) ?? r.record_no}</td>
-                  <td className="nowrap">{formatKstDateTime(r.created_at)}</td>
-                  <td>
-                    <span className={`badge ${r.rating}`}>
-                      {r.rating === "up" ? "👍 up" : "👎 down"}
-                    </span>
-                  </td>
-                  <td className="ellipsis" title={r.query ?? undefined}>
-                    {r.query ?? "-"}
-                  </td>
-                  <td className="ellipsis" title={r.summary_text ?? undefined}>
-                    {r.summary_text ?? "-"}
-                  </td>
-                  <td className="nowrap">{r.reason ? reasonLabel(r.reason) : "-"}</td>
-                  <td className="ellipsis" title={r.comment ?? undefined}>
-                    {r.comment ?? "-"}
+            </thead>
+            <tbody>
+              {result.rows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                    조건에 맞는 데이터가 없습니다.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                result.rows.map((r) => (
+                  <tr key={r.id} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                    <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
+                      {displayNo.get(r.id) ?? r.record_no}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {formatKstDateTime(r.created_at)}
+                    </td>
+                    <td style={td}>
+                      <RatingBadge rating={r.rating} />
+                    </td>
+                    <td style={tdEllipsis} title={r.query ?? undefined}>
+                      {r.query ?? "-"}
+                    </td>
+                    <td
+                      style={{ ...tdEllipsis, color: "#6b7280" }}
+                      title={r.summary_text ?? undefined}
+                    >
+                      {r.summary_text ?? "-"}
+                    </td>
+                    <td style={{ ...td, color: r.reason ? "#5a616e" : "#9aa1ad" }}>
+                      {r.reason ? reasonLabel(r.reason) : "-"}
+                    </td>
+                    <td
+                      style={{ ...tdEllipsis, color: "#9aa1ad" }}
+                      title={r.comment ?? undefined}
+                    >
+                      {r.comment ?? "-"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      {/* 페이징 */}
-      <div className="pager">
-        <select
-          className="input"
-          value={pageSize}
-          onChange={(e) => resetPage(setPageSize)(Number(e.target.value))}
+        {/* 페이지 크기 + 페이지네이션 */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginTop: 18,
+            flexWrap: "wrap",
+            gap: 12,
+          }}
         >
-          {PAGE_SIZES.map((s) => (
-            <option key={s} value={s}>
-              {s}개씩
-            </option>
-          ))}
-        </select>
-        <div className="spacer" />
-        <button
-          className="btn-ghost"
-          disabled={result.page <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-        >
-          이전
-        </button>
-        <span className="page-indicator">
-          {result.page} / {result.totalPages}
-        </span>
-        <button
-          className="btn-ghost"
-          disabled={result.page >= result.totalPages}
-          onClick={() => setPage((p) => Math.min(result.totalPages, p + 1))}
-        >
-          다음
-        </button>
+          <Dropdown
+            value={String(pageSize)}
+            options={PAGE_SIZES.map((s) => ({ label: `${s}개씩`, value: String(s) }))}
+            onChange={(v) => resetPage(setPageSize)(Number(v))}
+            width={104}
+            openUp
+          />
+          <Pager
+            page={result.page}
+            totalPages={result.totalPages}
+            onPage={setPage}
+          />
+        </div>
       </div>
 
       {showUpload && (
@@ -431,5 +604,27 @@ export default function RecordsClient({
         />
       )}
     </div>
+  );
+}
+
+/** 평가 배지 (디자인 톤) */
+function RatingBadge({ rating }: { rating: Rating }) {
+  const up = rating === "up";
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "3px 9px",
+        fontSize: 12,
+        fontWeight: 600,
+        color: up ? "#2f6bff" : "#e0635d",
+        background: up ? "#eaf1ff" : "#fdecea",
+        borderRadius: 6,
+      }}
+    >
+      {up ? "👍 up" : "👎 down"}
+    </span>
   );
 }

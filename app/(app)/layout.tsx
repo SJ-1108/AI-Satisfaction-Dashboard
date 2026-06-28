@@ -67,8 +67,8 @@ export default async function AppLayout({
       <main className="main">
         {!configured && (
           <div className="dev-banner">
-            더미 모드 — Supabase 미설정 상태입니다. 인증이 비활성화되어 있으며
-            데이터는 샘플/세션 메모리로만 동작합니다.
+            미리보기 모드입니다 — 지금 보이는 내용은 실제 데이터가 아닌 예시
+            데이터예요. 새로 입력하거나 업로드한 내용은 새로고침하면 사라집니다.
           </div>
         )}
         {children}

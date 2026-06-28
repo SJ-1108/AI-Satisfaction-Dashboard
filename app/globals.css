@@ -1,13 +1,49 @@
+/* ──────────────────────────────────────────────────────────────
+   디자인 시스템 — 블루 포인트 + 밝은 회색 배경 (Claude Design 로그인 기준)
+   (클래스 이름은 기존과 동일하게 유지하여 마크업 변경 없이 적용)
+   ────────────────────────────────────────────────────────────── */
 :root {
-  --bg: #f7f8fa;
-  --panel: #ffffff;
-  --border: #e3e6ea;
-  --text: #1b1f24;
-  --muted: #6b7280;
-  --primary: #2563eb;
+  /* 표면/배경 */
+  --bg: #f6f7f9; /* 밝은 회색 (앱 배경) */
+  --panel: #ffffff; /* 카드/패널 */
+  --panel-alt: #f1f3f6; /* 보조 표면 (표 헤더, 원본 요약 박스 등) */
+  --border: #eceef1; /* 경계선 */
+  --border-strong: #dfe2e8; /* 강조 경계선 (입력 hover/focus 등) */
+
+  /* 텍스트 */
+  --text: #1a1d23; /* 다크 (본문) */
+  --muted: #8a909c; /* 그레이 (보조 텍스트) */
+
+  /* 포인트 — 블루 */
+  --accent: #2f6bff; /* 블루 (장식/포커스 링) */
+  --primary: #2f6bff; /* 블루 (버튼/링크/활성) */
+  --primary-strong: #2559d6; /* 블루 hover */
+  --primary-soft: #eaf0ff; /* 블루 연한 틴트 (배경) */
+  --primary-soft-border: #cdddff;
   --primary-fg: #ffffff;
-  --up: #3b82f6; /* 만족: 파랑 계열 (KPI/뱃지 가독성 톤) */
-  --down: #ef4444; /* 불만족: 빨강 계열 (KPI/뱃지 가독성 톤) */
+
+  /* 데이터 시맨틱 */
+  --up: #2f6bff; /* 만족: 블루 */
+  --up-soft: #e9f0ff;
+  --down: #e5484d; /* 불만족: 레드 */
+  --down-soft: #fde8e8;
+
+  /* 형태 */
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(31, 30, 29, 0.05);
+  --shadow: 0 1px 2px rgba(31, 30, 29, 0.04), 0 6px 20px rgba(31, 30, 29, 0.05);
+  --shadow-lg: 0 12px 40px rgba(31, 30, 29, 0.12);
+
+  /* 타이포 — Pretendard 통일 (본문/제목 동일 패밀리, 제목은 굵기·자간으로 강조) */
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
+  /* 기존 세리프 제목 변수 자리 — Pretendard 로 대체 (제목 전용 스택) */
+  --font-serif: "Pretendard Variable", Pretendard, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
 }
 
 * {
@@ -20,10 +56,11 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -40,24 +77,44 @@ input,
 select,
 textarea {
   font: inherit;
+  color: var(--text);
 }
 
-/* 레이아웃 */
+/* 포커스 링 — 코랄 톤 통일 */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.input:focus,
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.16);
+}
+
+/* ── 레이아웃 ── */
 .app-shell {
   display: flex;
   min-height: 100vh;
 }
 
 .sidebar {
-  width: 220px;
+  width: 248px;
   background: var(--panel);
   border-right: 1px solid var(--border);
-  padding: 20px 12px;
+  padding: 22px 14px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* 화면 폭/반응형/가로 스크롤과 무관하게 좌측 메뉴를 항상 고정 노출.
-     (fixed: 뷰포트에 고정 → 본문 가로 스크롤 시에도 사라지지 않음) */
+  /* 화면 폭/반응형/가로 스크롤과 무관하게 좌측 메뉴를 항상 고정 노출. */
   position: fixed;
   top: 0;
   left: 0;
@@ -67,29 +124,44 @@ textarea {
 }
 
 .sidebar .brand {
+  font-family: var(--font-serif);
   font-weight: 700;
-  font-size: 15px; /* 메뉴(14px)보다 약간 강조, 과하지 않게 */
+  font-size: 17px;
   letter-spacing: -0.2px;
-  line-height: 1.3;
+  line-height: 1.35;
   white-space: nowrap;
-  padding: 6px 10px 14px;
+  color: var(--text);
+  padding: 6px 12px 18px;
+}
+
+/* 브랜드 아래 코랄 악센트 라인 */
+.sidebar .brand::after {
+  content: "";
+  display: block;
+  width: 30px;
+  height: 3px;
+  margin-top: 12px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 
 .nav-link {
   display: block;
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .nav-link:hover {
-  background: var(--bg);
+  background: var(--panel-alt);
   color: var(--text);
 }
 
 .nav-link.active {
-  background: #eef2ff;
-  color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
   font-weight: 600;
 }
 
@@ -99,71 +171,162 @@ textarea {
 
 .user-box {
   border-top: 1px solid var(--border);
-  padding: 12px;
+  padding: 14px 12px 4px;
   font-size: 13px;
   color: var(--muted);
 }
 
 .main {
   flex: 1;
-  padding: 28px 32px;
-  max-width: 1200px;
-  /* 고정 사이드바(220px) 와 겹치지 않도록 본문을 우측으로 밀어준다. */
-  margin-left: 220px;
+  padding: 36px 40px;
+  max-width: 1240px;
+  /* 고정 사이드바와 겹치지 않도록 본문을 우측으로 밀어준다. */
+  margin-left: 248px;
 }
 
 .page-title {
-  font-size: 20px;
+  font-family: var(--font-serif);
+  font-size: 26px;
   font-weight: 700;
-  margin: 0 0 4px;
+  letter-spacing: -0.3px;
+  margin: 0 0 6px;
 }
 
 .page-desc {
   color: var(--muted);
-  margin: 0 0 24px;
+  margin: 0 0 26px;
 }
 
-/* 카드 */
+/* ── 카드 ── */
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: var(--radius);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
 }
 
 .placeholder {
   color: var(--muted);
 }
 
-/* 로그인 */
+/* ── 로그인 (Claude Design "로그인 화면 최적화" 기준) ── */
 .login-wrap {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #f6f7f9;
+  padding: 24px;
 }
 
 .login-card {
-  width: 360px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 32px;
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border: 1px solid #eceef1;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
+  padding: 40px 36px;
 }
 
 .login-card h1 {
-  font-size: 18px;
-  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: #1a1d23;
+  margin: 0 0 8px;
 }
 
 .login-card .sub {
-  color: var(--muted);
-  margin: 0 0 24px;
-  font-size: 13px;
+  color: #8a909c;
+  margin: 0 0 28px;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
+/* 로그인 카드 내부 폼 — 디자인 수치로 스코프 (다른 화면 .field/.input 영향 없음) */
+.login-card .field {
+  margin-bottom: 18px;
+}
+
+.login-card .field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3a4150;
+  margin-bottom: 8px;
+}
+
+.login-card .field input {
+  height: 48px;
+  padding: 0 14px;
+  font-size: 15px;
+  color: #1a1d23;
+  border: 1px solid #dfe2e8;
+  border-radius: 10px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.login-card .field input::placeholder {
+  color: #aab1bd;
+}
+
+.login-card .field input:focus {
+  border-color: #2f6bff;
+  box-shadow: none;
+}
+
+/* 비밀번호 표시/숨기기 토글 */
+.login-card .pw-wrap {
+  position: relative;
+}
+
+.login-card .pw-wrap input {
+  padding-right: 56px; /* 토글 버튼 영역 확보 */
+}
+
+.login-card .pw-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #9aa1ad;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.login-card .pw-toggle:hover {
+  color: #3a4150;
+}
+
+/* 제출 버튼 — 디자인 수치 (height 50, radius 10) */
+.login-card .btn-primary {
+  height: 50px;
+  padding: 0;
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  border-radius: 10px;
+}
+
+.login-card .btn-primary:disabled {
+  background: #aebfff;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+/* ── 폼 필드 ── */
 .field {
-  margin-bottom: 14px;
+  margin-bottom: 15px;
 }
 
 .field label {
@@ -171,28 +334,46 @@ textarea {
   font-size: 13px;
   margin-bottom: 6px;
   color: var(--muted);
+  font-weight: 500;
 }
 
 .field input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 13px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* ── 버튼 ── */
 .btn-primary {
   width: 100%;
-  padding: 11px;
+  padding: 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--primary);
   color: var(--primary-fg);
   font-weight: 600;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-strong);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .btn-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
+}
+
+.btn-primary.inline {
+  width: auto;
+  padding: 9px 18px;
 }
 
 .error-msg {
@@ -202,32 +383,44 @@ textarea {
 }
 
 .btn-ghost {
-  background: transparent;
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 9px 14px;
+  color: var(--text);
   white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-/* 불만족 관리 — 피드백 액션 버튼 (클릭 가능한 액션임을 명확히) */
+.btn-ghost:hover:not(:disabled) {
+  background: var(--panel-alt);
+  border-color: var(--border-strong);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 불만족 관리 — 피드백 액션 버튼 (코랄 톤으로 클릭 가능 강조) */
 .btn-feedback {
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
-  border-radius: 8px;
-  padding: 6px 16px;
-  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-soft-border);
+  border-radius: var(--radius-sm);
+  padding: 7px 18px;
+  color: var(--primary-strong);
   font-weight: 600;
   white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .btn-feedback:hover {
-  background: #e0e7ff;
-  border-color: #a5b4fc;
+  background: #dbe7ff;
+  border-color: var(--accent);
 }
 
 .btn-feedback:active {
-  background: #c7d2fe;
+  background: #cdddff;
 }
 
 /* 액션 컬럼 — 버튼이 잘리지 않도록 폭 확보 */
@@ -238,22 +431,13 @@ textarea {
   text-align: right;
 }
 
-.btn-ghost:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary.inline {
-  width: auto;
-  padding: 8px 16px;
-}
-
-/* 공통 입력 */
+/* ── 공통 입력 ── */
 .input {
-  padding: 8px 10px;
+  padding: 9px 11px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .input.grow {
@@ -261,7 +445,7 @@ textarea {
   min-width: 180px;
 }
 
-/* 툴바 */
+/* ── 툴바 ── */
 .card.no-pad {
   padding: 0;
   overflow: hidden;
@@ -271,7 +455,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .toolbar-row {
@@ -296,10 +480,10 @@ textarea {
 .result-meta {
   color: var(--muted);
   font-size: 13px;
-  margin: 0 0 8px;
+  margin: 0 0 10px;
 }
 
-/* 표 */
+/* ── 표 ── */
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -308,17 +492,29 @@ textarea {
 
 .data-table th,
 .data-table td {
-  text-align: left;
-  padding: 10px 12px;
+  text-align: center;
+  padding: 11px 14px;
   border-bottom: 1px solid var(--border);
-  vertical-align: middle; /* 행 텍스트·배지·버튼 세로 중앙 정렬 */
+  vertical-align: middle;
 }
 
 .data-table thead th {
-  background: #f9fafb;
+  background: var(--panel-alt);
   color: var(--muted);
   font-weight: 600;
   white-space: nowrap;
+}
+
+.data-table tbody tr {
+  transition: background 0.12s ease;
+}
+
+.data-table tbody tr:hover {
+  background: #fbfaf6;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .data-table th.sortable {
@@ -350,7 +546,7 @@ textarea {
 .data-table td.empty {
   text-align: center;
   color: var(--muted);
-  padding: 40px;
+  padding: 44px;
 }
 
 .badge {
@@ -358,8 +554,8 @@ textarea {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 2px 10px;
-  border-radius: 999px;
+  padding: 3px 11px;
+  border-radius: var(--radius-pill);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.6;
@@ -369,21 +565,21 @@ textarea {
 }
 
 .badge.up {
-  background: #dbeafe;
-  color: var(--up);
+  background: var(--up-soft);
+  color: #2559d6;
 }
 
 .badge.down {
-  background: #fee2e2;
-  color: var(--down);
+  background: var(--down-soft);
+  color: #c93a3f;
 }
 
-/* 페이징 */
+/* ── 페이징 ── */
 .pager {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 .pager .spacer {
@@ -397,24 +593,31 @@ textarea {
   text-align: center;
 }
 
-/* 세그먼트 토글 (일/주/월) */
+/* ── 세그먼트 토글 (일/주/월) ── */
 .seg {
   display: inline-flex;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
+  background: #fff;
 }
 
 .seg-btn {
   background: #fff;
   border: none;
-  padding: 8px 16px;
+  padding: 9px 18px;
   color: var(--muted);
   border-right: 1px solid var(--border);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .seg-btn:last-child {
   border-right: none;
+}
+
+.seg-btn:hover:not(.active) {
+  background: var(--panel-alt);
+  color: var(--text);
 }
 
 .seg-btn.active {
@@ -423,22 +626,25 @@ textarea {
   font-weight: 600;
 }
 
-/* 섹션 구분 헤딩 (전체 누적 현황 / 그래프 조회 기간) */
+/* ── 섹션 구분 헤딩 ── */
 .section-head {
-  font-size: 14px;
+  font-family: var(--font-serif);
+  font-size: 16px;
   font-weight: 700;
+  letter-spacing: -0.2px;
   color: var(--text);
-  margin: 22px 0 10px;
+  margin: 26px 0 12px;
 }
 
 .section-note {
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 400;
   color: var(--muted);
   margin-left: 8px;
 }
 
-/* KPI 카드 */
+/* ── KPI 카드 ── */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -446,16 +652,16 @@ textarea {
   margin-bottom: 16px;
 }
 
-/* 불만족 관리 통계 — 5개 항목을 데스크톱 한 줄에 표시 (수치 로직 영향 없음) */
+/* 불만족 관리 통계 — 5개 항목 한 줄 */
 .kpi-grid-5 {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 16px;
 }
 
 .kpi-grid-5 .kpi-card {
-  padding: 14px 16px;
+  padding: 16px 18px;
 }
 
 .kpi-grid-5 .kpi-label {
@@ -464,14 +670,29 @@ textarea {
 }
 
 .kpi-grid-5 .kpi-value {
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .kpi-card {
+  position: relative;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px 20px;
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* KPI 카드 좌측 코랄 악센트 */
+.kpi-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0.85;
 }
 
 .kpi-label {
@@ -481,8 +702,10 @@ textarea {
 }
 
 .kpi-value {
-  font-size: 28px;
+  font-family: var(--font-serif);
+  font-size: 30px;
   font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 .kpi-value.up {
@@ -493,7 +716,7 @@ textarea {
   color: var(--down);
 }
 
-/* 차트 그리드 */
+/* ── 차트 그리드 ── */
 .chart-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -509,10 +732,11 @@ textarea {
 .chart-title {
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
+  color: var(--text);
+  margin-bottom: 14px;
 }
 
-/* 차트 캔버스 높이 확보 (maintainAspectRatio: false 는 부모 크기를 따른다) */
+/* 차트 캔버스 높이 (maintainAspectRatio: false 는 부모 크기를 따른다) */
 .chart-canvas {
   position: relative;
   height: 280px;
@@ -532,7 +756,11 @@ textarea {
 }
 
 @media (max-width: 900px) {
-  .kpi-grid {
+  .main {
+    padding: 24px 20px;
+  }
+  .kpi-grid,
+  .kpi-grid-5 {
     grid-template-columns: repeat(2, 1fr);
   }
   .chart-grid {
@@ -540,53 +768,54 @@ textarea {
   }
 }
 
-/* 개발(더미) 모드 배너 */
+/* ── 개발(더미) 모드 배너 ── */
 .dev-banner {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #92400e;
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  background: #fff8e6;
+  border: 1px solid #f5e2a8;
+  color: #8a6d12;
+  padding: 11px 15px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 22px;
   font-size: 13px;
 }
 
-/* 불만족 관리 — 상태 셀렉트 (색상으로 상태 구분) */
+/* ── 불만족 관리 — 상태 셀렉트 (색상으로 상태 구분) ── */
 .status-select {
-  padding: 4px 8px;
+  padding: 5px 10px;
   font-size: 12px;
   font-weight: 600;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
   cursor: pointer;
 }
 
 .status-select.st-new {
-  background: #f3f4f6;
-  color: #4b5563;
+  background: #eceef1;
+  color: #6a7180;
 }
 
 .status-select.st-progress {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #eaf0ff;
+  color: #2559d6;
 }
 
 .status-select.st-done {
-  background: #dcfce7;
-  color: #15803d; /* 진한 그린 — 연녹 배경과 안정적 대비 (만족 파랑과 무관) */
+  background: #e4f4ec;
+  color: #1f8a52;
 }
 
 .status-select.st-hold {
-  background: #fef3c7;
-  color: #b45309;
+  background: #fff3d6;
+  color: #97701a;
 }
 
-/* 피드백 모달 — 평가 원본 요약 */
+/* ── 피드백 모달 — 평가 원본 요약 ── */
 .fb-origin {
-  background: #f9fafb;
+  background: var(--panel-alt);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin: 12px 0 18px;
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin: 14px 0 18px;
   font-size: 13px;
 }
 
@@ -616,22 +845,23 @@ textarea {
   margin: 16px 0 0;
 }
 
-/* 토스트 */
+/* ── 토스트 ── */
 .toast {
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #047857;
-  padding: 10px 14px;
-  border-radius: 8px;
+  background: #e4f4ec;
+  border: 1px solid #bce3cd;
+  color: #1f8a52;
+  padding: 11px 15px;
+  border-radius: var(--radius-sm);
   margin-bottom: 16px;
   font-size: 13px;
 }
 
-/* 모달 */
+/* ── 모달 ── */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(31, 30, 29, 0.42);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -642,38 +872,34 @@ textarea {
 
 .modal {
   background: #fff;
-  border-radius: 14px;
-  padding: 24px;
+  border-radius: 18px;
+  padding: 26px;
   width: 720px;
   max-width: 100%;
+  box-shadow: var(--shadow-lg);
 }
 
-/* 데이터 미리보기가 많은 업로드 모달 — 더 넓게 */
 .modal.wide {
   width: 1040px;
 }
 
-/* 표 가로 스크롤 컨테이너 (모달/카드 공통) */
+/* 표 가로 스크롤 컨테이너 */
 .table-scroll {
   overflow-x: auto;
 }
 
-/* card.no-pad(overflow:hidden) 보다 우선해 가로 스크롤 허용 */
 .card.no-pad.table-scroll {
   overflow-x: auto;
 }
 
-/* 업로드 미리보기 표 — 컬럼이 과도하게 압축되지 않도록 최소 폭 확보 */
 .preview-table {
   min-width: 880px;
 }
 
-/* 불만족 관리 표 — 컬럼이 많아 피드백 버튼이 잘리지 않도록 최소 폭 + 가로 스크롤 */
 .feedback-table {
   min-width: 1040px;
 }
 
-/* 원인 분류 컬럼 — 길이와 무관하게 폭 고정(말줄임). 버튼 영역을 밀어내지 않도록 */
 .data-table td.cause-cell {
   max-width: 140px;
   min-width: 100px;
@@ -688,11 +914,13 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .modal-head h2 {
-  font-size: 16px;
+  font-family: var(--font-serif);
+  font-size: 19px;
+  letter-spacing: -0.2px;
   margin: 0;
 }
 
@@ -700,7 +928,7 @@ textarea {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 .file-name {
@@ -738,10 +966,13 @@ textarea {
   color: var(--muted);
 }
 
-.mapping-list code {
-  background: #f3f4f6;
-  padding: 1px 5px;
-  border-radius: 4px;
+.mapping-list code,
+.page-desc code {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 12px;
 }
 
 .preview {
@@ -752,4 +983,21 @@ textarea {
   font-size: 13px;
   color: var(--muted);
   margin-bottom: 6px;
+}
+
+/* ── details/summary (업로드 이력·매핑 결과 등) ── */
+details.card > summary,
+details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+  user-select: none;
+}
+
+details > summary:hover {
+  color: var(--primary-strong);
+}
+
+details > summary.bad {
+  color: var(--down);
 }

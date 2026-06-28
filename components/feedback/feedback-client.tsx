@@ -28,21 +28,85 @@ import {
 } from "@/lib/types";
 import { saveFeedback } from "@/app/(app)/feedback/actions";
 import FeedbackDialog from "./feedback-dialog";
+import Dropdown from "@/components/ui/dropdown";
+import DateRangePicker from "@/components/ui/date-range-picker";
+import Pager from "@/components/ui/pager";
 
 const PAGE_SIZE = 10;
 
-/** 상태 → 뱃지 색 클래스 */
-const STATUS_CLASS: Record<FeedbackStatus, string> = {
-  미확인: "st-new",
-  검토중: "st-progress",
-  조치완료: "st-done",
-  보류: "st-hold",
+/** 상태별 색상 (디자인 톤) */
+const STATUS_COLOR: Record<FeedbackStatus, string> = {
+  미확인: "#6b7280",
+  검토중: "#2f6bff",
+  조치완료: "#1f9d6a",
+  보류: "#d98a00",
+};
+
+// ── 공통 인라인 스타일 ──
+const card: React.CSSProperties = {
+  background: "#fff",
+  border: "1px solid #eceef1",
+  borderRadius: 14,
+  padding: "20px 22px",
+  boxShadow: "0 1px 2px rgba(16,24,40,.03)",
+};
+const exportBtn: React.CSSProperties = {
+  height: 40,
+  padding: "0 16px",
+  fontSize: 13,
+  fontWeight: 600,
+  fontFamily: "Pretendard, sans-serif",
+  color: "#5a616e",
+  background: "#fff",
+  border: "1px solid #e2e5ea",
+  borderRadius: 10,
+  cursor: "pointer",
+};
+const outlineBtn: React.CSSProperties = {
+  height: 42,
+  padding: "0 16px",
+  fontSize: 13,
+  fontWeight: 600,
+  fontFamily: "Pretendard, sans-serif",
+  color: "#2f6bff",
+  background: "#fff",
+  border: "1px solid #2f6bff",
+  borderRadius: 10,
+  cursor: "pointer",
+};
+const searchInput: React.CSSProperties = {
+  flex: 1,
+  minWidth: 200,
+  height: 42,
+  padding: "0 14px",
+  fontSize: 14,
+  fontFamily: "Pretendard, sans-serif",
+  color: "#1a1d23",
+  border: "1px solid #e2e5ea",
+  borderRadius: 10,
+  outline: "none",
+};
+const filterLabel: React.CSSProperties = {
+  fontSize: 13,
+  color: "#6b7280",
+  fontWeight: 500,
+};
+const th: React.CSSProperties = {
+  padding: "12px 14px",
+  fontWeight: 600,
+  color: "#6b7280",
+  borderBottom: "1px solid #edeff2",
+  textAlign: "center",
+  whiteSpace: "nowrap",
+};
+const td: React.CSSProperties = {
+  padding: "12px 14px",
+  textAlign: "center",
+  color: "#3a4150",
 };
 
 /**
- * 메뉴 ③ 불만족 관리 (FR-4) — 누적 데이터 기준.
- * 불만족 건 조회 · 피드백 입력(작성자 자동 기록) · 진행 상태 · 상세 사유 통계.
- * feedback 은 satisfaction_id 로 연결. 재업로드 후에도 연결 유지.
+ * 메뉴 ③ 불만족 평가 관리 (FR-4) — 누적 데이터 기준.
  */
 export default function FeedbackClient({
   currentUser,
@@ -69,7 +133,6 @@ export default function FeedbackClient({
   const [toast, setToast] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // 전체 불만족 조인 뷰 (통계는 필터와 무관하게 전체 기준)
   const allRows = useMemo(
     () => buildFeedbackRows(satisfaction, feedback),
     [satisfaction, feedback],
@@ -79,7 +142,6 @@ export default function FeedbackClient({
   const causeCounts = useMemo(() => countByCauseCategory(allRows), [allRows]);
   const handled = useMemo(() => handledRate(allRows), [allRows]);
 
-  // 시작일이 종료일보다 미래면 잘못된 조합 → 기간 필터 적용 차단 + 안내 (/records 와 동일)
   const dateRangeInvalid = isDateRangeInvalid(dateFrom, dateTo);
 
   const filtered = useMemo(() => {
@@ -88,12 +150,9 @@ export default function FeedbackClient({
     const to = dateRangeInvalid ? "" : dateTo;
     return allRows.filter((r) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
-      // 평가 사유 필터 (DB reason 코드 기준)
       if (reasonFilter !== "all" && r.reason !== reasonFilter) return false;
-      // 기간 필터는 평가시각(created_at) KST 날짜 기준 (시작일~종료일 포함)
       if (from && kstDatePart(r.created_at) < from) return false;
       if (to && kstDatePart(r.created_at) > to) return false;
-      // 검색 대상은 질의어(query)로만 제한
       if (q) {
         if (!(r.query ?? "").toLowerCase().includes(q)) return false;
       }
@@ -160,12 +219,6 @@ export default function FeedbackClient({
     );
   }
 
-  function setStatusFilterReset(v: FeedbackStatus | "all") {
-    setStatusFilter(v);
-    setPage(1);
-  }
-
-  /** 현재 검색/상태 필터 결과(filtered)를 한글 컬럼으로 내보낸다 (FR-3.3 재사용). */
   function onExport(format: ExportFormat) {
     const flat = filtered.map((r) => ({
       "No.": r.record_no,
@@ -184,262 +237,395 @@ export default function FeedbackClient({
     exportRows(flat, `feedback_${new Date().toISOString().slice(0, 10)}`, format);
   }
 
+  const reasonOptions = [
+    { label: "전체 사유", value: "all" },
+    ...REASON_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
+  ];
+  const statusOptions = [
+    { label: "전체 상태", value: "all" },
+    ...FEEDBACK_STATUSES.map((s) => ({ label: s, value: s })),
+  ];
+
+  const kpis = [
+    { label: "불만족 총건수", value: allRows.length, color: "#e0635d" },
+    ...FEEDBACK_STATUSES.map((s) => ({
+      label: s,
+      value: statusCounts[s],
+      color: "#1a1d23",
+    })),
+  ];
+
   return (
-    <div>
-      <h1 className="page-title">③ 불만족 피드백 관리</h1>
-      <p className="page-desc">
-        불만족 건 조회 · 피드백 입력(작성자 자동 기록) · 진행 상태 · 상세 사유 통계 — 누적 데이터 기준
-      </p>
+    <div style={{ maxWidth: 1280 }}>
+      <h1
+        style={{
+          margin: "0 0 28px",
+          fontSize: 22,
+          fontWeight: 700,
+          letterSpacing: "-0.5px",
+        }}
+      >
+        불만족 평가 관리
+      </h1>
 
       {toast && <div className="toast">{toast}</div>}
 
-      {/* 통계 (FR-4.4) — 5개 항목 한 줄 표시 */}
-      <div className="kpi-grid-5">
-        <div className="kpi-card">
-          <div className="kpi-label">불만족 총건수</div>
-          <div className="kpi-value down">{allRows.length}</div>
-        </div>
-        {FEEDBACK_STATUSES.map((s) => (
-          <div className="kpi-card" key={s}>
-            <div className="kpi-label">{s}</div>
-            <div className="kpi-value">{statusCounts[s]}</div>
+      {/* 통계 KPI 5개 */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(5, 1fr)",
+          gap: 16,
+          marginBottom: 24,
+        }}
+      >
+        {kpis.map((k) => (
+          <div key={k.label} style={{ ...card, padding: "18px 20px" }}>
+            <div
+              style={{
+                fontSize: 13,
+                color: "#8a909c",
+                marginBottom: 10,
+                fontWeight: 500,
+              }}
+            >
+              {k.label}
+            </div>
+            <div
+              style={{
+                fontSize: 28,
+                fontWeight: 700,
+                letterSpacing: "-0.8px",
+                color: k.color,
+              }}
+            >
+              {k.value}
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="chart-grid">
-        <div className="card chart-box">
-          <div className="chart-title">원인 분류별 통계 (FR-4.4)</div>
+      {/* 원인 분류별 통계 / 처리 현황 */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.6fr 1fr",
+          gap: 16,
+          marginBottom: 24,
+        }}
+      >
+        <div style={card}>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, letterSpacing: "-0.3px" }}>
+            원인 분류별 통계{" "}
+            <span style={{ fontSize: 12, fontWeight: 500, color: "#9aa1ad" }}>
+              (FR-4.4)
+            </span>
+          </div>
           {causeCounts.length === 0 ? (
-            <p className="placeholder">데이터가 없습니다.</p>
+            <p style={{ color: "#8a909c", fontSize: 13 }}>데이터가 없습니다.</p>
           ) : (
-            <table className="data-table">
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr>
-                  <th>원인 분류</th>
-                  <th style={{ width: 80 }}>건수</th>
+                <tr style={{ background: "#f7f8fa" }}>
+                  <th style={th}>원인 분류</th>
+                  <th style={{ ...th, width: 100 }}>건수</th>
                 </tr>
               </thead>
               <tbody>
                 {causeCounts.map((c) => (
-                  <tr key={c.category}>
-                    <td>{c.category}</td>
-                    <td>{c.count}</td>
+                  <tr key={c.category} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                    <td style={td}>{c.category}</td>
+                    <td style={{ ...td, color: "#6b7280" }}>{c.count}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
         </div>
-        <div className="card chart-box">
-          <div className="chart-title">처리 현황</div>
-          <div className="kpi-value">{handled}%</div>
-          <p className="placeholder" style={{ marginTop: 8 }}>
+
+        <div style={card}>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, letterSpacing: "-0.3px" }}>
+            처리 현황
+          </div>
+          <div
+            style={{
+              fontSize: 32,
+              fontWeight: 700,
+              letterSpacing: "-1px",
+              color: "#1a1d23",
+              marginBottom: 8,
+            }}
+          >
+            {handled}%
+          </div>
+          <div style={{ fontSize: 13, color: "#8a909c" }}>
             미확인 외 상태로 처리된 비율
-          </p>
+          </div>
         </div>
       </div>
 
-      {/* 툴바 */}
-      <div className="toolbar card">
-        <div className="toolbar-row">
+      {/* 내보내기 */}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          justifyContent: "flex-end",
+          marginBottom: 14,
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          style={{ ...exportBtn, opacity: filtered.length === 0 ? 0.5 : 1 }}
+          disabled={filtered.length === 0}
+          onClick={() => onExport("csv")}
+        >
+          CSV 내보내기
+        </button>
+        <button
+          style={{ ...exportBtn, opacity: filtered.length === 0 ? 0.5 : 1 }}
+          disabled={filtered.length === 0}
+          onClick={() => onExport("xlsx")}
+        >
+          XLSX 내보내기
+        </button>
+      </div>
+
+      {/* 필터 */}
+      <div style={{ ...card, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={filterLabel}>기간</span>
+            <DateRangePicker
+              from={dateFrom}
+              to={dateTo}
+              onChange={(f, t) => {
+                setDateFrom(f);
+                setDateTo(t);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={filterLabel}>평가 사유</span>
+            <Dropdown
+              value={reasonFilter}
+              options={reasonOptions}
+              onChange={(v) => {
+                setReasonFilter(v);
+                setPage(1);
+              }}
+              width={150}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={filterLabel}>상태</span>
+            <Dropdown
+              value={statusFilter}
+              options={statusOptions}
+              onChange={(v) => {
+                setStatusFilter(v as FeedbackStatus | "all");
+                setPage(1);
+              }}
+              width={120}
+            />
+          </div>
           <input
-            className="input grow"
-            placeholder="검색 (질의어)"
+            placeholder="질의어 입력"
+            style={searchInput}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
               setPage(1);
             }}
           />
-          <select
-            className="input"
-            value={reasonFilter}
-            onChange={(e) => {
-              setReasonFilter(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="all">전체 사유</option>
-            {REASON_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="input"
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilterReset(e.target.value as FeedbackStatus | "all")
-            }
-          >
-            <option value="all">전체 상태</option>
-            {FEEDBACK_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="toolbar-row">
-          <label className="inline-label">
-            기간
-            <input
-              type="date"
-              className="input"
-              value={dateFrom}
-              max={dateTo || undefined}
-              onChange={(e) => {
-                setDateFrom(e.target.value);
-                setPage(1);
-              }}
-            />
-            ~
-            <input
-              type="date"
-              className="input"
-              value={dateTo}
-              min={dateFrom || undefined}
-              onChange={(e) => {
-                setDateTo(e.target.value);
-                setPage(1);
-              }}
-            />
-          </label>
-          {dateRangeInvalid && (
-            <span className="error-msg" style={{ margin: 0 }}>
-              시작일이 종료일보다 늦습니다 — 기간을 다시 선택하세요.
-            </span>
-          )}
-          <button className="btn-ghost" onClick={resetFilters}>
+          <button style={outlineBtn} onClick={resetFilters}>
             필터 초기화
           </button>
-          <div className="spacer" />
-          <button
-            className="btn-ghost"
-            disabled={filtered.length === 0}
-            onClick={() => onExport("csv")}
-          >
-            CSV 내보내기
-          </button>
-          <button
-            className="btn-ghost"
-            disabled={filtered.length === 0}
-            onClick={() => onExport("xlsx")}
-          >
-            XLSX 내보내기
-          </button>
         </div>
       </div>
 
-      <div className="result-meta">
-        총 <strong>{filtered.length}</strong>건 · {safePage}/{totalPages} 페이지
-      </div>
-
-      {/* 목록 (FR-4.1) */}
-      <div className="card no-pad table-scroll">
-        <table className="data-table feedback-table">
-          <thead>
-            <tr>
-              <th>No.</th>
-              <th>평가시각</th>
-              <th>질의어</th>
-              <th>평가 사유</th>
-              <th>의견</th>
-              <th>상태</th>
-              <th>원인 분류</th>
-              <th>담당자</th>
-              <th className="action-cell"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="empty">
-                  조건에 맞는 불만족 건이 없습니다.
-                </td>
+      {/* 목록 */}
+      <div style={card}>
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: 13,
+              minWidth: 1080,
+            }}
+          >
+            <thead>
+              <tr style={{ background: "#f7f8fa" }}>
+                <th style={th}>No.</th>
+                <th style={th}>평가시각</th>
+                <th style={th}>질의어</th>
+                <th style={th}>평가 사유</th>
+                <th style={th}>의견</th>
+                <th style={th}>상태</th>
+                <th style={th}>원인 분류</th>
+                <th style={th}>담당자</th>
+                <th style={th}></th>
               </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.satisfaction_id}>
-                  <td className="mono">{r.record_no}</td>
-                  <td className="nowrap">{kstDatePart(r.created_at)}</td>
-                  <td className="ellipsis" title={r.query ?? undefined}>
-                    {r.query ?? "-"}
-                  </td>
-                  <td className="nowrap">
-                    {r.reason ? reasonLabel(r.reason) : "-"}
-                  </td>
-                  <td className="ellipsis" title={r.comment || undefined}>
-                    {r.comment || ""}
-                  </td>
-                  <td>
-                    <select
-                      className={`input status-select ${STATUS_CLASS[r.status]}`}
-                      value={r.status}
-                      disabled={saving}
-                      onChange={(e) =>
-                        onQuickStatus(r, e.target.value as FeedbackStatus)
-                      }
-                    >
-                      {FEEDBACK_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="ellipsis cause-cell" title={r.cause_category ?? undefined}>
-                    {r.cause_category
-                      ? r.cause_category.length > 10
-                        ? `${r.cause_category.slice(0, 10)}…`
-                        : r.cause_category
-                      : "-"}
-                  </td>
-                  <td className="nowrap">{r.updated_by ?? "-"}</td>
-                  <td className="action-cell">
-                    <button className="btn-feedback" onClick={() => setEditing(r)}>
-                      피드백
-                    </button>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                    조건에 맞는 불만족 건이 없습니다.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.satisfaction_id} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                    <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
+                      {r.record_no}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {kstDatePart(r.created_at)}
+                    </td>
+                    <td style={td}>{r.query ?? "-"}</td>
+                    <td style={{ ...td, color: "#5a616e", whiteSpace: "nowrap" }}>
+                      {r.reason ? reasonLabel(r.reason) : "-"}
+                    </td>
+                    <td style={{ ...td, color: "#9aa1ad" }}>{r.comment || "-"}</td>
+                    <td style={td}>
+                      <StatusSelect
+                        value={r.status}
+                        disabled={saving}
+                        onChange={(s) => onQuickStatus(r, s)}
+                      />
+                    </td>
+                    <td style={{ ...td, color: "#6b7280", whiteSpace: "nowrap" }}>
+                      {r.cause_category ?? "-"}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {r.updated_by ?? "-"}
+                    </td>
+                    <td style={td}>
+                      <button
+                        onClick={() => setEditing(r)}
+                        style={{
+                          height: 34,
+                          padding: "0 14px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          fontFamily: "Pretendard, sans-serif",
+                          color: "#fff",
+                          background: "#2f6bff",
+                          border: "none",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        피드백
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      {/* 페이징 */}
-      <div className="pager">
-        <div className="spacer" />
-        <button
-          className="btn-ghost"
-          disabled={safePage <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-        >
-          이전
-        </button>
-        <span className="page-indicator">
-          {safePage} / {totalPages}
-        </span>
-        <button
-          className="btn-ghost"
-          disabled={safePage >= totalPages}
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-        >
-          다음
-        </button>
+        <div style={{ marginTop: 18 }}>
+          <Pager page={safePage} totalPages={totalPages} onPage={setPage} />
+        </div>
       </div>
 
       {editing && (
         <FeedbackDialog
           row={editing}
+          currentUserName={currentUser.name || currentUser.empNo}
           saving={saving}
           onSave={onSave}
           onClose={() => setEditing(null)}
         />
+      )}
+    </div>
+  );
+}
+
+/** 상태 인라인 셀렉트 (색상 pill + 팝오버) */
+function StatusSelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: FeedbackStatus;
+  onChange: (s: FeedbackStatus) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 55 }}
+        />
+      )}
+      <div
+        onClick={() => !disabled && setOpen((v) => !v)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: 104,
+          height: 36,
+          padding: "0 12px",
+          fontSize: 13,
+          fontWeight: 600,
+          color: STATUS_COLOR[value],
+          background: "#fff",
+          border: `1px solid ${open ? "#2f6bff" : "#e2e5ea"}`,
+          borderRadius: 10,
+          cursor: disabled ? "not-allowed" : "pointer",
+          userSelect: "none",
+          opacity: disabled ? 0.6 : 1,
+        }}
+      >
+        <span>{value}</span>
+        <span style={{ color: "#9aa1ad", fontSize: 9 }}>▼</span>
+      </div>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: 42,
+            left: 0,
+            zIndex: 60,
+            minWidth: 116,
+            background: "#fff",
+            border: "1px solid #e9ebef",
+            borderRadius: 10,
+            boxShadow: "0 10px 28px rgba(16,24,40,.14)",
+            padding: 6,
+          }}
+        >
+          {FEEDBACK_STATUSES.map((s) => (
+            <div
+              key={s}
+              onClick={() => {
+                onChange(s);
+                setOpen(false);
+              }}
+              style={{
+                padding: "9px 12px",
+                borderRadius: 7,
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: s === value ? 700 : 500,
+                color: s === value ? "#2f6bff" : "#3a4150",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {s}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
