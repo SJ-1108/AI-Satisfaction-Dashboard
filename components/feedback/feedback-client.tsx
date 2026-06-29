@@ -621,10 +621,11 @@ export default function FeedbackClient({
           >
             <colgroup>
               <col style={{ width: 50 }} />
+              <col style={{ width: 100 }} />
               <col style={{ width: 200 }} />
               <col style={{ width: 240 }} />
-              <col style={{ width: 166 }} />
-              <col style={{ width: 100 }} />
+              <col style={{ width: 96 }} />
+              <col style={{ width: 200 }} />
               <col style={{ width: 116 }} />
               <col style={{ width: 120 }} />
               <col style={{ width: 180 }} />
@@ -634,10 +635,11 @@ export default function FeedbackClient({
             <thead>
               <tr style={{ background: "#f7f8fa" }}>
                 <th style={th}>No.</th>
+                <th style={th}>평가일시</th>
                 <th style={th}>질의어</th>
                 <th style={th}>AI 답변</th>
+                <th style={th}>평가 사유</th>
                 <th style={th}>의견</th>
-                <th style={th}>평가일자</th>
                 <th style={th}>처리 상태</th>
                 <th style={th}>원인 분류</th>
                 <th style={th}>피드백 내용</th>
@@ -648,7 +650,7 @@ export default function FeedbackClient({
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                  <td colSpan={11} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
                     조건에 맞는 불만족 건이 없습니다.
                   </td>
                 </tr>
@@ -657,6 +659,9 @@ export default function FeedbackClient({
                   <tr key={r.satisfaction_id} style={{ borderBottom: "1px solid #f1f3f5" }}>
                     <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
                       {r.record_no}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {kstDatePart(r.created_at)}
                     </td>
                     <td style={{ ...td, ...cellText }} title={r.query ?? undefined}>
                       {r.query ?? "-"}
@@ -668,13 +673,22 @@ export default function FeedbackClient({
                       {r.summary_text ?? "-"}
                     </td>
                     <td
+                      style={{
+                        ...td,
+                        color: "#5a616e",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={r.reason ? reasonLabel(r.reason) : undefined}
+                    >
+                      {r.reason ? reasonLabel(r.reason) : "-"}
+                    </td>
+                    <td
                       style={{ ...td, ...cellText, color: "#9aa1ad" }}
                       title={r.comment ?? undefined}
                     >
                       {r.comment || "-"}
-                    </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {kstDatePart(r.created_at)}
                     </td>
                     <td style={td}>
                       <StatusSelect
@@ -699,7 +713,6 @@ export default function FeedbackClient({
                       style={{
                         ...td,
                         color: "#3a4150",
-                        maxWidth: 220,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",

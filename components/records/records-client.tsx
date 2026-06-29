@@ -505,13 +505,12 @@ export default function RecordsClient({
           >
             <colgroup>
               <col style={{ width: "5%" }} />
-              <col style={{ width: "16%" }} />
-              <col style={{ width: "23%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "22%" }} />
+              <col style={{ width: "27%" }} />
               <col style={{ width: "8%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "18%" }} />
-              <col style={{ width: "10%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "13%" }} />
             </colgroup>
             <thead>
               <tr style={{ background: "#f7f8fa" }}>
@@ -524,11 +523,6 @@ export default function RecordsClient({
                     {noSort.arrow}
                   </span>
                 </th>
-                <th style={th}>질의어</th>
-                <th style={th}>AI 답변</th>
-                <th style={th}>평가</th>
-                <th style={th}>평가 사유</th>
-                <th style={th}>의견</th>
                 <th
                   style={{ ...th, cursor: "pointer", userSelect: "none" }}
                   onClick={() => toggleSort("created_at")}
@@ -538,21 +532,32 @@ export default function RecordsClient({
                     {noSort.arrow}
                   </span>
                 </th>
-                <th style={th}></th>
+                <th style={th}>질의어</th>
+                <th style={th}>AI 답변</th>
+                <th style={th}>평가</th>
+                <th style={th}>평가 사유</th>
+                <th style={th}>의견</th>
               </tr>
             </thead>
             <tbody>
               {result.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                  <td colSpan={7} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
                     조건에 맞는 데이터가 없습니다.
                   </td>
                 </tr>
               ) : (
                 result.rows.map((r) => (
-                  <tr key={r.id} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                  <tr
+                    key={r.id}
+                    onClick={() => setDetail(r)}
+                    style={{ borderBottom: "1px solid #f1f3f5", cursor: "pointer" }}
+                  >
                     <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
                       {displayNo.get(r.id) ?? r.record_no}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {formatKstDateTime(r.created_at)}
                     </td>
                     <td style={tdEllipsis} title={r.query ?? undefined}>
                       {r.query ?? "-"}
@@ -574,29 +579,6 @@ export default function RecordsClient({
                       title={r.comment ?? undefined}
                     >
                       {r.comment ?? "-"}
-                    </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {formatKstDateTime(r.created_at)}
-                    </td>
-                    <td style={td}>
-                      <button
-                        onClick={() => setDetail(r)}
-                        style={{
-                          height: 30,
-                          padding: "0 12px",
-                          fontSize: 12,
-                          fontWeight: 600,
-                          fontFamily: "Pretendard, sans-serif",
-                          color: "#2f6bff",
-                          background: "#fff",
-                          border: "1px solid #cdddff",
-                          borderRadius: 8,
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        상세보기
-                      </button>
                     </td>
                   </tr>
                 ))
