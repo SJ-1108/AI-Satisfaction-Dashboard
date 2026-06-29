@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   buildFeedbackRows,
-  upsertFeedback,
   type FeedbackEdit,
   type FeedbackRow,
 } from "@/lib/data/feedback-view";
@@ -103,7 +102,7 @@ const searchInput: React.CSSProperties = {
   minWidth: 200,
   height: 42,
   padding: "0 14px",
-  fontSize: 14,
+  fontSize: 13,
   fontFamily: "Pretendard, sans-serif",
   color: "#1a1d23",
   border: "1px solid #e2e5ea",
@@ -136,7 +135,6 @@ export default function FeedbackClient({
   currentUser,
   satisfaction,
   initialFeedback,
-  dbMode,
 }: {
   currentUser: { empNo: string; name: string };
   satisfaction: Satisfaction[];
@@ -269,18 +267,14 @@ export default function FeedbackClient({
   async function persist(edit: FeedbackEdit, successMsg: string) {
     setSaving(true);
     try {
-      if (dbMode) {
-        const res = await saveFeedback(edit);
-        if (!res.ok) {
-          setToast(`저장 실패 — ${res.error ?? "알 수 없는 오류"}`);
-          setTimeout(() => setToast(null), 5000);
-          return false;
-        }
-        router.refresh();
-      } else {
-        const now = new Date().toISOString();
-        setFeedback((prev) => upsertFeedback(prev, edit, currentUser.empNo, now));
+      // 더미/실제 모드 모두 서버 액션으로 저장 → 새로고침으로 모든 메뉴에 반영
+      const res = await saveFeedback(edit);
+      if (!res.ok) {
+        setToast(`저장 실패 — ${res.error ?? "알 수 없는 오류"}`);
+        setTimeout(() => setToast(null), 5000);
+        return false;
       }
+      router.refresh();
       setToast(successMsg);
       setTimeout(() => setToast(null), 4000);
       return true;
@@ -331,11 +325,11 @@ export default function FeedbackClient({
   }
 
   const reasonOptions = [
-    { label: "전체 사유", value: "all" },
+    { label: "전체", value: "all" },
     ...REASON_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
   ];
   const statusOptions = [
-    { label: "전체 상태", value: "all" },
+    { label: "전체", value: "all" },
     ...FEEDBACK_STATUSES.map((s) => ({ label: s, value: s })),
   ];
 

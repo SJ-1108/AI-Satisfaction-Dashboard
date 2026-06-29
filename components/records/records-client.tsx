@@ -8,7 +8,6 @@ import {
   type SortDir,
   type SortKey,
 } from "@/lib/data/satisfaction-query";
-import { accumulateSatisfaction } from "@/lib/data/accumulate-satisfaction";
 import { computeDisplayNo } from "@/lib/data/display-no";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { reasonLabel, REASON_OPTIONS } from "@/lib/reasons";
@@ -77,7 +76,7 @@ const searchInput: React.CSSProperties = {
   minWidth: 200,
   height: 42,
   padding: "0 14px",
-  fontSize: 14,
+  fontSize: 13,
   fontFamily: "Pretendard, sans-serif",
   color: "#1a1d23",
   border: "1px solid #e2e5ea",
@@ -224,53 +223,17 @@ export default function RecordsClient({
   ) {
     setUploading(true);
     try {
-      if (dbMode) {
-        const res = await uploadSatisfaction(valid, meta);
-        if (!res.ok || !res.summary) {
-          setToast(`업로드 실패 — ${res.error ?? "알 수 없는 오류"}`);
-          setTimeout(() => setToast(null), 6000);
-          return;
-        }
-        setShowUpload(false);
-        showSummaryToast(res.summary);
-        router.refresh();
-      } else {
-        const batchId = crypto.randomUUID();
-        const { merged, inserted, updated, duplicate } = accumulateSatisfaction(
-          records,
-          valid,
-          batchId,
-        );
-        setRecords(merged);
-        const summary: UploadSummary = {
-          file_name: meta.fileName,
-          uploaded_at: new Date().toISOString(),
-          row_count: meta.totalRows,
-          inserted_count: inserted,
-          updated_count: updated,
-          failed_count: meta.failedCount,
-          duplicate_count: duplicate,
-        };
-        setBatches((prev) => [
-          {
-            id: batchId,
-            file_name: summary.file_name,
-            uploaded_by: "(세션)",
-            uploaded_at: summary.uploaded_at,
-            row_count: summary.row_count,
-            inserted_count: summary.inserted_count,
-            updated_count: summary.updated_count,
-            failed_count: summary.failed_count,
-            duplicate_count: summary.duplicate_count,
-            status: "completed",
-            error_message: null,
-          },
-          ...prev,
-        ]);
-        setShowUpload(false);
-        setPage(1);
-        showSummaryToast(summary);
+      // 더미/실제 모드 모두 서버 액션으로 누적 적재 → 새로고침으로 모든 메뉴에 반영
+      const res = await uploadSatisfaction(valid, meta);
+      if (!res.ok || !res.summary) {
+        setToast(`업로드 실패 — ${res.error ?? "알 수 없는 오류"}`);
+        setTimeout(() => setToast(null), 6000);
+        return;
       }
+      setShowUpload(false);
+      setPage(1);
+      showSummaryToast(res.summary);
+      router.refresh();
     } finally {
       setUploading(false);
     }
@@ -286,12 +249,12 @@ export default function RecordsClient({
   }
 
   const ratingOptions = [
-    { label: "전체 평가", value: "all" },
+    { label: "전체", value: "all" },
     { label: "👍 만족", value: "up" },
     { label: "👎 불만족", value: "down" },
   ];
   const reasonOptions = [
-    { label: "전체 사유", value: "all" },
+    { label: "전체", value: "all" },
     ...REASON_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
   ];
 
