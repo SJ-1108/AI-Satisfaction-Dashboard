@@ -4,6 +4,8 @@ import { useState } from "react";
 import { reasonLabel } from "@/lib/reasons";
 import { formatKstDateTime } from "@/lib/format-date";
 import type { FeedbackRow, FeedbackEdit } from "@/lib/data/feedback-view";
+import ReadField from "@/components/ui/read-field";
+import CloseButton from "@/components/ui/close-button";
 
 /** 원인 분류 프리셋 (단순화 디자인 — 칩 선택) */
 const CAUSE_PRESETS = ["데이터 부족", "오답·사실 오류", "질의 의도 불일치", "기타"];
@@ -92,25 +94,7 @@ export default function FeedbackDialog({
             </h2>
             <div style={{ fontSize: 12, color: "#9aa1ad" }}>No. {row.record_no}</div>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="닫기"
-            style={{
-              width: 30,
-              height: 30,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "transparent",
-              border: "none",
-              color: "#9aa1ad",
-              fontSize: 16,
-              cursor: "pointer",
-              borderRadius: 7,
-            }}
-          >
-            ✕
-          </button>
+          <CloseButton onClick={onClose} />
         </div>
 
         {/* 본문 (스크롤) */}
@@ -239,26 +223,6 @@ export default function FeedbackDialog({
             {saving ? "저장 중…" : "저장"}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/** 읽기 전용 필드 박스 (라벨 + 내용, 줄바꿈 허용) */
-function ReadField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ padding: "12px 14px", background: "#f7f8fa", borderRadius: 10 }}>
-      <div style={{ fontSize: 11, color: "#9aa1ad", marginBottom: 4 }}>{label}</div>
-      <div
-        style={{
-          fontSize: 13,
-          color: "#3a4150",
-          lineHeight: 1.6,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-        }}
-      >
-        {children}
       </div>
     </div>
   );

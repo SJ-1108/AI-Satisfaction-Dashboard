@@ -3,6 +3,8 @@
 import { reasonLabel } from "@/lib/reasons";
 import { formatKstDateTime } from "@/lib/format-date";
 import type { Satisfaction } from "@/lib/types";
+import ReadField from "@/components/ui/read-field";
+import CloseButton from "@/components/ui/close-button";
 
 /** 데이터 조회 — 한 건의 전체 내용 보기(읽기 전용) 모달. */
 export default function RecordDetailDialog({
@@ -58,31 +60,13 @@ export default function RecordDetailDialog({
               No. {no} · {formatKstDateTime(row.created_at)}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="닫기"
-            style={{
-              width: 30,
-              height: 30,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "transparent",
-              border: "none",
-              color: "#9aa1ad",
-              fontSize: 16,
-              cursor: "pointer",
-              borderRadius: 7,
-            }}
-          >
-            ✕
-          </button>
+          <CloseButton onClick={onClose} />
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <Field label="질의어">{row.query ?? "-"}</Field>
-          <Field label="AI 답변">{row.summary_text ?? "-"}</Field>
-          <Field label="평가">
+          <ReadField label="질의어">{row.query ?? "-"}</ReadField>
+          <ReadField label="AI 답변">{row.summary_text ?? "-"}</ReadField>
+          <ReadField label="평가">
             <span
               style={{
                 display: "inline-flex",
@@ -98,30 +82,10 @@ export default function RecordDetailDialog({
             >
               {up ? "👍 up" : "👎 down"}
             </span>
-          </Field>
-          <Field label="평가 사유">{row.reason ? reasonLabel(row.reason) : "-"}</Field>
-          <Field label="의견">{row.comment ?? "-"}</Field>
+          </ReadField>
+          <ReadField label="평가 사유">{row.reason ? reasonLabel(row.reason) : "-"}</ReadField>
+          <ReadField label="의견">{row.comment ?? "-"}</ReadField>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/** 라벨 + 내용 블록 (전체 텍스트, 줄바꿈 허용) */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ padding: "12px 14px", background: "#f7f8fa", borderRadius: 10 }}>
-      <div style={{ fontSize: 11, color: "#9aa1ad", marginBottom: 4 }}>{label}</div>
-      <div
-        style={{
-          fontSize: 13,
-          color: "#3a4150",
-          lineHeight: 1.6,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-        }}
-      >
-        {children}
       </div>
     </div>
   );

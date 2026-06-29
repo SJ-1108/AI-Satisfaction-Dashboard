@@ -9,6 +9,7 @@ import {
 import { reasonLabel } from "@/lib/reasons";
 import { formatKstDateTime } from "@/lib/format-date";
 import type { ParsedSatisfaction } from "@/lib/types";
+import CloseButton from "@/components/ui/close-button";
 
 /**
  * 수동 업로드 모달 (FR-1.2).
@@ -79,25 +80,7 @@ export default function UploadDialog({
       <div className="modal wide">
         <div className="modal-head">
           <h2>데이터 업로드 (CSV / XLSX)</h2>
-          <button
-            onClick={onClose}
-            aria-label="닫기"
-            style={{
-              width: 30,
-              height: 30,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "transparent",
-              border: "none",
-              color: "#9aa1ad",
-              fontSize: 16,
-              cursor: "pointer",
-              borderRadius: 7,
-            }}
-          >
-            ✕
-          </button>
+          <CloseButton onClick={onClose} />
         </div>
 
         <p className="page-desc">
