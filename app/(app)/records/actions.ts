@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { emailToEmpNo } from "@/lib/empno";
-import { accumulateDummySatisfaction } from "@/lib/data/dummy-store";
+import {
+  accumulateDummySatisfaction,
+  resetDummyStore,
+} from "@/lib/data/dummy-store";
 import type { ParsedSatisfaction, UploadSummary } from "@/lib/types";
 
 /**
@@ -128,4 +131,31 @@ export async function uploadSatisfaction(
       duplicate_count: duplicateCount,
     },
   };
+}
+
+/**
+ * 전체 데이터 초기화 (되돌릴 수 없음).
+ * - 더미 모드: 인메모리 저장소 비우기
+ * - 실제 DB: feedback → satisfaction → upload_batches 순으로 전체 삭제 (FK 제약 고려).
+ *   삭제는 RLS 우회가 필요하므로 service-role 사용.
+ */
+export async function resetData(): Promise<{ ok: boolean; error?: string }> {
+  if (!isSupabaseConfigured()) {
+    resetDummyStore();
+    return { ok: true };
+  }
+
+  const admin = createAdminClient();
+  // id IS NOT NULL 조건으로 전체 행 삭제 (Supabase 는 delete 시 필터 요구)
+  const fb = await admin.from("feedback").delete().not("id", "is", null);
+  if (fb.error) return { ok: false, error: `피드백 삭제 실패: ${fb.error.message}` };
+
+  const sat = await admin.from("satisfaction").delete().not("id", "is", null);
+  if (sat.error) return { ok: false, error: `평가 데이터 삭제 실패: ${sat.error.message}` };
+
+  const batch = await admin.from("upload_batches").delete().not("id", "is", null);
+  if (batch.error)
+    return { ok: false, error: `업로드 이력 삭제 실패: ${batch.error.message}` };
+
+  return { ok: true };
 }

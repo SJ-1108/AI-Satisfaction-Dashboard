@@ -58,17 +58,49 @@ const STATUS_COLOR: Record<FeedbackStatus, string> = {
 };
 
 const GRID = { color: "#f0f2f5" } as const;
+// 라인/도넛 범례 칩을 동일한 사각형(같은 크기)으로 통일
+const LEGEND_LABELS = {
+  usePointStyle: true,
+  pointStyle: "rect" as const,
+  boxWidth: 12,
+  boxHeight: 12,
+  padding: 14,
+  font: { size: 12 },
+};
 const LEGEND_TOP = {
   display: true,
   position: "top" as const,
   align: "end" as const,
-  labels: { boxWidth: 12, boxHeight: 12, padding: 16, font: { size: 12 } },
+  labels: LEGEND_LABELS,
+};
+// 비중(도넛) — 범례 세로형(우측)
+const LEGEND_RIGHT = {
+  display: true,
+  position: "right" as const,
+  labels: LEGEND_LABELS,
 };
 
 /** N건 (xx.x%) 비율 문자열 */
 function pct(value: number, total: number): string {
   if (!total) return "0.0%";
   return `${(Math.round((value / total) * 1000) / 10).toFixed(1)}%`;
+}
+
+/**
+ * 세그먼트(일/주/월) → 조회 기간 자동 산출. anchor(데이터 최신일, YYYY-MM-DD) 기준.
+ * - day: 최근 7일 (anchor-6 ~ anchor)
+ * - week: 최근 4주 (anchor-27 ~ anchor)
+ * - month: 최근 1년 (anchor 달-11개월 1일 ~ anchor)
+ */
+function rangeForGranularity(
+  g: Granularity,
+  anchor: string,
+): { from: string; to: string } {
+  const d = new Date(`${anchor}T00:00:00Z`);
+  if (g === "week") d.setUTCDate(d.getUTCDate() - 27);
+  else if (g === "month") d.setUTCMonth(d.getUTCMonth() - 11, 1);
+  else d.setUTCDate(d.getUTCDate() - 6);
+  return { from: d.toISOString().slice(0, 10), to: anchor };
 }
 
 // ── 인라인 스타일 (디자인 수치 재현) ──
@@ -241,7 +273,7 @@ export default function DashboardClient({
     maintainAspectRatio: false,
     cutout: "66%",
     plugins: {
-      legend: LEGEND_TOP,
+      legend: LEGEND_RIGHT,
       tooltip: {
         callbacks: {
           // 기본 title(범례명 중복)을 비워 2줄로
@@ -356,10 +388,17 @@ export default function DashboardClient({
     },
   };
 
+  // 세그먼트(일/주/월) 선택 → granularity + 조회 기간 자동 연동
+  function applyGranularity(g: Granularity) {
+    const anchor = range?.max ?? kstDatePart(new Date().toISOString());
+    const r = rangeForGranularity(g, anchor);
+    setGranularity(g);
+    setFrom(r.from);
+    setTo(r.to);
+  }
+
   function resetRange() {
-    setFrom(defaultRange.from);
-    setTo(defaultRange.to);
-    setGranularity("day");
+    applyGranularity("day");
   }
 
   const stats = [
@@ -457,7 +496,7 @@ export default function DashboardClient({
                 return (
                   <button
                     key={g}
-                    onClick={() => setGranularity(g)}
+                    onClick={() => applyGranularity(g)}
                     style={{
                       border: "none",
                       cursor: "pointer",
@@ -511,12 +550,12 @@ export default function DashboardClient({
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1.7fr 1fr",
+                  gridTemplateColumns: "700px 1fr",
                   gap: 16,
                   marginBottom: 24,
                 }}
               >
-                <div style={{ ...cardStyle, padding: "20px 22px" }}>
+                <div style={{ ...cardStyle, padding: "20px 22px", minWidth: 0 }}>
                   <div style={chartTitle}>만족도 평가 추이</div>
                   <div style={{ height: 300, position: "relative" }}>
                     {mounted ? (
@@ -527,7 +566,7 @@ export default function DashboardClient({
                   </div>
                 </div>
 
-                <div style={{ ...cardStyle, padding: "20px 22px" }}>
+                <div style={{ ...cardStyle, padding: "20px 22px", minWidth: 0 }}>
                   <div style={chartTitle}>만족/불만족 비중</div>
                   <div style={{ height: 300, position: "relative" }}>
                     {mounted ? (
