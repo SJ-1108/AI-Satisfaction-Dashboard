@@ -142,7 +142,6 @@ export default function RecordsClient({
   const [histOpen, setHistOpen] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [lastSummary, setLastSummary] = useState<UploadSummary | null>(null);
   const [uploading, setUploading] = useState(false);
   const [detail, setDetail] = useState<Satisfaction | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -214,7 +213,6 @@ export default function RecordsClient({
   }
 
   function showSummaryToast(s: UploadSummary) {
-    setLastSummary(s);
     setToast(
       `적재 완료 — 신규 ${s.inserted_count} · 갱신 ${s.updated_count} · 파일 내 중복 ${s.duplicate_count} · 실패 ${s.failed_count}`,
     );

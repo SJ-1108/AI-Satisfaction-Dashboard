@@ -673,13 +673,7 @@ export default function FeedbackClient({
                       {r.summary_text ?? "-"}
                     </td>
                     <td
-                      style={{
-                        ...td,
-                        color: "#5a616e",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
+                      style={{ ...td, ...cellText, color: "#5a616e" }}
                       title={r.reason ? reasonLabel(r.reason) : undefined}
                     >
                       {r.reason ? reasonLabel(r.reason) : "-"}
@@ -698,36 +692,19 @@ export default function FeedbackClient({
                       />
                     </td>
                     <td
-                      style={{
-                        ...td,
-                        color: "#6b7280",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
+                      style={{ ...td, ...cellText, color: "#6b7280" }}
                       title={r.cause_category ?? undefined}
                     >
                       {r.cause_category ?? "-"}
                     </td>
                     <td
-                      style={{
-                        ...td,
-                        color: "#3a4150",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
+                      style={{ ...td, ...cellText, color: "#3a4150" }}
                       title={r.action ?? undefined}
                     >
                       {r.action || "-"}
                     </td>
                     <td
-                      style={{
-                        ...td,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
+                      style={{ ...td, ...cellText }}
                       title={r.updated_by ?? undefined}
                     >
                       {r.updated_by ?? "-"}
