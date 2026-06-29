@@ -34,9 +34,9 @@ export default function LoginForm() {
     setLoading(true);
 
     // 더미 모드(Supabase 미설정): 인증을 우회하고 바로 대시보드로 이동.
+    // (세션 변경이 없으므로 router.refresh() 불필요 — 중복 렌더 방지)
     if (!isSupabaseConfigured()) {
       router.push("/dashboard");
-      router.refresh();
       return;
     }
 

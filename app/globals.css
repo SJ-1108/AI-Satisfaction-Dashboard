@@ -283,7 +283,7 @@ summary:focus-visible {
 }
 
 .login-card .pw-wrap input {
-  padding-right: 56px; /* 토글 버튼 영역 확보 */
+  padding-right: 66px; /* 토글 버튼 영역 확보 */
 }
 
 .login-card .pw-toggle {
@@ -291,7 +291,7 @@ summary:focus-visible {
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  width: 44px;
+  width: 56px;
   height: 36px;
   display: flex;
   align-items: center;
@@ -302,6 +302,7 @@ summary:focus-visible {
   color: #9aa1ad;
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .login-card .pw-toggle:hover {

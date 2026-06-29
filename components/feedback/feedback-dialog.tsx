@@ -45,8 +45,8 @@ export default function FeedbackDialog({
   }
 
   return (
+    // 배경 클릭으로는 닫지 않는다 (X·취소·저장 버튼으로만 닫힘)
     <div
-      onClick={onClose}
       style={{
         position: "fixed",
         inset: 0,
@@ -59,7 +59,6 @@ export default function FeedbackDialog({
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
           maxWidth: 520,
@@ -82,7 +81,7 @@ export default function FeedbackDialog({
               피드백 입력
             </h2>
             <div style={{ fontSize: 12, color: "#9aa1ad" }}>
-              No. {row.record_no} · 작성자 자동 기록
+              No. {row.record_no}
             </div>
           </div>
           <button

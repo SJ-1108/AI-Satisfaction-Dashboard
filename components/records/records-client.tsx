@@ -19,8 +19,9 @@ import type {
   UploadBatch,
   UploadSummary,
 } from "@/lib/types";
-import { uploadSatisfaction } from "@/app/(app)/records/actions";
+import { uploadSatisfaction, resetData } from "@/app/(app)/records/actions";
 import UploadDialog from "./upload-dialog";
+import RecordDetailDialog from "./record-detail-dialog";
 import Dropdown from "@/components/ui/dropdown";
 import DateRangePicker from "@/components/ui/date-range-picker";
 import Pager from "@/components/ui/pager";
@@ -143,6 +144,9 @@ export default function RecordsClient({
   const [toast, setToast] = useState<string | null>(null);
   const [lastSummary, setLastSummary] = useState<UploadSummary | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [detail, setDetail] = useState<Satisfaction | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const displayNo = useMemo(() => computeDisplayNo(records), [records]);
   const dateRangeInvalid = isDateRangeInvalid(dateFrom, dateTo);
@@ -248,6 +252,25 @@ export default function RecordsClient({
     setPage(1);
   }
 
+  async function onResetData() {
+    setResetting(true);
+    try {
+      const res = await resetData();
+      if (!res.ok) {
+        setToast(`초기화 실패 — ${res.error ?? "알 수 없는 오류"}`);
+        setTimeout(() => setToast(null), 6000);
+        return;
+      }
+      setShowResetConfirm(false);
+      setPage(1);
+      setToast("모든 데이터를 초기화했습니다.");
+      setTimeout(() => setToast(null), 4000);
+      router.refresh();
+    } finally {
+      setResetting(false);
+    }
+  }
+
   const ratingOptions = [
     { label: "전체", value: "all" },
     { label: "👍 만족", value: "up" },
@@ -262,16 +285,44 @@ export default function RecordsClient({
 
   return (
     <div>
-      <h1
+      <div
         style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
           margin: "0 0 28px",
-          fontSize: 22,
-          fontWeight: 700,
-          letterSpacing: "-0.5px",
         }}
       >
-        데이터 조회
-      </h1>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: 22,
+            fontWeight: 700,
+            letterSpacing: "-0.5px",
+          }}
+        >
+          데이터 조회
+        </h1>
+        <button
+          onClick={() => setShowResetConfirm(true)}
+          style={{
+            height: 34,
+            padding: "0 14px",
+            fontSize: 13,
+            fontWeight: 600,
+            fontFamily: "Pretendard, sans-serif",
+            color: "#e0635d",
+            background: "#fff",
+            border: "1px solid #f0c4c1",
+            borderRadius: 9,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          데이터 초기화
+        </button>
+      </div>
 
       {toast && <div className="toast">{toast}</div>}
 
@@ -449,17 +500,18 @@ export default function RecordsClient({
               borderCollapse: "collapse",
               fontSize: 13,
               tableLayout: "fixed",
-              minWidth: 940,
+              minWidth: 1040,
             }}
           >
             <colgroup>
-              <col style={{ width: "6%" }} />
-              <col style={{ width: "15%" }} />
-              <col style={{ width: "9%" }} />
-              <col style={{ width: "20%" }} />
-              <col style={{ width: "30%" }} />
-              <col style={{ width: "12%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "18%" }} />
               <col style={{ width: "8%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "23%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "10%" }} />
             </colgroup>
             <thead>
               <tr style={{ background: "#f7f8fa" }}>
@@ -476,7 +528,7 @@ export default function RecordsClient({
                   style={{ ...th, cursor: "pointer", userSelect: "none" }}
                   onClick={() => toggleSort("created_at")}
                 >
-                  평가시각{" "}
+                  평가일시{" "}
                   <span style={{ color: noSort.color, fontSize: 10 }}>
                     {noSort.arrow}
                   </span>
@@ -486,12 +538,13 @@ export default function RecordsClient({
                 <th style={th}>AI 답변</th>
                 <th style={th}>사유</th>
                 <th style={th}>의견</th>
+                <th style={th}></th>
               </tr>
             </thead>
             <tbody>
               {result.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                  <td colSpan={8} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
                     조건에 맞는 데이터가 없습니다.
                   </td>
                 </tr>
@@ -524,6 +577,26 @@ export default function RecordsClient({
                       title={r.comment ?? undefined}
                     >
                       {r.comment ?? "-"}
+                    </td>
+                    <td style={td}>
+                      <button
+                        onClick={() => setDetail(r)}
+                        style={{
+                          height: 30,
+                          padding: "0 12px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          fontFamily: "Pretendard, sans-serif",
+                          color: "#2f6bff",
+                          background: "#fff",
+                          border: "1px solid #cdddff",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        상세보기
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -565,6 +638,89 @@ export default function RecordsClient({
           onConfirm={onUploadConfirm}
           onClose={() => setShowUpload(false)}
         />
+      )}
+
+      {detail && (
+        <RecordDetailDialog
+          row={detail}
+          no={displayNo.get(detail.id) ?? detail.record_no}
+          onClose={() => setDetail(null)}
+        />
+      )}
+
+      {showResetConfirm && (
+        <div
+          onClick={() => !resetting && setShowResetConfirm(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(16,24,40,.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              background: "#fff",
+              borderRadius: 16,
+              boxShadow: "0 20px 60px rgba(16,24,40,.3)",
+              padding: 28,
+            }}
+          >
+            <h2 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px" }}>
+              데이터 초기화
+            </h2>
+            <p style={{ margin: "0 0 22px", fontSize: 14, lineHeight: 1.6, color: "#5a616e" }}>
+              업로드된 평가·피드백·업로드 이력이 <strong>모두 삭제</strong>됩니다.
+              이 작업은 <strong>되돌릴 수 없습니다.</strong> 계속할까요?
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                disabled={resetting}
+                style={{
+                  height: 42,
+                  padding: "0 18px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: "Pretendard, sans-serif",
+                  color: "#5a616e",
+                  background: "#fff",
+                  border: "1px solid #e2e5ea",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={onResetData}
+                disabled={resetting}
+                style={{
+                  height: 42,
+                  padding: "0 22px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  fontFamily: "Pretendard, sans-serif",
+                  color: "#fff",
+                  background: "#e0635d",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor: resetting ? "not-allowed" : "pointer",
+                  opacity: resetting ? 0.7 : 1,
+                }}
+              >
+                {resetting ? "삭제 중…" : "삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
