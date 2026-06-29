@@ -1,8 +1,11 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { DUMMY_SATISFACTION } from "@/lib/data/dummy-satisfaction";
-import { DUMMY_FEEDBACK } from "@/lib/data/dummy-feedback";
+import {
+  getDummyBatches,
+  getDummyFeedback,
+  getDummySatisfaction,
+} from "@/lib/data/dummy-store";
 import type { Feedback, Satisfaction, UploadBatch } from "@/lib/types";
 
 /**
@@ -19,7 +22,7 @@ export function isDummyMode(): boolean {
 
 /** satisfaction 누적 데이터 로드 (record_no 오름차순) */
 export async function loadSatisfaction(): Promise<Satisfaction[]> {
-  if (isDummyMode()) return DUMMY_SATISFACTION;
+  if (isDummyMode()) return getDummySatisfaction();
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -56,7 +59,7 @@ async function loadActorNameMap(
 
 /** feedback 로드. created_by/updated_by(uuid)를 표시용 이름(없으면 사번)으로 변환 */
 export async function loadFeedback(): Promise<Feedback[]> {
-  if (isDummyMode()) return DUMMY_FEEDBACK;
+  if (isDummyMode()) return getDummyFeedback();
 
   const supabase = await createClient();
   const [{ data, error }, actorMap] = await Promise.all([
@@ -112,7 +115,7 @@ async function loadEmpNoToNameMap(
  * DB 의 upload_batches.uploaded_by 값 자체는 변경하지 않는다.
  */
 export async function loadRecentBatches(limit = 5): Promise<UploadBatch[]> {
-  if (isDummyMode()) return [];
+  if (isDummyMode()) return getDummyBatches().slice(0, limit);
 
   const supabase = await createClient();
   const [{ data, error }, nameMap] = await Promise.all([

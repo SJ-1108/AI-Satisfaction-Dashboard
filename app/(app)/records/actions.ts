@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { emailToEmpNo } from "@/lib/empno";
+import { accumulateDummySatisfaction } from "@/lib/data/dummy-store";
 import type { ParsedSatisfaction, UploadSummary } from "@/lib/types";
 
 /**
@@ -20,8 +21,9 @@ export async function uploadSatisfaction(
   valid: ParsedSatisfaction[],
   meta: { fileName: string; totalRows: number; failedCount: number },
 ): Promise<{ ok: boolean; summary?: UploadSummary; error?: string }> {
+  // 더미(미리보기) 모드: 서버 인메모리 저장소에 누적 (메뉴 이동·새로고침에도 유지)
   if (!isSupabaseConfigured()) {
-    return { ok: false, error: "Supabase 미설정 상태입니다." };
+    return { ok: true, summary: accumulateDummySatisfaction(valid, meta) };
   }
 
   // 업로더 사번 (감사 로그용)

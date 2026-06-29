@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { upsertDummyFeedback } from "@/lib/data/dummy-store";
 import type { FeedbackEdit } from "@/lib/data/feedback-view";
 
 /**
@@ -12,8 +13,10 @@ import type { FeedbackEdit } from "@/lib/data/feedback-view";
 export async function saveFeedback(
   edit: FeedbackEdit,
 ): Promise<{ ok: boolean; error?: string }> {
+  // 더미(미리보기) 모드: 서버 인메모리 저장소에 저장 (메뉴 이동·새로고침에도 유지)
   if (!isSupabaseConfigured()) {
-    return { ok: false, error: "Supabase 미설정 상태입니다." };
+    upsertDummyFeedback(edit);
+    return { ok: true };
   }
 
   const supabase = await createClient();

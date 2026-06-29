@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import type { ParsedSatisfaction, Rating } from "@/lib/types";
 import { makeRecordKey } from "@/lib/ingest/record-key";
+import { cleanText } from "@/lib/ingest/clean-text";
 
 /**
  * 수동 업로드 파싱·자동매핑·검증 (FR-1.2).
@@ -204,11 +205,12 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
     }
 
     const record: ParsedSatisfaction = {
-      query: get(row, "query").trim() || null,
-      summary_text: get(row, "summary_text").trim() || null,
+      // 텍스트 필드는 전처리(+→공백, 태그/엔티티/마커 제거)
+      query: cleanText(get(row, "query")) || null,
+      summary_text: cleanText(get(row, "summary_text")) || null,
       rating: rating!,
-      reason: get(row, "reason").trim() || null,
-      comment: get(row, "comment").trim() || null,
+      reason: get(row, "reason").trim() || null, // 코드값 — 정제 제외
+      comment: cleanText(get(row, "comment")) || null,
       created_at: created_at!,
       record_key: "",
     };

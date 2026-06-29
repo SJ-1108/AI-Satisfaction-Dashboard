@@ -66,7 +66,8 @@ export default async function AppLayout({
         {!configured && (
           <div className="dev-banner">
             미리보기 모드입니다 — 지금 보이는 내용은 실제 데이터가 아닌 예시
-            데이터예요. 새로 입력하거나 업로드한 내용은 새로고침하면 사라집니다.
+            데이터예요. 새로 입력하거나 업로드한 내용은 임시로 누적되며, 서버가
+            재시작되면 초기화됩니다.
           </div>
         )}
         {children}

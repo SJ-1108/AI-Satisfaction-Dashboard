@@ -331,9 +331,21 @@ export default function DashboardClient({
       legend: { display: false },
       tooltip: {
         callbacks: {
+          // 기본 title(범례명 중복) 제거 → 2줄
+          title: () => "",
+          // 색상칩을 테두리 없는 단색으로
+          labelColor: (ctx: TooltipItem<"bar">) => {
+            const bg = ctx.dataset.backgroundColor as string;
+            return {
+              borderColor: bg,
+              backgroundColor: bg,
+              borderWidth: 0,
+              borderRadius: 3,
+            };
+          },
           label: (ctx: TooltipItem<"bar">) => {
             const v = ctx.parsed.x ?? 0;
-            return `${ctx.label}: ${v}건 (${pct(v, reasonTotal)})`;
+            return [`${ctx.label}`, `${v.toLocaleString()}건 (${pct(v, reasonTotal)})`];
           },
         },
       },
@@ -358,7 +370,7 @@ export default function DashboardClient({
   ];
 
   return (
-    <div style={{ maxWidth: 1280 }}>
+    <div>
       {/* 헤더 */}
       <div style={{ marginBottom: 40 }}>
         <h1
