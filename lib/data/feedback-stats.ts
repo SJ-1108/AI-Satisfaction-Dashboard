@@ -16,15 +16,15 @@ export function countByStatus(
 }
 
 export interface CategoryCount {
-  category: string; // 원인분류 (없으면 "(미분류)")
+  category: string; // 원인분류 (없으면 "미분류")
   count: number;
 }
 
-/** 원인분류(cause_category)별 건수, 내림차순. 미입력은 "(미분류)"로 묶음 */
+/** 원인분류(cause_category)별 건수, 내림차순. 미입력은 "미분류"로 묶음 */
 export function countByCauseCategory(rows: FeedbackRow[]): CategoryCount[] {
   const map = new Map<string, number>();
   for (const r of rows) {
-    const key = r.cause_category?.trim() || "(미분류)";
+    const key = r.cause_category?.trim() || "미분류";
     map.set(key, (map.get(key) ?? 0) + 1);
   }
   return Array.from(map.entries())

@@ -57,18 +57,17 @@ export default async function AppLayout({
             {name ? `${name} ` : ""}
             <strong>{empNo}</strong>
           </div>
-          {configured && (
-            <div style={{ marginTop: 8 }}>
-              <SignOutButton />
-            </div>
-          )}
+          <div style={{ marginTop: 12 }}>
+            <SignOutButton />
+          </div>
         </div>
       </aside>
       <main className="main">
         {!configured && (
           <div className="dev-banner">
-            더미 모드 — Supabase 미설정 상태입니다. 인증이 비활성화되어 있으며
-            데이터는 샘플/세션 메모리로만 동작합니다.
+            미리보기 모드입니다 — 지금 보이는 내용은 실제 데이터가 아닌 예시
+            데이터예요. 새로 입력하거나 업로드한 내용은 임시로 누적되며, 서버가
+            재시작되면 초기화됩니다.
           </div>
         )}
         {children}
