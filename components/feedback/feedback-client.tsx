@@ -343,7 +343,7 @@ export default function FeedbackClient({
   ];
 
   return (
-    <div style={{ maxWidth: 1280 }}>
+    <div>
       <h1
         style={{
           margin: "0 0 28px",

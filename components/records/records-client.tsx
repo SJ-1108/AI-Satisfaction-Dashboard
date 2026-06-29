@@ -261,7 +261,7 @@ export default function RecordsClient({
   const noSort = sortArrow("created_at");
 
   return (
-    <div style={{ maxWidth: 1280 }}>
+    <div>
       <h1
         style={{
           margin: "0 0 28px",

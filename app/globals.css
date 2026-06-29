@@ -178,9 +178,10 @@ summary:focus-visible {
 
 .main {
   flex: 1;
+  min-width: 0;
   padding: 36px 40px;
-  max-width: 1240px;
-  /* 고정 사이드바와 겹치지 않도록 본문을 우측으로 밀어준다. */
+  /* 고정 사이드바와 겹치지 않도록 본문을 우측으로 밀어준다.
+     폭 제한 없이 사이드바를 제외한 영역 전체를 사용한다. */
   margin-left: 248px;
 }
 
