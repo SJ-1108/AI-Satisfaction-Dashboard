@@ -54,7 +54,8 @@ export function cleanText(input: string | null | undefined): string {
   s = s.replace(/\{\{[^}]*\}\}/g, " "); // 3) {{...}} 마커
   s = s.replace(/\[[^\]]*\]/g, " "); // 3) [...] 마커
   s = s.replace(/\+/g, " "); // 4) + → 공백
-  s = s.replace(/#/g, " "); // 5) # 마커 제거(내용은 보존)
-  s = s.replace(/\s+/g, " ").trim(); // 6) 공백 정리
+  s = s.replace(/[#*]/g, " "); // 5) #, * 마커 제거(마크다운 **굵게**·* 리스트 등, 내용 보존)
+  s = s.replace(/[\\"]/g, ""); // 6) 역슬래시·이중따옴표 제거
+  s = s.replace(/\s+/g, " ").trim(); // 7) 공백 정리
   return s;
 }

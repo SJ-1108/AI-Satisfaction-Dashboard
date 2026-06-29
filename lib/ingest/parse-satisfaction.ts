@@ -15,12 +15,20 @@ import { cleanText } from "@/lib/ingest/clean-text";
 
 /** 각 DB 컬럼에 매칭될 수 있는 헤더 별칭 (소문자 비교) */
 const FIELD_ALIASES: Record<keyof RawFields, string[]> = {
-  query: ["query", "검색어", "질의"],
-  summary_text: ["summary_text", "summary", "요약", "ai요약", "응답"],
+  query: ["query", "검색어", "질의", "질의어"],
+  summary_text: ["summary_text", "summary", "요약", "ai요약", "응답", "ai답변", "답변"],
   rating: ["rating", "평가", "평가값"],
-  reason: ["reason", "사유", "사유코드"],
+  reason: ["reason", "사유", "사유코드", "평가사유"],
   comment: ["comment", "의견", "코멘트"],
-  created_at: ["created_at", "createdat", "평가시각", "생성시각", "일시", "날짜"],
+  created_at: [
+    "created_at",
+    "createdat",
+    "평가시각",
+    "평가일시",
+    "생성시각",
+    "일시",
+    "날짜",
+  ],
 };
 
 interface RawFields {

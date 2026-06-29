@@ -100,3 +100,11 @@ export function upsertDummyFeedback(edit: FeedbackEdit): void {
   const s = store();
   s.feedback = upsertFeedback(s.feedback, edit, "미리보기", new Date().toISOString());
 }
+
+/** 전체 초기화 — 모든 데이터를 비운다(빈 상태). */
+export function resetDummyStore(): void {
+  const s = store();
+  s.satisfaction = [];
+  s.feedback = [];
+  s.batches = [];
+}

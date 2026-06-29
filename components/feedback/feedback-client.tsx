@@ -65,6 +65,14 @@ const STATUS_COLOR: Record<FeedbackStatus, string> = {
   보류: "#d98a00",
 };
 
+/** 상태별 연한 배경(드롭다운 pill) */
+const STATUS_BG: Record<FeedbackStatus, string> = {
+  미확인: "#eef0f3",
+  검토중: "#eaf1ff",
+  조치완료: "#e3f3ec",
+  보류: "#fbf0db",
+};
+
 // ── 공통 인라인 스타일 ──
 const card: React.CSSProperties = {
   background: "#fff",
@@ -126,6 +134,12 @@ const td: React.CSSProperties = {
   padding: "12px 14px",
   textAlign: "center",
   color: "#3a4150",
+};
+/** 한 줄 노출 후 말줄임 (질의어·AI답변·의견) — 데이터 조회 표와 동일하게 컬럼이 섞여 보이지 않도록 단일 행 처리 */
+const cellText: React.CSSProperties = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
 /**
@@ -192,7 +206,7 @@ export default function FeedbackClient({
         backgroundColor: causeCounts.map(
           (_, i) => CAUSE_COLORS[i % CAUSE_COLORS.length],
         ),
-        borderWidth: 4,
+        borderWidth: 1,
         borderColor: "#fff",
         hoverOffset: 6,
       },
@@ -309,17 +323,15 @@ export default function FeedbackClient({
   function onExport(format: ExportFormat) {
     const flat = filtered.map((r) => ({
       "No.": r.record_no,
-      평가시각: kstDatePart(r.created_at),
+      평가일시: kstDatePart(r.created_at),
       질의어: r.query ?? "",
       "평가 사유": r.reason ? reasonLabel(r.reason) : "",
       의견: r.comment ?? "",
-      상태: r.status,
-      "상세 사유": r.detail_reason ?? "",
+      "처리 상태": r.status,
       "원인 분류": r.cause_category ?? "",
-      "조치 내용": r.action ?? "",
-      메모: r.memo ?? "",
+      "피드백 내용": r.action ?? "",
       담당자: r.updated_by ?? "",
-      수정일시: r.updated_at ? formatKstDateTime(r.updated_at) : "",
+      처리일: r.updated_at ? formatKstDateTime(r.updated_at) : "",
     }));
     exportRows(flat, `feedback_${new Date().toISOString().slice(0, 10)}`, format);
   }
@@ -603,26 +615,42 @@ export default function FeedbackClient({
               width: "100%",
               borderCollapse: "collapse",
               fontSize: 13,
-              minWidth: 1080,
+              tableLayout: "fixed",
+              minWidth: 1360,
             }}
           >
+            <colgroup>
+              <col style={{ width: 50 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 200 }} />
+              <col style={{ width: 240 }} />
+              <col style={{ width: 96 }} />
+              <col style={{ width: 200 }} />
+              <col style={{ width: 116 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 180 }} />
+              <col style={{ width: 84 }} />
+              <col style={{ width: 96 }} />
+            </colgroup>
             <thead>
               <tr style={{ background: "#f7f8fa" }}>
                 <th style={th}>No.</th>
-                <th style={th}>평가시각</th>
+                <th style={th}>평가일시</th>
                 <th style={th}>질의어</th>
+                <th style={th}>AI 답변</th>
                 <th style={th}>평가 사유</th>
                 <th style={th}>의견</th>
-                <th style={th}>상태</th>
+                <th style={th}>처리 상태</th>
                 <th style={th}>원인 분류</th>
-                <th style={th}>담당자</th>
+                <th style={th}>피드백 내용</th>
+                <th style={th}>담당자명</th>
                 <th style={th}></th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                  <td colSpan={11} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
                     조건에 맞는 불만족 건이 없습니다.
                   </td>
                 </tr>
@@ -635,11 +663,27 @@ export default function FeedbackClient({
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {kstDatePart(r.created_at)}
                     </td>
-                    <td style={td}>{r.query ?? "-"}</td>
-                    <td style={{ ...td, color: "#5a616e", whiteSpace: "nowrap" }}>
+                    <td style={{ ...td, ...cellText }} title={r.query ?? undefined}>
+                      {r.query ?? "-"}
+                    </td>
+                    <td
+                      style={{ ...td, ...cellText, color: "#6b7280" }}
+                      title={r.summary_text ?? undefined}
+                    >
+                      {r.summary_text ?? "-"}
+                    </td>
+                    <td
+                      style={{ ...td, ...cellText, color: "#5a616e" }}
+                      title={r.reason ? reasonLabel(r.reason) : undefined}
+                    >
                       {r.reason ? reasonLabel(r.reason) : "-"}
                     </td>
-                    <td style={{ ...td, color: "#9aa1ad" }}>{r.comment || "-"}</td>
+                    <td
+                      style={{ ...td, ...cellText, color: "#9aa1ad" }}
+                      title={r.comment ?? undefined}
+                    >
+                      {r.comment || "-"}
+                    </td>
                     <td style={td}>
                       <StatusSelect
                         value={r.status}
@@ -647,10 +691,22 @@ export default function FeedbackClient({
                         onChange={(s) => onQuickStatus(r, s)}
                       />
                     </td>
-                    <td style={{ ...td, color: "#6b7280", whiteSpace: "nowrap" }}>
+                    <td
+                      style={{ ...td, ...cellText, color: "#6b7280" }}
+                      title={r.cause_category ?? undefined}
+                    >
                       {r.cause_category ?? "-"}
                     </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    <td
+                      style={{ ...td, ...cellText, color: "#3a4150" }}
+                      title={r.action ?? undefined}
+                    >
+                      {r.action || "-"}
+                    </td>
+                    <td
+                      style={{ ...td, ...cellText }}
+                      title={r.updated_by ?? undefined}
+                    >
                       {r.updated_by ?? "-"}
                     </td>
                     <td style={td}>
@@ -729,8 +785,8 @@ function StatusSelect({
           fontSize: 13,
           fontWeight: 600,
           color: STATUS_COLOR[value],
-          background: "#fff",
-          border: `1px solid ${open ? "#2f6bff" : "#e2e5ea"}`,
+          background: STATUS_BG[value],
+          border: `1px solid ${open ? "#2f6bff" : "transparent"}`,
           borderRadius: 10,
           cursor: disabled ? "not-allowed" : "pointer",
           userSelect: "none",

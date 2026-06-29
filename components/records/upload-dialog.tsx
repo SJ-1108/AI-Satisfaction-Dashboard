@@ -9,6 +9,7 @@ import {
 import { reasonLabel } from "@/lib/reasons";
 import { formatKstDateTime } from "@/lib/format-date";
 import type { ParsedSatisfaction } from "@/lib/types";
+import CloseButton from "@/components/ui/close-button";
 
 /**
  * 수동 업로드 모달 (FR-1.2).
@@ -74,13 +75,12 @@ export default function UploadDialog({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal wide" onClick={(e) => e.stopPropagation()}>
+    // 운영상 의도치 않은 닫힘 방지: 배경 클릭으로는 닫지 않는다. (X·취소 버튼으로만)
+    <div className="modal-backdrop">
+      <div className="modal wide">
         <div className="modal-head">
           <h2>데이터 업로드 (CSV / XLSX)</h2>
-          <button className="btn-ghost" onClick={onClose}>
-            닫기
-          </button>
+          <CloseButton onClick={onClose} />
         </div>
 
         <p className="page-desc">
@@ -201,7 +201,7 @@ export default function UploadDialog({
                 disabled={!canConfirm}
                 onClick={confirm}
               >
-                {uploading ? "적재 중…" : `${result.valid.length}건 적재`}
+                {uploading ? "업로드 중…" : `${result.valid.length}건 업로드`}
               </button>
             </div>
           </div>
