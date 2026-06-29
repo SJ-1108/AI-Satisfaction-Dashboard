@@ -135,6 +135,12 @@ const td: React.CSSProperties = {
   textAlign: "center",
   color: "#3a4150",
 };
+/** 한 줄 노출 후 말줄임 (질의어·AI답변·의견) — 데이터 조회 표와 동일하게 컬럼이 섞여 보이지 않도록 단일 행 처리 */
+const cellText: React.CSSProperties = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
 
 /**
  * 메뉴 ③ 불만족 평가 관리 (FR-4) — 누적 데이터 기준.
@@ -317,7 +323,7 @@ export default function FeedbackClient({
   function onExport(format: ExportFormat) {
     const flat = filtered.map((r) => ({
       "No.": r.record_no,
-      평가일자: kstDatePart(r.created_at),
+      평가일시: kstDatePart(r.created_at),
       질의어: r.query ?? "",
       "평가 사유": r.reason ? reasonLabel(r.reason) : "",
       의견: r.comment ?? "",
@@ -609,20 +615,33 @@ export default function FeedbackClient({
               width: "100%",
               borderCollapse: "collapse",
               fontSize: 13,
-              minWidth: 1200,
+              tableLayout: "fixed",
+              minWidth: 1360,
             }}
           >
+            <colgroup>
+              <col style={{ width: 50 }} />
+              <col style={{ width: 200 }} />
+              <col style={{ width: 240 }} />
+              <col style={{ width: 166 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 116 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 180 }} />
+              <col style={{ width: 84 }} />
+              <col style={{ width: 96 }} />
+            </colgroup>
             <thead>
               <tr style={{ background: "#f7f8fa" }}>
                 <th style={th}>No.</th>
-                <th style={th}>평가일자</th>
                 <th style={th}>질의어</th>
-                <th style={th}>평가 사유</th>
+                <th style={th}>AI 답변</th>
                 <th style={th}>의견</th>
-                <th style={th}>처리상태</th>
+                <th style={th}>평가일자</th>
+                <th style={th}>처리 상태</th>
                 <th style={th}>원인 분류</th>
                 <th style={th}>피드백 내용</th>
-                <th style={th}>담당자</th>
+                <th style={th}>담당자명</th>
                 <th style={th}></th>
               </tr>
             </thead>
@@ -639,14 +658,24 @@ export default function FeedbackClient({
                     <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
                       {r.record_no}
                     </td>
+                    <td style={{ ...td, ...cellText }} title={r.query ?? undefined}>
+                      {r.query ?? "-"}
+                    </td>
+                    <td
+                      style={{ ...td, ...cellText, color: "#6b7280" }}
+                      title={r.summary_text ?? undefined}
+                    >
+                      {r.summary_text ?? "-"}
+                    </td>
+                    <td
+                      style={{ ...td, ...cellText, color: "#9aa1ad" }}
+                      title={r.comment ?? undefined}
+                    >
+                      {r.comment || "-"}
+                    </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {kstDatePart(r.created_at)}
                     </td>
-                    <td style={td}>{r.query ?? "-"}</td>
-                    <td style={{ ...td, color: "#5a616e", whiteSpace: "nowrap" }}>
-                      {r.reason ? reasonLabel(r.reason) : "-"}
-                    </td>
-                    <td style={{ ...td, color: "#9aa1ad" }}>{r.comment || "-"}</td>
                     <td style={td}>
                       <StatusSelect
                         value={r.status}
@@ -654,7 +683,16 @@ export default function FeedbackClient({
                         onChange={(s) => onQuickStatus(r, s)}
                       />
                     </td>
-                    <td style={{ ...td, color: "#6b7280", whiteSpace: "nowrap" }}>
+                    <td
+                      style={{
+                        ...td,
+                        color: "#6b7280",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={r.cause_category ?? undefined}
+                    >
                       {r.cause_category ?? "-"}
                     </td>
                     <td
@@ -670,7 +708,15 @@ export default function FeedbackClient({
                     >
                       {r.action || "-"}
                     </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    <td
+                      style={{
+                        ...td,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={r.updated_by ?? undefined}
+                    >
                       {r.updated_by ?? "-"}
                     </td>
                     <td style={td}>

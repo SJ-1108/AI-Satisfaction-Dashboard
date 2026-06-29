@@ -505,12 +505,12 @@ export default function RecordsClient({
           >
             <colgroup>
               <col style={{ width: "5%" }} />
-              <col style={{ width: "18%" }} />
-              <col style={{ width: "8%" }} />
               <col style={{ width: "16%" }} />
               <col style={{ width: "23%" }} />
+              <col style={{ width: "8%" }} />
               <col style={{ width: "10%" }} />
               <col style={{ width: "10%" }} />
+              <col style={{ width: "18%" }} />
               <col style={{ width: "10%" }} />
             </colgroup>
             <thead>
@@ -524,6 +524,11 @@ export default function RecordsClient({
                     {noSort.arrow}
                   </span>
                 </th>
+                <th style={th}>질의어</th>
+                <th style={th}>AI 답변</th>
+                <th style={th}>평가</th>
+                <th style={th}>평가 사유</th>
+                <th style={th}>의견</th>
                 <th
                   style={{ ...th, cursor: "pointer", userSelect: "none" }}
                   onClick={() => toggleSort("created_at")}
@@ -533,11 +538,6 @@ export default function RecordsClient({
                     {noSort.arrow}
                   </span>
                 </th>
-                <th style={th}>평가</th>
-                <th style={th}>질의어</th>
-                <th style={th}>AI 답변</th>
-                <th style={th}>사유</th>
-                <th style={th}>의견</th>
                 <th style={th}></th>
               </tr>
             </thead>
@@ -554,12 +554,6 @@ export default function RecordsClient({
                     <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
                       {displayNo.get(r.id) ?? r.record_no}
                     </td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {formatKstDateTime(r.created_at)}
-                    </td>
-                    <td style={td}>
-                      <RatingBadge rating={r.rating} />
-                    </td>
                     <td style={tdEllipsis} title={r.query ?? undefined}>
                       {r.query ?? "-"}
                     </td>
@@ -569,6 +563,9 @@ export default function RecordsClient({
                     >
                       {r.summary_text ?? "-"}
                     </td>
+                    <td style={td}>
+                      <RatingBadge rating={r.rating} />
+                    </td>
                     <td style={{ ...td, color: r.reason ? "#5a616e" : "#9aa1ad" }}>
                       {r.reason ? reasonLabel(r.reason) : "-"}
                     </td>
@@ -577,6 +574,9 @@ export default function RecordsClient({
                       title={r.comment ?? undefined}
                     >
                       {r.comment ?? "-"}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {formatKstDateTime(r.created_at)}
                     </td>
                     <td style={td}>
                       <button

@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 import { reasonLabel } from "@/lib/reasons";
+import { formatKstDateTime } from "@/lib/format-date";
 import type { FeedbackRow, FeedbackEdit } from "@/lib/data/feedback-view";
 
 /** 원인 분류 프리셋 (단순화 디자인 — 칩 선택) */
 const CAUSE_PRESETS = ["데이터 부족", "오답·사실 오류", "질의 의도 불일치", "기타"];
 
 /**
- * 피드백 편집 모달 (FR-4.2 / FR-4.3) — 디자인 단순화 버전.
- * 원인 분류(칩) + 피드백 내용(조치 내용)만 입력. 진행 상태는 목록에서 인라인 변경한다.
- * 상세사유·메모 등 기존 값은 보존하여 저장한다(데이터 손실 없음).
+ * 피드백 편집 모달 (FR-4.2 / FR-4.3) — 단순화 버전.
+ * 원본(질의어·AI 답변·평가 사유·의견)은 읽기 전용, 원인 분류(칩) + 피드백 내용(조치)만 입력.
+ * 진행 상태는 목록에서 인라인 변경. 상세사유·메모 등 기존 값은 보존하여 저장.
  */
 export default function FeedbackDialog({
   row,
@@ -32,6 +33,9 @@ export default function FeedbackDialog({
   const causeChips = Array.from(
     new Set([...CAUSE_PRESETS, ...(row.cause_category ? [row.cause_category] : [])]),
   );
+
+  const author = row.hasFeedback ? row.updated_by ?? currentUserName : currentUserName;
+  const savedAt = row.updated_at ? formatKstDateTime(row.updated_at) : null;
 
   function submit() {
     onSave({
@@ -62,27 +66,31 @@ export default function FeedbackDialog({
         style={{
           width: "100%",
           maxWidth: 520,
+          height: 900,
+          maxHeight: "90vh",
           background: "#fff",
           borderRadius: 16,
           boxShadow: "0 20px 60px rgba(16,24,40,.3)",
           padding: 28,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
+        {/* 헤더 */}
         <div
           style={{
+            flexShrink: 0,
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "space-between",
-            marginBottom: 18,
+            marginBottom: 16,
           }}
         >
           <div>
             <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px" }}>
               피드백 입력
             </h2>
-            <div style={{ fontSize: 12, color: "#9aa1ad" }}>
-              No. {row.record_no}
-            </div>
+            <div style={{ fontSize: 12, color: "#9aa1ad" }}>No. {row.record_no}</div>
           </div>
           <button
             onClick={onClose}
@@ -105,22 +113,23 @@ export default function FeedbackDialog({
           </button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* 질의어 + 평가 사유 (읽기 전용) */}
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1, padding: "12px 14px", background: "#f7f8fa", borderRadius: 10 }}>
-              <div style={{ fontSize: 11, color: "#9aa1ad", marginBottom: 4 }}>질의어</div>
-              <div style={{ fontSize: 13, color: "#3a4150", wordBreak: "break-all" }}>
-                {row.query ?? "-"}
-              </div>
-            </div>
-            <div style={{ width: 150, padding: "12px 14px", background: "#f7f8fa", borderRadius: 10 }}>
-              <div style={{ fontSize: 11, color: "#9aa1ad", marginBottom: 4 }}>평가 사유</div>
-              <div style={{ fontSize: 13, color: "#3a4150" }}>
-                {row.reason ? reasonLabel(row.reason) : "-"}
-              </div>
-            </div>
-          </div>
+        {/* 본문 (스크롤) */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          {/* 읽기 전용 원본 */}
+          <ReadField label="질의어">{row.query ?? "-"}</ReadField>
+          <ReadField label="AI 답변">{row.summary_text ?? "-"}</ReadField>
+          <ReadField label="평가 사유">
+            {row.reason ? reasonLabel(row.reason) : "-"}
+          </ReadField>
+          <ReadField label="의견">{row.comment ?? "-"}</ReadField>
 
           {/* 원인 분류 (칩) */}
           <div>
@@ -166,7 +175,7 @@ export default function FeedbackDialog({
               onChange={(e) => setContent(e.target.value)}
               style={{
                 width: "100%",
-                height: 110,
+                height: 140,
                 padding: "12px 14px",
                 fontSize: 13,
                 fontFamily: "Pretendard, sans-serif",
@@ -180,15 +189,18 @@ export default function FeedbackDialog({
             />
           </div>
 
-          {/* 작성자 */}
+          {/* 작성자 + 최근 저장일시 */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#6b7280" }}>
             <span style={{ fontWeight: 600, color: "#3a4150" }}>작성자</span>
-            <span>{currentUserName}</span>
-            <span style={{ fontSize: 12, color: "#9aa1ad" }}>(자동 기록)</span>
+            <span>{author}</span>
+            <span style={{ fontSize: 12, color: "#9aa1ad" }}>
+              {savedAt ? `· 최근 저장 ${savedAt}` : "· 저장 이력 없음"}
+            </span>
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
+        {/* 하단 버튼 */}
+        <div style={{ flexShrink: 0, display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
           <button
             onClick={onClose}
             disabled={saving}
@@ -227,6 +239,26 @@ export default function FeedbackDialog({
             {saving ? "저장 중…" : "저장"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** 읽기 전용 필드 박스 (라벨 + 내용, 줄바꿈 허용) */
+function ReadField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ padding: "12px 14px", background: "#f7f8fa", borderRadius: 10 }}>
+      <div style={{ fontSize: 11, color: "#9aa1ad", marginBottom: 4 }}>{label}</div>
+      <div
+        style={{
+          fontSize: 13,
+          color: "#3a4150",
+          lineHeight: 1.6,
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+        }}
+      >
+        {children}
       </div>
     </div>
   );

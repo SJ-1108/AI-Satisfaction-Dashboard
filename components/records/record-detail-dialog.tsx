@@ -99,7 +99,7 @@ export default function RecordDetailDialog({
               {up ? "👍 up" : "👎 down"}
             </span>
           </Field>
-          <Field label="사유">{row.reason ? reasonLabel(row.reason) : "-"}</Field>
+          <Field label="평가 사유">{row.reason ? reasonLabel(row.reason) : "-"}</Field>
           <Field label="의견">{row.comment ?? "-"}</Field>
         </div>
       </div>
