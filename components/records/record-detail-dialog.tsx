@@ -37,15 +37,18 @@ export default function RecordDetailDialog({
           width: "100%",
           maxWidth: 560,
           maxHeight: "85vh",
-          overflowY: "auto",
           background: "#fff",
           borderRadius: 16,
           boxShadow: "0 20px 60px rgba(16,24,40,.3)",
           padding: 28,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
+        {/* 헤더 (스크롤 시 고정) */}
         <div
           style={{
+            flexShrink: 0,
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "space-between",
@@ -63,7 +66,16 @@ export default function RecordDetailDialog({
           <CloseButton onClick={onClose} />
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* 본문 (스크롤) */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
           <ReadField label="질의어">{row.query ?? "-"}</ReadField>
           <ReadField label="AI 답변">{row.summary_text ?? "-"}</ReadField>
           <ReadField label="평가">

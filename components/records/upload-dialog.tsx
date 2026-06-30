@@ -70,7 +70,7 @@ export default function UploadDialog({
     onConfirm(result.valid, {
       fileName: fileName || "upload",
       totalRows: result.totalRows,
-      failedCount: result.errors.length,
+      failedCount: result.failedCount,
     });
   }
 
@@ -109,7 +109,7 @@ export default function UploadDialog({
             <div className="counts">
               <span>총 {result.totalRows}행</span>
               <span className="ok">유효 {result.valid.length}</span>
-              <span className="bad">오류 {result.errors.length}</span>
+              <span className="bad">오류 {result.failedCount}</span>
               <span>파일 내 중복 {result.duplicateInFile}</span>
             </div>
 
@@ -131,10 +131,10 @@ export default function UploadDialog({
             </details>
 
             {/* 오류 목록 */}
-            {result.errors.length > 0 && (
+            {result.failedCount > 0 && (
               <details>
                 <summary className="bad">
-                  오류 {result.errors.length}건 (해당 행은 적재 제외)
+                  오류 {result.failedCount}건 (해당 행은 적재 제외)
                 </summary>
                 <ul className="error-list">
                   {result.errors.slice(0, 20).map((e) => (
@@ -142,7 +142,7 @@ export default function UploadDialog({
                       {e.row}행: {e.message}
                     </li>
                   ))}
-                  {result.errors.length > 20 && <li>… 외 다수</li>}
+                  {result.failedCount > result.errors.length && <li>… 외 다수</li>}
                 </ul>
               </details>
             )}

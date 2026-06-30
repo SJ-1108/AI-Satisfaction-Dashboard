@@ -15,13 +15,19 @@ import { formatKstDateTime, isDateRangeInvalid } from "@/lib/format-date";
 import type {
   ParsedSatisfaction,
   Rating,
+  ResetLog,
   Satisfaction,
   UploadBatch,
   UploadSummary,
 } from "@/lib/types";
-import { uploadSatisfaction, resetData } from "@/app/(app)/records/actions";
+import {
+  appendSatisfactionRows,
+  finishUpload,
+  resetData,
+} from "@/app/(app)/records/actions";
 import UploadDialog from "./upload-dialog";
 import RecordDetailDialog from "./record-detail-dialog";
+import CloseButton from "@/components/ui/close-button";
 import Dropdown from "@/components/ui/dropdown";
 import DateRangePicker from "@/components/ui/date-range-picker";
 import Pager from "@/components/ui/pager";
@@ -108,6 +114,14 @@ const tdEllipsis: React.CSSProperties = {
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
 };
+/** 스크롤 시 상단 고정되는 표 헤더 (배경을 줘 행이 비치지 않게) */
+const stickyTh: React.CSSProperties = {
+  ...th,
+  position: "sticky",
+  top: 0,
+  background: "#f7f8fa",
+  zIndex: 1,
+};
 
 /**
  * 메뉴 ② 데이터 조회 (FR-3) — 누적 데이터 기준.
@@ -116,18 +130,22 @@ const tdEllipsis: React.CSSProperties = {
 export default function RecordsClient({
   initialRecords,
   initialBatches,
+  initialResetLogs,
   dbMode,
 }: {
   initialRecords: Satisfaction[];
   initialBatches: UploadBatch[];
+  initialResetLogs: ResetLog[];
   dbMode: boolean;
 }) {
   const router = useRouter();
   const [records, setRecords] = useState<Satisfaction[]>(initialRecords);
   const [batches, setBatches] = useState<UploadBatch[]>(initialBatches);
+  const [resetLogs, setResetLogs] = useState<ResetLog[]>(initialResetLogs);
 
   useEffect(() => setRecords(initialRecords), [initialRecords]);
   useEffect(() => setBatches(initialBatches), [initialBatches]);
+  useEffect(() => setResetLogs(initialResetLogs), [initialResetLogs]);
 
   const [search, setSearch] = useState("");
   const [rating, setRating] = useState<Rating | "all">("all");
@@ -145,6 +163,7 @@ export default function RecordsClient({
   const [uploading, setUploading] = useState(false);
   const [detail, setDetail] = useState<Satisfaction | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showResetHistory, setShowResetHistory] = useState(false);
   const [resetting, setResetting] = useState(false);
 
   const displayNo = useMemo(() => computeDisplayNo(records), [records]);
@@ -225,17 +244,41 @@ export default function RecordsClient({
   ) {
     setUploading(true);
     try {
-      // 더미/실제 모드 모두 서버 액션으로 누적 적재 → 새로고침으로 모든 메뉴에 반영
-      const res = await uploadSatisfaction(valid, meta);
-      if (!res.ok || !res.summary) {
-        setToast(`업로드 실패 — ${res.error ?? "알 수 없는 오류"}`);
+      // record_key 기준 파일 내 중복 제거 후, 청크로 나눠 순차 전송한다.
+      // (대용량 valid 를 단일 서버 액션 페이로드로 보내면 전송이 막히므로 분할)
+      const byKey = new Map<string, ParsedSatisfaction>();
+      for (const r of valid) byKey.set(r.record_key, r);
+      const unique = Array.from(byKey.values());
+      const duplicate = valid.length - unique.length;
+
+      const CHUNK = 1000;
+      let inserted = 0;
+      let updated = 0;
+      for (let i = 0; i < unique.length; i += CHUNK) {
+        const res = await appendSatisfactionRows(unique.slice(i, i + CHUNK));
+        if (!res.ok) {
+          setToast(`업로드 실패 — ${res.error ?? "알 수 없는 오류"}`);
+          setTimeout(() => setToast(null), 6000);
+          return;
+        }
+        inserted += res.inserted ?? 0;
+        updated += res.updated ?? 0;
+        setToast(`업로드 중… ${Math.min(i + CHUNK, unique.length)}/${unique.length}`);
+      }
+
+      const fin = await finishUpload(meta, { inserted, updated, duplicate });
+      if (!fin.ok || !fin.summary) {
+        setToast(`업로드 실패 — ${fin.error ?? "알 수 없는 오류"}`);
         setTimeout(() => setToast(null), 6000);
         return;
       }
       setShowUpload(false);
       setPage(1);
-      showSummaryToast(res.summary);
+      showSummaryToast(fin.summary);
       router.refresh();
+    } catch (e) {
+      setToast(`업로드 실패 — ${e instanceof Error ? e.message : "알 수 없는 오류"}`);
+      setTimeout(() => setToast(null), 6000);
     } finally {
       setUploading(false);
     }
@@ -302,24 +345,61 @@ export default function RecordsClient({
         >
           데이터 조회
         </h1>
-        <button
-          onClick={() => setShowResetConfirm(true)}
-          style={{
-            height: 34,
-            padding: "0 14px",
-            fontSize: 13,
-            fontWeight: 600,
-            fontFamily: "Pretendard, sans-serif",
-            color: "#e0635d",
-            background: "#fff",
-            border: "1px solid #f0c4c1",
-            borderRadius: 9,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          데이터 초기화
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            aria-label="데이터 초기화 이력"
+            title="데이터 초기화 이력"
+            onClick={() => setShowResetHistory(true)}
+            style={{
+              width: 30,
+              height: 30,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#3a4150",
+              background: "transparent",
+              border: "none",
+              borderRadius: 9,
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+          </button>
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            style={{
+              height: 34,
+              padding: "0 14px",
+              fontSize: 13,
+              fontWeight: 600,
+              fontFamily: "Pretendard, sans-serif",
+              color: "#e0635d",
+              background: "#fff",
+              border: "1px solid #f0c4c1",
+              borderRadius: 9,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            데이터 초기화
+          </button>
+        </div>
       </div>
 
       {toast && <div className="toast">{toast}</div>}
@@ -698,6 +778,96 @@ export default function RecordsClient({
               >
                 {resetting ? "삭제 중…" : "삭제"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showResetHistory && (
+        <div
+          onClick={() => setShowResetHistory(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(16,24,40,.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 620,
+              maxHeight: "80vh",
+              background: "#fff",
+              borderRadius: 16,
+              boxShadow: "0 20px 60px rgba(16,24,40,.3)",
+              padding: 28,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px" }}>
+                데이터 초기화 이력
+              </h2>
+              <CloseButton onClick={() => setShowResetHistory(false)} />
+            </div>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#8a909c" }}>
+              데이터 초기화 이력을 최신순으로 확인할 수 있습니다.
+            </p>
+
+            <div style={{ flex: 1, overflowY: "auto" }}>
+              {resetLogs.length === 0 ? (
+                <p style={{ margin: 0, padding: "28px 0", textAlign: "center", color: "#9aa1ad", fontSize: 13 }}>
+                  초기화 이력이 없습니다.
+                </p>
+              ) : (
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: 13,
+                  }}
+                >
+                  <thead>
+                    <tr style={{ background: "#f7f8fa" }}>
+                      <th style={stickyTh}>No.</th>
+                      <th style={stickyTh}>초기화 일시</th>
+                      <th style={stickyTh}>이름</th>
+                      <th style={stickyTh}>삭제 데이터 건수</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resetLogs.slice(0, 20).map((log, i) => (
+                      <tr key={log.id} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                        <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
+                          {i + 1}
+                        </td>
+                        <td style={{ ...td, whiteSpace: "nowrap" }}>
+                          {formatKstDateTime(log.reset_at)}
+                        </td>
+                        <td style={td}>{log.reset_by ?? "-"}</td>
+                        <td style={td}>
+                          {log.satisfaction_count.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>

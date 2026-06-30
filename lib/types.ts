@@ -91,6 +91,17 @@ export interface UploadBatch {
   error_message: string | null;
 }
 
+/** reset_logs: 데이터 초기화 이력 (감사 로그) */
+export interface ResetLog {
+  id: string;
+  /** 표시용 사번 (DB 저장은 사번, 로드 시 이름으로 변환) */
+  reset_by: string | null;
+  reset_at: string;
+  satisfaction_count: number;
+  feedback_count: number;
+  batch_count: number;
+}
+
 /** 업로드 처리 결과 요약 (화면 표시용) */
 export interface UploadSummary {
   file_name: string;

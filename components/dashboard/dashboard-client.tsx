@@ -23,6 +23,7 @@ import {
   computeTrend,
   dataDateRange,
   filterByDate,
+  formatBucketLabel,
   type Granularity,
 } from "@/lib/data/dashboard-stats";
 import { isDateRangeInvalid, kstDatePart } from "@/lib/format-date";
@@ -194,8 +195,8 @@ export default function DashboardClient({
   );
   const reasons = useMemo(() => computeReasonBreakdown(filtered), [filtered]);
   const daily = useMemo(
-    () => computeDailyFeedbackStatus(filtered, feedback),
-    [filtered, feedback],
+    () => computeDailyFeedbackStatus(filtered, feedback, granularity),
+    [filtered, feedback, granularity],
   );
 
   const hasRecords = records.length > 0; // 업로드 데이터 존재 여부
@@ -204,7 +205,7 @@ export default function DashboardClient({
 
   // ── 추이 (line) ──
   const trendData = {
-    labels: trend.map((t) => t.label),
+    labels: trend.map((t) => formatBucketLabel(t.label, granularity)),
     datasets: [
       {
         label: "만족 👍",
@@ -299,7 +300,7 @@ export default function DashboardClient({
 
   // ── 일자별 상태 누적 막대 ──
   const dailyData = {
-    labels: daily.map((d) => d.date),
+    labels: daily.map((d) => formatBucketLabel(d.date, granularity)),
     datasets: FEEDBACK_STATUSES.map((s) => ({
       label: s,
       data: daily.map((d) => d.status[s]),
@@ -546,16 +547,24 @@ export default function DashboardClient({
             </div>
           ) : (
             <>
-              {/* 추이 / 비중 */}
+              {/* 추이 / 비중 — 상단 KPI 4열 그리드와 폭을 정렬
+                  (추이=총평가수+만족+불만족 3열, 비중=만족률 1열) */}
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "700px 1fr",
+                  gridTemplateColumns: "repeat(4, 1fr)",
                   gap: 16,
                   marginBottom: 24,
                 }}
               >
-                <div style={{ ...cardStyle, padding: "20px 22px", minWidth: 0 }}>
+                <div
+                  style={{
+                    ...cardStyle,
+                    padding: "20px 22px",
+                    minWidth: 0,
+                    gridColumn: "span 3",
+                  }}
+                >
                   <div style={chartTitle}>만족도 평가 추이</div>
                   <div style={{ height: 300, position: "relative" }}>
                     {mounted ? (
@@ -566,7 +575,14 @@ export default function DashboardClient({
                   </div>
                 </div>
 
-                <div style={{ ...cardStyle, padding: "20px 22px", minWidth: 0 }}>
+                <div
+                  style={{
+                    ...cardStyle,
+                    padding: "20px 22px",
+                    minWidth: 0,
+                    gridColumn: "span 1",
+                  }}
+                >
                   <div style={chartTitle}>만족/불만족 비중</div>
                   <div style={{ height: 300, position: "relative" }}>
                     {mounted ? (
@@ -578,9 +594,9 @@ export default function DashboardClient({
                 </div>
               </div>
 
-              {/* 4) 일자별 불만족 평가 처리 현황 */}
+              {/* 4) 불만족 평가 처리 현황 */}
               <div style={{ ...cardStyle, padding: "22px 24px", marginBottom: 24 }}>
-                <div style={chartTitle}>일자별 불만족 평가 처리 현황</div>
+                <div style={chartTitle}>불만족 평가 처리 현황</div>
                 {daily.length === 0 ? (
                   <p style={{ color: "#8a909c" }}>데이터가 없습니다.</p>
                 ) : (
@@ -609,7 +625,9 @@ export default function DashboardClient({
                       >
                         <thead>
                           <tr style={{ background: "#f7f8fa" }}>
-                            <th style={th}>날짜</th>
+                            <th style={th}>
+                              {granularity === "day" ? "날짜" : "기간"}
+                            </th>
                             <th style={th}>총 평가</th>
                             <th style={th}>불만족</th>
                             <th style={th}>불만족률</th>
@@ -635,7 +653,7 @@ export default function DashboardClient({
                                   textAlign: "center",
                                 }}
                               >
-                                {d.date}
+                                {formatBucketLabel(d.date, granularity)}
                               </td>
                               <td style={{ ...td, color: "#3a4150" }}>{d.total}</td>
                               <td
