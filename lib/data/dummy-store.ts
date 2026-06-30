@@ -6,6 +6,7 @@ import { upsertFeedback, type FeedbackEdit } from "@/lib/data/feedback-view";
 import type {
   Feedback,
   ParsedSatisfaction,
+  ResetLog,
   Satisfaction,
   UploadBatch,
   UploadSummary,
@@ -25,6 +26,7 @@ interface Store {
   satisfaction: Satisfaction[];
   feedback: Feedback[];
   batches: UploadBatch[];
+  resetLogs: ResetLog[];
 }
 
 const g = globalThis as unknown as { __dummyStore?: Store };
@@ -35,6 +37,7 @@ function store(): Store {
       satisfaction: DUMMY_SATISFACTION.map((r) => ({ ...r })),
       feedback: DUMMY_FEEDBACK.map((r) => ({ ...r })),
       batches: [],
+      resetLogs: [],
     };
   }
   return g.__dummyStore;
@@ -52,32 +55,46 @@ export function getDummyBatches(): UploadBatch[] {
   return store().batches;
 }
 
-/** 업로드 누적 (DB 모드 upsert 와 동일 규칙의 순수 함수 재사용) */
-export function accumulateDummySatisfaction(
-  valid: ParsedSatisfaction[],
-  meta: { fileName: string; totalRows: number; failedCount: number },
-): UploadSummary {
+export function getDummyResetLogs(): ResetLog[] {
+  return store().resetLogs;
+}
+
+/**
+ * 업로드 청크 누적 (배치 기록 없음).
+ * 클라이언트가 valid 를 청크로 나눠 호출 → 큰 단일 페이로드 전송이 막히는 문제 회피.
+ */
+export function appendDummyRows(valid: ParsedSatisfaction[]): {
+  inserted: number;
+  updated: number;
+} {
   const s = store();
-  const batchId = crypto.randomUUID();
-  const { merged, inserted, updated, duplicate } = accumulateSatisfaction(
+  const { merged, inserted, updated } = accumulateSatisfaction(
     s.satisfaction,
     valid,
-    batchId,
+    null,
   );
   s.satisfaction = merged;
+  return { inserted, updated };
+}
 
+/** 업로드 1건 이력(batch) 기록 — 청크 누적이 끝난 뒤 1회 호출. */
+export function recordDummyBatch(
+  meta: { fileName: string; totalRows: number; failedCount: number },
+  totals: { inserted: number; updated: number; duplicate: number },
+): UploadSummary {
+  const s = store();
   const now = new Date().toISOString();
   s.batches = [
     {
-      id: batchId,
+      id: crypto.randomUUID(),
       file_name: meta.fileName,
       uploaded_by: "미리보기",
       uploaded_at: now,
       row_count: meta.totalRows,
-      inserted_count: inserted,
-      updated_count: updated,
+      inserted_count: totals.inserted,
+      updated_count: totals.updated,
       failed_count: meta.failedCount,
-      duplicate_count: duplicate,
+      duplicate_count: totals.duplicate,
       status: "completed",
       error_message: null,
     },
@@ -88,10 +105,10 @@ export function accumulateDummySatisfaction(
     file_name: meta.fileName,
     uploaded_at: now,
     row_count: meta.totalRows,
-    inserted_count: inserted,
-    updated_count: updated,
+    inserted_count: totals.inserted,
+    updated_count: totals.updated,
     failed_count: meta.failedCount,
-    duplicate_count: duplicate,
+    duplicate_count: totals.duplicate,
   };
 }
 
@@ -101,10 +118,22 @@ export function upsertDummyFeedback(edit: FeedbackEdit): void {
   s.feedback = upsertFeedback(s.feedback, edit, "미리보기", new Date().toISOString());
 }
 
-/** 전체 초기화 — 모든 데이터를 비운다(빈 상태). */
+/**
+ * 전체 초기화 — 평가/피드백/업로드 이력을 비운다(빈 상태).
+ * 초기화 이력(resetLogs)은 보존하고, 삭제 건수를 기록한 로그를 추가한다.
+ */
 export function resetDummyStore(): void {
   const s = store();
+  const log: ResetLog = {
+    id: crypto.randomUUID(),
+    reset_by: "미리보기",
+    reset_at: new Date().toISOString(),
+    satisfaction_count: s.satisfaction.length,
+    feedback_count: s.feedback.length,
+    batch_count: s.batches.length,
+  };
   s.satisfaction = [];
   s.feedback = [];
   s.batches = [];
+  s.resetLogs = [log, ...s.resetLogs];
 }
