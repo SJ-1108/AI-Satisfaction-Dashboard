@@ -160,7 +160,7 @@ export interface DailyFeedbackStatusRow {
   down: number; // 해당 버킷 불만족(rating=down) 건수
   downRate: number; // 불만족률(%) = down/total*100
   status: Record<FeedbackStatus, number>; // 불만족 건의 상태별 카운트(없으면 미확인)
-  handledRate: number | null; // 처리완료율(%) = 조치완료/down*100, down=0이면 null
+  handledRate: number | null; // 처리완료율(%) = 처리완료/down*100, down=0이면 null
 }
 
 function emptyStatusCounts(): Record<FeedbackStatus, number> {
@@ -212,7 +212,7 @@ export function computeDailyFeedbackStatus(
     row.handledRate =
       row.down === 0
         ? null
-        : Math.round((row.status["조치완료"] / row.down) * 1000) / 10;
+        : Math.round((row.status["처리완료"] / row.down) * 1000) / 10;
   }
 
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));

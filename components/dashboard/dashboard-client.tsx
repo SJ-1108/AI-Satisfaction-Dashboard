@@ -54,7 +54,7 @@ const DISSAT = "#e0635d"; // 불만족 (KPI/표 강조)
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
   미확인: "#d5d9e0",
   검토중: "#7c83f5",
-  조치완료: "#10b981",
+  처리완료: "#10b981",
   보류: "#f5b73d",
 };
 
@@ -633,7 +633,7 @@ export default function DashboardClient({
                             <th style={th}>불만족률</th>
                             <th style={th}>미확인</th>
                             <th style={th}>검토중</th>
-                            <th style={th}>조치완료</th>
+                            <th style={th}>처리완료</th>
                             <th style={th}>보류</th>
                             <th style={th}>처리완료율</th>
                           </tr>
@@ -670,7 +670,7 @@ export default function DashboardClient({
                                 {d.status["미확인"]}
                               </td>
                               <td style={td}>{d.status["검토중"]}</td>
-                              <td style={td}>{d.status["조치완료"]}</td>
+                              <td style={td}>{d.status["처리완료"]}</td>
                               <td style={td}>{d.status["보류"]}</td>
                               <td style={td}>
                                 {d.handledRate === null

@@ -61,7 +61,7 @@ const CAUSE_COLORS = [
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
   미확인: "#6b7280",
   검토중: "#2f6bff",
-  조치완료: "#1f9d6a",
+  처리완료: "#1f9d6a",
   보류: "#d98a00",
 };
 
@@ -69,7 +69,7 @@ const STATUS_COLOR: Record<FeedbackStatus, string> = {
 const STATUS_BG: Record<FeedbackStatus, string> = {
   미확인: "#eef0f3",
   검토중: "#eaf1ff",
-  조치완료: "#e3f3ec",
+  처리완료: "#e3f3ec",
   보류: "#fbf0db",
 };
 
