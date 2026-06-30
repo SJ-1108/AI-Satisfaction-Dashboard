@@ -1,14 +1,19 @@
 "use server";
 
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { emailToEmpNo } from "@/lib/empno";
+import { CACHE_TAGS } from "@/lib/data/source";
 import {
   accumulateDummySatisfaction,
   resetDummyStore,
 } from "@/lib/data/dummy-store";
 import type { ParsedSatisfaction, UploadSummary } from "@/lib/types";
+
+/** 대용량 업로드 시 DB 요청을 나누는 청크 크기 (URL 길이·페이로드·타임아웃 한도 회피) */
+const DB_CHUNK_SIZE = 500;
 
 /**
  * 엑셀 업로드 누적 적재 (DB 모드, FR-1.2 / FR-1.3).
@@ -53,17 +58,19 @@ export async function uploadSatisfaction(
   const duplicateCount = valid.length - unique.length;
 
   // 2) 기존 record_key 조회 → insert/update 분류 카운트
+  //    대용량: .in() 키가 많으면 요청 URL 길이 한도를 넘으므로 청크로 나눠 조회한다.
   const keys = unique.map((r) => r.record_key);
-  let existingKeys = new Set<string>();
-  if (keys.length > 0) {
+  const existingKeys = new Set<string>();
+  for (let i = 0; i < keys.length; i += DB_CHUNK_SIZE) {
+    const slice = keys.slice(i, i + DB_CHUNK_SIZE);
     const { data: existing, error: exErr } = await admin
       .from("satisfaction")
       .select("record_key")
-      .in("record_key", keys);
+      .in("record_key", slice);
     if (exErr) {
       return { ok: false, error: `기존 데이터 조회 실패: ${exErr.message}` };
     }
-    existingKeys = new Set((existing ?? []).map((e) => e.record_key as string));
+    for (const e of existing ?? []) existingKeys.add(e.record_key as string);
   }
   const insertedCount = unique.filter((r) => !existingKeys.has(r.record_key)).length;
   const updatedCount = unique.length - insertedCount;
@@ -97,16 +104,20 @@ export async function uploadSatisfaction(
     upload_batch_id: batch.id,
   }));
 
-  const { error: upErr } = await admin
-    .from("satisfaction")
-    .upsert(rows, { onConflict: "record_key" });
+  // 대용량: 단일 upsert 는 페이로드/타임아웃 한도를 넘을 수 있어 청크로 나눠 적재한다.
+  for (let i = 0; i < rows.length; i += DB_CHUNK_SIZE) {
+    const slice = rows.slice(i, i + DB_CHUNK_SIZE);
+    const { error: upErr } = await admin
+      .from("satisfaction")
+      .upsert(slice, { onConflict: "record_key" });
 
-  if (upErr) {
-    await admin
-      .from("upload_batches")
-      .update({ status: "failed", error_message: upErr.message })
-      .eq("id", batch.id);
-    return { ok: false, error: `적재 실패: ${upErr.message}` };
+    if (upErr) {
+      await admin
+        .from("upload_batches")
+        .update({ status: "failed", error_message: upErr.message })
+        .eq("id", batch.id);
+      return { ok: false, error: `적재 실패: ${upErr.message}` };
+    }
   }
 
   // 5) 배치 완료 카운트 업데이트
@@ -118,6 +129,10 @@ export async function uploadSatisfaction(
       status: "completed",
     })
     .eq("id", batch.id);
+
+  // 누적 데이터·업로드 이력 캐시 무효화 → 모든 메뉴에 즉시 반영
+  revalidateTag(CACHE_TAGS.satisfaction);
+  revalidateTag(CACHE_TAGS.batches);
 
   return {
     ok: true,
@@ -135,9 +150,9 @@ export async function uploadSatisfaction(
 
 /**
  * 전체 데이터 초기화 (되돌릴 수 없음).
- * - 더미 모드: 인메모리 저장소 비우기
- * - 실제 DB: feedback → satisfaction → upload_batches 순으로 전체 삭제 (FK 제약 고려).
- *   삭제는 RLS 우회가 필요하므로 service-role 사용.
+ * - 더미 모드: 인메모리 저장소 비우기 (+ 초기화 이력 기록)
+ * - 실제 DB: 삭제 건수 집계 → feedback → satisfaction → upload_batches 순 전체 삭제
+ *   (FK 제약 고려) → reset_logs 에 이력 기록. 삭제/기록은 service-role 사용.
  */
 export async function resetData(): Promise<{ ok: boolean; error?: string }> {
   if (!isSupabaseConfigured()) {
@@ -145,7 +160,30 @@ export async function resetData(): Promise<{ ok: boolean; error?: string }> {
     return { ok: true };
   }
 
+  // 초기화한 사람(사번) — 감사 로그용
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let resetBy = user ? emailToEmpNo(user.email ?? "") : null;
+  if (user) {
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("emp_no")
+      .eq("id", user.id)
+      .single();
+    if (prof?.emp_no) resetBy = prof.emp_no;
+  }
+
   const admin = createAdminClient();
+
+  // 삭제 전 건수 집계 (이력 기록용, head:true 로 데이터 없이 count 만)
+  const [satCount, fbCount, batchCount] = await Promise.all([
+    admin.from("satisfaction").select("*", { count: "exact", head: true }),
+    admin.from("feedback").select("*", { count: "exact", head: true }),
+    admin.from("upload_batches").select("*", { count: "exact", head: true }),
+  ]);
+
   // id IS NOT NULL 조건으로 전체 행 삭제 (Supabase 는 delete 시 필터 요구)
   const fb = await admin.from("feedback").delete().not("id", "is", null);
   if (fb.error) return { ok: false, error: `피드백 삭제 실패: ${fb.error.message}` };
@@ -156,6 +194,20 @@ export async function resetData(): Promise<{ ok: boolean; error?: string }> {
   const batch = await admin.from("upload_batches").delete().not("id", "is", null);
   if (batch.error)
     return { ok: false, error: `업로드 이력 삭제 실패: ${batch.error.message}` };
+
+  // 초기화 이력 기록 (reset_logs 는 초기화로 지워지지 않음)
+  await admin.from("reset_logs").insert({
+    reset_by: resetBy,
+    satisfaction_count: satCount.count ?? 0,
+    feedback_count: fbCount.count ?? 0,
+    batch_count: batchCount.count ?? 0,
+  });
+
+  // 전체 초기화 → 모든 데이터 캐시 무효화 (+ 초기화 이력)
+  revalidateTag(CACHE_TAGS.satisfaction);
+  revalidateTag(CACHE_TAGS.feedback);
+  revalidateTag(CACHE_TAGS.batches);
+  revalidateTag(CACHE_TAGS.resetLogs);
 
   return { ok: true };
 }

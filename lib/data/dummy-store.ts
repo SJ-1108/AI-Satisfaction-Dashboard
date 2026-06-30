@@ -6,6 +6,7 @@ import { upsertFeedback, type FeedbackEdit } from "@/lib/data/feedback-view";
 import type {
   Feedback,
   ParsedSatisfaction,
+  ResetLog,
   Satisfaction,
   UploadBatch,
   UploadSummary,
@@ -25,6 +26,7 @@ interface Store {
   satisfaction: Satisfaction[];
   feedback: Feedback[];
   batches: UploadBatch[];
+  resetLogs: ResetLog[];
 }
 
 const g = globalThis as unknown as { __dummyStore?: Store };
@@ -35,6 +37,7 @@ function store(): Store {
       satisfaction: DUMMY_SATISFACTION.map((r) => ({ ...r })),
       feedback: DUMMY_FEEDBACK.map((r) => ({ ...r })),
       batches: [],
+      resetLogs: [],
     };
   }
   return g.__dummyStore;
@@ -50,6 +53,10 @@ export function getDummyFeedback(): Feedback[] {
 
 export function getDummyBatches(): UploadBatch[] {
   return store().batches;
+}
+
+export function getDummyResetLogs(): ResetLog[] {
+  return store().resetLogs;
 }
 
 /** 업로드 누적 (DB 모드 upsert 와 동일 규칙의 순수 함수 재사용) */
@@ -101,10 +108,22 @@ export function upsertDummyFeedback(edit: FeedbackEdit): void {
   s.feedback = upsertFeedback(s.feedback, edit, "미리보기", new Date().toISOString());
 }
 
-/** 전체 초기화 — 모든 데이터를 비운다(빈 상태). */
+/**
+ * 전체 초기화 — 평가/피드백/업로드 이력을 비운다(빈 상태).
+ * 초기화 이력(resetLogs)은 보존하고, 삭제 건수를 기록한 로그를 추가한다.
+ */
 export function resetDummyStore(): void {
   const s = store();
+  const log: ResetLog = {
+    id: crypto.randomUUID(),
+    reset_by: "미리보기",
+    reset_at: new Date().toISOString(),
+    satisfaction_count: s.satisfaction.length,
+    feedback_count: s.feedback.length,
+    batch_count: s.batches.length,
+  };
   s.satisfaction = [];
   s.feedback = [];
   s.batches = [];
+  s.resetLogs = [log, ...s.resetLogs];
 }

@@ -75,10 +75,10 @@ export interface TrendBucket {
   down: number;
 }
 
-/** 주 시작(월요일, UTC) 날짜 문자열 */
+/** 주 시작(화요일, UTC) 날짜 문자열 — 화요일~차주 월요일 단위 집계 */
 function weekStart(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
-  const dow = (d.getUTCDay() + 6) % 7; // 0=월
+  const dow = (d.getUTCDay() + 5) % 7; // 0=화
   d.setUTCDate(d.getUTCDate() - dow);
   return d.toISOString().slice(0, 10);
 }
@@ -88,6 +88,24 @@ function bucketKey(iso: string, g: Granularity): string {
   if (g === "day") return d;
   if (g === "month") return d.slice(0, 7); // YYYY-MM
   return weekStart(d); // week
+}
+
+/**
+ * 버킷 키 → 화면 표시 라벨.
+ * - day: YYYY-MM-DD 그대로
+ * - week: 화요일~차주 월요일 기간을 "MM.DD ~ MM.DD" 로 표기
+ * - month: YYYY-MM 그대로
+ */
+export function formatBucketLabel(key: string, g: Granularity): string {
+  if (g !== "week") return key;
+  const start = new Date(`${key}T00:00:00Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 6); // 차주 월요일
+  const fmt = (d: Date) =>
+    `${String(d.getUTCMonth() + 1).padStart(2, "0")}.${String(
+      d.getUTCDate(),
+    ).padStart(2, "0")}`;
+  return `${fmt(start)} ~ ${fmt(end)}`;
 }
 
 export function computeTrend(
@@ -135,11 +153,11 @@ export function computeReasonBreakdown(
     .sort((a, b) => reasonOrderIndex(a.reason) - reasonOrderIndex(b.reason));
 }
 
-// ── 일자별 불만족 및 피드백 처리 현황 ───────────────────────────
+// ── 불만족 및 피드백 처리 현황 ─────────────────────────────────
 export interface DailyFeedbackStatusRow {
-  date: string; // YYYY-MM-DD (KST)
-  total: number; // 해당 일자 전체 평가 건수
-  down: number; // 해당 일자 불만족(rating=down) 건수
+  date: string; // 버킷 키 (일: YYYY-MM-DD, 주: 주 시작 화요일, 월: YYYY-MM) — 모두 KST
+  total: number; // 해당 버킷 전체 평가 건수
+  down: number; // 해당 버킷 불만족(rating=down) 건수
   downRate: number; // 불만족률(%) = down/total*100
   status: Record<FeedbackStatus, number>; // 불만족 건의 상태별 카운트(없으면 미확인)
   handledRate: number | null; // 처리완료율(%) = 조치완료/down*100, down=0이면 null
@@ -152,20 +170,22 @@ function emptyStatusCounts(): Record<FeedbackStatus, number> {
 }
 
 /**
- * 일자별(KST created_at) 전체 평가·불만족·상태 분포 집계.
+ * 버킷별(일/주/월) 전체 평가·불만족·상태 분포 집계.
+ * granularity 기준은 추이(computeTrend)와 동일 — 주는 화요일~차주 월요일 단위.
  * 상태는 feedback.satisfaction_id 로 조인하며, 피드백이 없는 불만족 건은 "미확인"으로 집계.
- * 날짜 오름차순 정렬. 기간 필터는 호출 측에서 records 를 미리 거른 뒤 전달한다.
+ * 버킷 키 오름차순 정렬. 기간 필터는 호출 측에서 records 를 미리 거른 뒤 전달한다.
  */
 export function computeDailyFeedbackStatus(
   records: Satisfaction[],
   feedback: Feedback[],
+  granularity: Granularity = "day",
 ): DailyFeedbackStatusRow[] {
   const statusById = new Map<string, FeedbackStatus>();
   for (const f of feedback) statusById.set(f.satisfaction_id, f.status);
 
   const map = new Map<string, DailyFeedbackStatusRow>();
   for (const r of records) {
-    const d = datePart(r.created_at);
+    const d = bucketKey(r.created_at, granularity);
     let row = map.get(d);
     if (!row) {
       row = {

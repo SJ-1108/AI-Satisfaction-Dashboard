@@ -1,7 +1,9 @@
 "use server";
 
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { CACHE_TAGS } from "@/lib/data/source";
 import { upsertDummyFeedback } from "@/lib/data/dummy-store";
 import type { FeedbackEdit } from "@/lib/data/feedback-view";
 
@@ -57,6 +59,9 @@ export async function saveFeedback(
     });
     if (error) return { ok: false, error: error.message };
   }
+
+  // 피드백 캐시 무효화 → 대시보드/불만족관리에 즉시 반영
+  revalidateTag(CACHE_TAGS.feedback);
 
   return { ok: true };
 }
