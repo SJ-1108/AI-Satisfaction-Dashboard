@@ -20,7 +20,11 @@ import type {
   UploadBatch,
   UploadSummary,
 } from "@/lib/types";
-import { uploadSatisfaction, resetData } from "@/app/(app)/records/actions";
+import {
+  appendSatisfactionRows,
+  finishUpload,
+  resetData,
+} from "@/app/(app)/records/actions";
 import UploadDialog from "./upload-dialog";
 import RecordDetailDialog from "./record-detail-dialog";
 import CloseButton from "@/components/ui/close-button";
@@ -232,17 +236,41 @@ export default function RecordsClient({
   ) {
     setUploading(true);
     try {
-      // 더미/실제 모드 모두 서버 액션으로 누적 적재 → 새로고침으로 모든 메뉴에 반영
-      const res = await uploadSatisfaction(valid, meta);
-      if (!res.ok || !res.summary) {
-        setToast(`업로드 실패 — ${res.error ?? "알 수 없는 오류"}`);
+      // record_key 기준 파일 내 중복 제거 후, 청크로 나눠 순차 전송한다.
+      // (대용량 valid 를 단일 서버 액션 페이로드로 보내면 전송이 막히므로 분할)
+      const byKey = new Map<string, ParsedSatisfaction>();
+      for (const r of valid) byKey.set(r.record_key, r);
+      const unique = Array.from(byKey.values());
+      const duplicate = valid.length - unique.length;
+
+      const CHUNK = 1000;
+      let inserted = 0;
+      let updated = 0;
+      for (let i = 0; i < unique.length; i += CHUNK) {
+        const res = await appendSatisfactionRows(unique.slice(i, i + CHUNK));
+        if (!res.ok) {
+          setToast(`업로드 실패 — ${res.error ?? "알 수 없는 오류"}`);
+          setTimeout(() => setToast(null), 6000);
+          return;
+        }
+        inserted += res.inserted ?? 0;
+        updated += res.updated ?? 0;
+        setToast(`업로드 중… ${Math.min(i + CHUNK, unique.length)}/${unique.length}`);
+      }
+
+      const fin = await finishUpload(meta, { inserted, updated, duplicate });
+      if (!fin.ok || !fin.summary) {
+        setToast(`업로드 실패 — ${fin.error ?? "알 수 없는 오류"}`);
         setTimeout(() => setToast(null), 6000);
         return;
       }
       setShowUpload(false);
       setPage(1);
-      showSummaryToast(res.summary);
+      showSummaryToast(fin.summary);
       router.refresh();
+    } catch (e) {
+      setToast(`업로드 실패 — ${e instanceof Error ? e.message : "알 수 없는 오류"}`);
+      setTimeout(() => setToast(null), 6000);
     } finally {
       setUploading(false);
     }

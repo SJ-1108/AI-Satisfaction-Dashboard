@@ -59,32 +59,42 @@ export function getDummyResetLogs(): ResetLog[] {
   return store().resetLogs;
 }
 
-/** 업로드 누적 (DB 모드 upsert 와 동일 규칙의 순수 함수 재사용) */
-export function accumulateDummySatisfaction(
-  valid: ParsedSatisfaction[],
-  meta: { fileName: string; totalRows: number; failedCount: number },
-): UploadSummary {
+/**
+ * 업로드 청크 누적 (배치 기록 없음).
+ * 클라이언트가 valid 를 청크로 나눠 호출 → 큰 단일 페이로드 전송이 막히는 문제 회피.
+ */
+export function appendDummyRows(valid: ParsedSatisfaction[]): {
+  inserted: number;
+  updated: number;
+} {
   const s = store();
-  const batchId = crypto.randomUUID();
-  const { merged, inserted, updated, duplicate } = accumulateSatisfaction(
+  const { merged, inserted, updated } = accumulateSatisfaction(
     s.satisfaction,
     valid,
-    batchId,
+    null,
   );
   s.satisfaction = merged;
+  return { inserted, updated };
+}
 
+/** 업로드 1건 이력(batch) 기록 — 청크 누적이 끝난 뒤 1회 호출. */
+export function recordDummyBatch(
+  meta: { fileName: string; totalRows: number; failedCount: number },
+  totals: { inserted: number; updated: number; duplicate: number },
+): UploadSummary {
+  const s = store();
   const now = new Date().toISOString();
   s.batches = [
     {
-      id: batchId,
+      id: crypto.randomUUID(),
       file_name: meta.fileName,
       uploaded_by: "미리보기",
       uploaded_at: now,
       row_count: meta.totalRows,
-      inserted_count: inserted,
-      updated_count: updated,
+      inserted_count: totals.inserted,
+      updated_count: totals.updated,
       failed_count: meta.failedCount,
-      duplicate_count: duplicate,
+      duplicate_count: totals.duplicate,
       status: "completed",
       error_message: null,
     },
@@ -95,10 +105,10 @@ export function accumulateDummySatisfaction(
     file_name: meta.fileName,
     uploaded_at: now,
     row_count: meta.totalRows,
-    inserted_count: inserted,
-    updated_count: updated,
+    inserted_count: totals.inserted,
+    updated_count: totals.updated,
     failed_count: meta.failedCount,
-    duplicate_count: duplicate,
+    duplicate_count: totals.duplicate,
   };
 }
 

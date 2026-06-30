@@ -53,11 +53,16 @@ export interface RowError {
   message: string;
 }
 
+/** 오류 행 메시지 보관 상한 (대용량 파일에서 메모리 폭증 방지 — 표시는 일부만) */
+export const MAX_ERROR_SAMPLES = 100;
+
 export interface ParseResult {
   /** 검증을 통과한 정상 행 (record_key 포함) */
   valid: ParsedSatisfaction[];
-  /** 행별 오류 */
+  /** 행별 오류 (표시용 샘플 — 최대 MAX_ERROR_SAMPLES 건만 보관) */
   errors: RowError[];
+  /** 검증 실패한 총 행 수 (errors 는 일부만 보관하므로 정확한 카운트는 이 값 사용) */
+  failedCount: number;
   /** 컬럼 자동 매핑 결과 (DB컬럼 → 원본헤더). 매칭 실패 시 null */
   mapping: Record<keyof RawFields, string | null>;
   /** 매칭되지 않은 필수 컬럼 (있으면 업로드 차단) */
@@ -184,6 +189,7 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
     return {
       valid: [],
       errors: [],
+      failedCount: 0,
       mapping,
       requiredMissing,
       totalRows: rows.length,
@@ -193,6 +199,9 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
 
   const seenKeys = new Set<string>();
   let duplicateInFile = 0;
+  // 대용량 파일에서 오류 객체를 전부 보관하면 브라우저 메모리가 폭증한다.
+  // 총 실패 수는 failedCount 로 세고, 표시용 메시지는 상한까지만 보관한다.
+  let failedCount = 0;
 
   rows.forEach((row, i) => {
     const rowNum = i + 1;
@@ -208,7 +217,10 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
       rowErrors.push("created_at 파싱 불가 — 문자열 날짜 또는 엑셀 날짜값만 지원");
 
     if (rowErrors.length > 0) {
-      errors.push({ row: rowNum, message: rowErrors.join(", ") });
+      failedCount++;
+      if (errors.length < MAX_ERROR_SAMPLES) {
+        errors.push({ row: rowNum, message: rowErrors.join(", ") });
+      }
       return;
     }
 
@@ -233,6 +245,7 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
   return {
     valid,
     errors,
+    failedCount,
     mapping,
     requiredMissing,
     totalRows: rows.length,
