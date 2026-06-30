@@ -54,7 +54,7 @@ const DISSAT = "#e0635d"; // 불만족 (KPI/표 강조)
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
   미확인: "#d5d9e0",
   검토중: "#7c83f5",
-  조치완료: "#10b981",
+  처리완료: "#10b981",
   보류: "#f5b73d",
 };
 
@@ -90,7 +90,7 @@ function pct(value: number, total: number): string {
 /**
  * 세그먼트(일/주/월) → 조회 기간 자동 산출. anchor(데이터 최신일, YYYY-MM-DD) 기준.
  * - day: 최근 7일 (anchor-6 ~ anchor)
- * - week: 최근 4주 (anchor-27 ~ anchor)
+ * - week: 최근 4주 (금~차주 목요일 주 경계 정렬 — anchor 포함 주의 금요일에서 3주 전 ~ anchor)
  * - month: 최근 1년 (anchor 달-11개월 1일 ~ anchor)
  */
 function rangeForGranularity(
@@ -98,8 +98,11 @@ function rangeForGranularity(
   anchor: string,
 ): { from: string; to: string } {
   const d = new Date(`${anchor}T00:00:00Z`);
-  if (g === "week") d.setUTCDate(d.getUTCDate() - 27);
-  else if (g === "month") d.setUTCMonth(d.getUTCMonth() - 11, 1);
+  if (g === "week") {
+    // 금요일 시작(금~차주 목요일) 주 경계에 맞춰 최근 4주.
+    const dow = (d.getUTCDay() + 2) % 7; // 0=금
+    d.setUTCDate(d.getUTCDate() - dow - 21);
+  } else if (g === "month") d.setUTCMonth(d.getUTCMonth() - 11, 1);
   else d.setUTCDate(d.getUTCDate() - 6);
   return { from: d.toISOString().slice(0, 10), to: anchor };
 }
@@ -633,7 +636,7 @@ export default function DashboardClient({
                             <th style={th}>불만족률</th>
                             <th style={th}>미확인</th>
                             <th style={th}>검토중</th>
-                            <th style={th}>조치완료</th>
+                            <th style={th}>처리완료</th>
                             <th style={th}>보류</th>
                             <th style={th}>처리완료율</th>
                           </tr>
@@ -670,7 +673,7 @@ export default function DashboardClient({
                                 {d.status["미확인"]}
                               </td>
                               <td style={td}>{d.status["검토중"]}</td>
-                              <td style={td}>{d.status["조치완료"]}</td>
+                              <td style={td}>{d.status["처리완료"]}</td>
                               <td style={td}>{d.status["보류"]}</td>
                               <td style={td}>
                                 {d.handledRate === null
