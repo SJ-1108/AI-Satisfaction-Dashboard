@@ -8,12 +8,12 @@
 export type Rating = "up" | "down";
 
 /** 불만족 관리 진행 상태 (FR-4.3) */
-export type FeedbackStatus = "미확인" | "검토중" | "조치완료" | "보류";
+export type FeedbackStatus = "미확인" | "검토중" | "처리완료" | "보류";
 
 export const FEEDBACK_STATUSES: FeedbackStatus[] = [
   "미확인",
   "검토중",
-  "조치완료",
+  "처리완료",
   "보류",
 ];
 

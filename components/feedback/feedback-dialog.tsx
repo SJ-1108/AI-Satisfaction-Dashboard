@@ -154,7 +154,7 @@ export default function FeedbackDialog({
               피드백 내용
             </div>
             <textarea
-              placeholder="처리 내용 또는 메모를 입력하세요"
+              placeholder="피드백 내용 또는 메모사항을 입력하세요"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               style={{
