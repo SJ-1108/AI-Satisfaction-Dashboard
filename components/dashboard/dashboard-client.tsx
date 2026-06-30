@@ -15,7 +15,7 @@ import {
 } from "chart.js";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
 import type { Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
-import { FEEDBACK_STATUSES } from "@/lib/types";
+import { FEEDBACK_STATUSES, statusLabel } from "@/lib/types";
 import {
   computeDailyFeedbackStatus,
   computeKpis,
@@ -54,7 +54,7 @@ const DISSAT = "#e0635d"; // 불만족 (KPI/표 강조)
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
   미확인: "#d5d9e0",
   검토중: "#7c83f5",
-  처리완료: "#10b981",
+  조치완료: "#10b981", // 저장값(화면 표시는 '처리완료')
   보류: "#f5b73d",
 };
 
@@ -305,7 +305,7 @@ export default function DashboardClient({
   const dailyData = {
     labels: daily.map((d) => formatBucketLabel(d.date, granularity)),
     datasets: FEEDBACK_STATUSES.map((s) => ({
-      label: s,
+      label: statusLabel(s),
       data: daily.map((d) => d.status[s]),
       backgroundColor: STATUS_COLOR[s],
       borderRadius: 4,
@@ -673,7 +673,7 @@ export default function DashboardClient({
                                 {d.status["미확인"]}
                               </td>
                               <td style={td}>{d.status["검토중"]}</td>
-                              <td style={td}>{d.status["처리완료"]}</td>
+                              <td style={td}>{d.status["조치완료"]}</td>
                               <td style={td}>{d.status["보류"]}</td>
                               <td style={td}>
                                 {d.handledRate === null

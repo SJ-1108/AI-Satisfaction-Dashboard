@@ -212,7 +212,7 @@ export function computeDailyFeedbackStatus(
     row.handledRate =
       row.down === 0
         ? null
-        : Math.round((row.status["처리완료"] / row.down) * 1000) / 10;
+        : Math.round((row.status["조치완료"] / row.down) * 1000) / 10;
   }
 
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
