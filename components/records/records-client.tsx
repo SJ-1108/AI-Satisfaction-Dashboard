@@ -114,6 +114,14 @@ const tdEllipsis: React.CSSProperties = {
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
 };
+/** 스크롤 시 상단 고정되는 표 헤더 (배경을 줘 행이 비치지 않게) */
+const stickyTh: React.CSSProperties = {
+  ...th,
+  position: "sticky",
+  top: 0,
+  background: "#f7f8fa",
+  zIndex: 1,
+};
 
 /**
  * 메뉴 ② 데이터 조회 (FR-3) — 누적 데이터 기준.
@@ -344,22 +352,34 @@ export default function RecordsClient({
             title="데이터 초기화 이력"
             onClick={() => setShowResetHistory(true)}
             style={{
-              width: 34,
-              height: 34,
+              width: 30,
+              height: 30,
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 15,
-              fontWeight: 700,
-              fontFamily: "Pretendard, sans-serif",
-              color: "#6b7280",
-              background: "#fff",
-              border: "1px solid #e2e5ea",
+              color: "#3a4150",
+              background: "transparent",
+              border: "none",
               borderRadius: 9,
               cursor: "pointer",
+              padding: 0,
             }}
           >
-            ⓘ
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
           </button>
           <button
             onClick={() => setShowResetConfirm(true)}
@@ -806,7 +826,7 @@ export default function RecordsClient({
               <CloseButton onClick={() => setShowResetHistory(false)} />
             </div>
             <p style={{ margin: "0 0 16px", fontSize: 13, color: "#8a909c" }}>
-              데이터 초기화 시점과 삭제된 건수 기록입니다. (최신순)
+              데이터 초기화 이력을 최신순으로 확인할 수 있습니다.
             </p>
 
             <div style={{ flex: 1, overflowY: "auto" }}>
@@ -824,23 +844,25 @@ export default function RecordsClient({
                 >
                   <thead>
                     <tr style={{ background: "#f7f8fa" }}>
-                      <th style={th}>초기화 일시</th>
-                      <th style={th}>초기화한 사람</th>
-                      <th style={th}>평가</th>
-                      <th style={th}>피드백</th>
-                      <th style={th}>업로드 이력</th>
+                      <th style={stickyTh}>No.</th>
+                      <th style={stickyTh}>초기화 일시</th>
+                      <th style={stickyTh}>이름</th>
+                      <th style={stickyTh}>삭제 데이터 건수</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {resetLogs.map((log) => (
+                    {resetLogs.slice(0, 20).map((log, i) => (
                       <tr key={log.id} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                        <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
+                          {i + 1}
+                        </td>
                         <td style={{ ...td, whiteSpace: "nowrap" }}>
                           {formatKstDateTime(log.reset_at)}
                         </td>
                         <td style={td}>{log.reset_by ?? "-"}</td>
-                        <td style={td}>{log.satisfaction_count.toLocaleString()}</td>
-                        <td style={td}>{log.feedback_count.toLocaleString()}</td>
-                        <td style={td}>{log.batch_count.toLocaleString()}</td>
+                        <td style={td}>
+                          {log.satisfaction_count.toLocaleString()}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
