@@ -112,7 +112,7 @@ const getCachedFeedback = unstable_cache(
       admin
         .from("feedback")
         .select(
-          "id, satisfaction_id, status, detail_reason, cause_category, action, memo, created_by, updated_by, created_at, updated_at",
+          "id, satisfaction_id, status, detail_reason, cause_category, related_department, action, memo, created_by, updated_by, created_at, updated_at",
         ),
       loadActorNameMap(admin),
     ]);
@@ -128,6 +128,7 @@ const getCachedFeedback = unstable_cache(
       status: f.status as Feedback["status"],
       detail_reason: (f.detail_reason as string | null) ?? null,
       cause_category: (f.cause_category as string | null) ?? null,
+      related_department: (f.related_department as string | null) ?? null,
       action: (f.action as string | null) ?? null,
       memo: (f.memo as string | null) ?? null,
       created_by: f.created_by
