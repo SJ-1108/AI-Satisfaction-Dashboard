@@ -15,6 +15,7 @@ import type {
   Satisfaction,
   UploadBatch,
 } from "@/lib/types";
+import { normalizeStatus } from "@/lib/types";
 
 /**
  * 데이터 소스 추상화 (서버 전용).
@@ -125,7 +126,8 @@ const getCachedFeedback = unstable_cache(
     return (data ?? []).map((f) => ({
       id: f.id as string,
       satisfaction_id: f.satisfaction_id as string,
-      status: f.status as Feedback["status"],
+      // 저장값으로 정규화: 과거 표기 '처리완료'가 남아 있어도 '조치완료'로 흡수
+      status: normalizeStatus(f.status as string | null),
       detail_reason: (f.detail_reason as string | null) ?? null,
       cause_category: (f.cause_category as string | null) ?? null,
       related_department: (f.related_department as string | null) ?? null,

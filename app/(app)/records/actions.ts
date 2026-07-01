@@ -182,6 +182,18 @@ export async function resetData(): Promise<{ ok: boolean; error?: string }> {
     admin.from("upload_batches").select("*", { count: "exact", head: true }),
   ]);
 
+  // 초기화 이력을 먼저 기록한다(삭제 전 건수 기준, reset_logs 는 초기화로 지워지지 않음).
+  // 기록이 실패하면 이력 없이 데이터만 사라지는 것을 막기 위해 삭제하지 않고 중단한다.
+  const logIns = await admin.from("reset_logs").insert({
+    reset_by: resetBy,
+    satisfaction_count: satCount.count ?? 0,
+    feedback_count: fbCount.count ?? 0,
+    batch_count: batchCount.count ?? 0,
+  });
+  if (logIns.error) {
+    return { ok: false, error: `초기화 이력 기록 실패: ${logIns.error.message}` };
+  }
+
   // id IS NOT NULL 조건으로 전체 행 삭제 (Supabase 는 delete 시 필터 요구)
   const fb = await admin.from("feedback").delete().not("id", "is", null);
   if (fb.error) return { ok: false, error: `피드백 삭제 실패: ${fb.error.message}` };
@@ -192,14 +204,6 @@ export async function resetData(): Promise<{ ok: boolean; error?: string }> {
   const batch = await admin.from("upload_batches").delete().not("id", "is", null);
   if (batch.error)
     return { ok: false, error: `업로드 이력 삭제 실패: ${batch.error.message}` };
-
-  // 초기화 이력 기록 (reset_logs 는 초기화로 지워지지 않음)
-  await admin.from("reset_logs").insert({
-    reset_by: resetBy,
-    satisfaction_count: satCount.count ?? 0,
-    feedback_count: fbCount.count ?? 0,
-    batch_count: batchCount.count ?? 0,
-  });
 
   // 전체 초기화 → 모든 데이터 캐시 무효화 (+ 초기화 이력)
   revalidateTag(CACHE_TAGS.satisfaction);

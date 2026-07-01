@@ -304,8 +304,13 @@ export default function RecordsClient({
       }
       setShowResetConfirm(false);
       setPage(1);
+      // 서버 재조회(router.refresh)를 기다리지 않고 화면 상태를 즉시 비운다.
+      // → 평가 표·"최근 업로드 이력"(upload_batches) 영역이 곧바로 0건/빈 상태로 보인다.
+      setRecords([]);
+      setBatches([]);
       setToast("모든 데이터를 초기화했습니다.");
       setTimeout(() => setToast(null), 4000);
+      // 서버와 최종 동기화(+ 새 초기화 이력 반영)
       router.refresh();
     } finally {
       setResetting(false);

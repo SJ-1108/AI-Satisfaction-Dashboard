@@ -27,7 +27,7 @@ export const DUMMY_FEEDBACK: Feedback[] = [
   {
     id: "fb-0008",
     satisfaction_id: "s-0008",
-    status: "처리완료",
+    status: "조치완료", // 저장값(화면 표시는 '처리완료')
     detail_reason: "편입 영어 난이도 정보 오류",
     cause_category: "오답/사실 오류",
     related_department: "입시컨텐츠팀",

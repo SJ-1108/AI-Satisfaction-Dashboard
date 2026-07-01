@@ -21,6 +21,7 @@ import {
 import { exportRows, type ExportFormat } from "@/lib/export";
 import {
   FEEDBACK_STATUSES,
+  statusLabel,
   type Feedback,
   type FeedbackStatus,
   type Satisfaction,
@@ -61,7 +62,7 @@ const CAUSE_COLORS = [
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
   미확인: "#6b7280",
   검토중: "#2f6bff",
-  처리완료: "#1f9d6a",
+  조치완료: "#1f9d6a", // 저장값(화면 표시는 '처리완료')
   보류: "#d98a00",
 };
 
@@ -69,7 +70,7 @@ const STATUS_COLOR: Record<FeedbackStatus, string> = {
 const STATUS_BG: Record<FeedbackStatus, string> = {
   미확인: "#eef0f3",
   검토중: "#eaf1ff",
-  처리완료: "#e3f3ec",
+  조치완료: "#e3f3ec", // 저장값(화면 표시는 '처리완료')
   보류: "#fbf0db",
 };
 
@@ -317,7 +318,7 @@ export default function FeedbackClient({
         action: row.action,
         memo: row.memo,
       },
-      `상태 변경 — No.${row.record_no} → ${status}`,
+      `상태 변경 — No.${row.record_no} → ${statusLabel(status)}`,
     );
   }
 
@@ -328,7 +329,7 @@ export default function FeedbackClient({
       질의어: r.query ?? "",
       "평가 사유": r.reason ? reasonLabel(r.reason) : "",
       의견: r.comment ?? "",
-      "처리 상태": r.status,
+      "처리 상태": statusLabel(r.status),
       "원인 분류": r.cause_category ?? "",
       "유관 부서": r.related_department ?? "",
       "피드백 내용": r.action ?? "",
@@ -344,13 +345,13 @@ export default function FeedbackClient({
   ];
   const statusOptions = [
     { label: "전체", value: "all" },
-    ...FEEDBACK_STATUSES.map((s) => ({ label: s, value: s })),
+    ...FEEDBACK_STATUSES.map((s) => ({ label: statusLabel(s), value: s })),
   ];
 
   const kpis = [
     { label: "불만족 총건수", value: allRows.length, color: "#e0635d" },
     ...FEEDBACK_STATUSES.map((s) => ({
-      label: s,
+      label: statusLabel(s),
       value: statusCounts[s],
       color: STATUS_COLOR[s],
     })),
@@ -502,7 +503,7 @@ export default function FeedbackClient({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {r.status}
+                      {statusLabel(r.status)}
                     </td>
                     <td style={{ ...td, padding: "9px 12px", color: "#5a616e" }}>
                       {r.cause_category?.trim() || "미분류"}
@@ -805,7 +806,7 @@ function StatusSelect({
           opacity: disabled ? 0.6 : 1,
         }}
       >
-        <span>{value}</span>
+        <span>{statusLabel(value)}</span>
         <span style={{ color: "#9aa1ad", fontSize: 9 }}>▼</span>
       </div>
       {open && (
@@ -840,7 +841,7 @@ function StatusSelect({
                 whiteSpace: "nowrap",
               }}
             >
-              {s}
+              {statusLabel(s)}
             </div>
           ))}
         </div>

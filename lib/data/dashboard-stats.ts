@@ -75,10 +75,10 @@ export interface TrendBucket {
   down: number;
 }
 
-/** 주 시작(화요일, UTC) 날짜 문자열 — 화요일~차주 월요일 단위 집계 */
+/** 주 시작(금요일, UTC) 날짜 문자열 — 금요일~차주 목요일 단위 집계 */
 function weekStart(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
-  const dow = (d.getUTCDay() + 5) % 7; // 0=화
+  const dow = (d.getUTCDay() + 2) % 7; // 0=금
   d.setUTCDate(d.getUTCDate() - dow);
   return d.toISOString().slice(0, 10);
 }
@@ -93,14 +93,14 @@ function bucketKey(iso: string, g: Granularity): string {
 /**
  * 버킷 키 → 화면 표시 라벨.
  * - day: YYYY-MM-DD 그대로
- * - week: 화요일~차주 월요일 기간을 "MM.DD ~ MM.DD" 로 표기
+ * - week: 금요일~차주 목요일 기간을 "MM.DD ~ MM.DD" 로 표기
  * - month: YYYY-MM 그대로
  */
 export function formatBucketLabel(key: string, g: Granularity): string {
   if (g !== "week") return key;
   const start = new Date(`${key}T00:00:00Z`);
   const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 6); // 차주 월요일
+  end.setUTCDate(end.getUTCDate() + 6); // 차주 목요일
   const fmt = (d: Date) =>
     `${String(d.getUTCMonth() + 1).padStart(2, "0")}.${String(
       d.getUTCDate(),
@@ -155,7 +155,7 @@ export function computeReasonBreakdown(
 
 // ── 불만족 및 피드백 처리 현황 ─────────────────────────────────
 export interface DailyFeedbackStatusRow {
-  date: string; // 버킷 키 (일: YYYY-MM-DD, 주: 주 시작 화요일, 월: YYYY-MM) — 모두 KST
+  date: string; // 버킷 키 (일: YYYY-MM-DD, 주: 주 시작 금요일, 월: YYYY-MM) — 모두 KST
   total: number; // 해당 버킷 전체 평가 건수
   down: number; // 해당 버킷 불만족(rating=down) 건수
   downRate: number; // 불만족률(%) = down/total*100
@@ -171,7 +171,7 @@ function emptyStatusCounts(): Record<FeedbackStatus, number> {
 
 /**
  * 버킷별(일/주/월) 전체 평가·불만족·상태 분포 집계.
- * granularity 기준은 추이(computeTrend)와 동일 — 주는 화요일~차주 월요일 단위.
+ * granularity 기준은 추이(computeTrend)와 동일 — 주는 금요일~차주 목요일 단위.
  * 상태는 feedback.satisfaction_id 로 조인하며, 피드백이 없는 불만족 건은 "미확인"으로 집계.
  * 버킷 키 오름차순 정렬. 기간 필터는 호출 측에서 records 를 미리 거른 뒤 전달한다.
  */
@@ -212,7 +212,7 @@ export function computeDailyFeedbackStatus(
     row.handledRate =
       row.down === 0
         ? null
-        : Math.round((row.status["처리완료"] / row.down) * 1000) / 10;
+        : Math.round((row.status["조치완료"] / row.down) * 1000) / 10;
   }
 
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
