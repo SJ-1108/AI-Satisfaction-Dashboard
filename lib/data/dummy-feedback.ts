@@ -16,6 +16,7 @@ export const DUMMY_FEEDBACK: Feedback[] = [
     status: "검토중",
     detail_reason: "등급컷 구체 점수 데이터 누락",
     cause_category: "데이터 부족",
+    related_department: "입시서비스팀 데이터파트",
     action: "등급컷 점수 소스 연동 검토 중",
     memo: "올해 회차 데이터 입수 후 재학습 필요",
     created_by: "ms20812",
@@ -29,6 +30,7 @@ export const DUMMY_FEEDBACK: Feedback[] = [
     status: "조치완료", // 저장값(화면 표시는 '처리완료')
     detail_reason: "편입 영어 난이도 정보 오류",
     cause_category: "오답/사실 오류",
+    related_department: "입시컨텐츠팀",
     action: "출처 교정 및 프롬프트 가이드 반영 완료",
     memo: "유사 질의 재현 테스트 통과",
     created_by: "ms20812",
@@ -42,6 +44,7 @@ export const DUMMY_FEEDBACK: Feedback[] = [
     status: "보류",
     detail_reason: "토플 환산표 부정확",
     cause_category: "오답/사실 오류",
+    related_department: null,
     action: null,
     memo: "공식 환산표 기관별 상이 — 정책 확정 대기",
     created_by: "ms20813",

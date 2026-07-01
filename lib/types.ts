@@ -90,6 +90,7 @@ export interface Feedback {
   status: FeedbackStatus;
   detail_reason: string | null;
   cause_category: string | null;
+  related_department: string | null; // 유관 부서
   action: string | null;
   memo: string | null;
   /** 표시용 사번 (DB 저장은 uuid, 로드 시 사번으로 변환) */

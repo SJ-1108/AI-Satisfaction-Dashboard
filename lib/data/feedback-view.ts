@@ -23,6 +23,7 @@ export interface FeedbackRow {
   status: FeedbackStatus;
   detail_reason: string | null;
   cause_category: string | null;
+  related_department: string | null; // 유관 부서
   action: string | null;
   memo: string | null;
   created_by: string | null;
@@ -58,6 +59,7 @@ export function buildFeedbackRows(
       status: f?.status ?? "미확인",
       detail_reason: f?.detail_reason ?? null,
       cause_category: f?.cause_category ?? null,
+      related_department: f?.related_department ?? null,
       action: f?.action ?? null,
       memo: f?.memo ?? null,
       created_by: f?.created_by ?? null,
@@ -77,6 +79,7 @@ export interface FeedbackEdit {
   status: FeedbackStatus;
   detail_reason: string | null;
   cause_category: string | null;
+  related_department: string | null; // 유관 부서
   action: string | null;
   memo: string | null;
 }
@@ -99,6 +102,7 @@ export function upsertFeedback(
       status: edit.status,
       detail_reason: edit.detail_reason,
       cause_category: edit.cause_category,
+      related_department: edit.related_department,
       action: edit.action,
       memo: edit.memo,
       created_by: actorEmpNo,
@@ -116,6 +120,7 @@ export function upsertFeedback(
     status: edit.status,
     detail_reason: edit.detail_reason,
     cause_category: edit.cause_category,
+    related_department: edit.related_department,
     action: edit.action,
     memo: edit.memo,
     updated_by: actorEmpNo,

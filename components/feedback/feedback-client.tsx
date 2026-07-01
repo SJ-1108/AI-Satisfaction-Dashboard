@@ -314,6 +314,7 @@ export default function FeedbackClient({
         status,
         detail_reason: row.detail_reason,
         cause_category: row.cause_category,
+        related_department: row.related_department,
         action: row.action,
         memo: row.memo,
       },
@@ -330,6 +331,7 @@ export default function FeedbackClient({
       의견: r.comment ?? "",
       "처리 상태": statusLabel(r.status),
       "원인 분류": r.cause_category ?? "",
+      "유관 부서": r.related_department ?? "",
       "피드백 내용": r.action ?? "",
       담당자: r.updated_by ?? "",
       처리일: r.updated_at ? formatKstDateTime(r.updated_at) : "",
@@ -617,21 +619,22 @@ export default function FeedbackClient({
               borderCollapse: "collapse",
               fontSize: 13,
               tableLayout: "fixed",
-              minWidth: 1360,
             }}
           >
+            {/* 퍼센트 컬럼 (합계 100%) — 컨테이너 폭에 맞춰 가로 스크롤 없이 배분 */}
             <colgroup>
-              <col style={{ width: 50 }} />
-              <col style={{ width: 100 }} />
-              <col style={{ width: 200 }} />
-              <col style={{ width: 240 }} />
-              <col style={{ width: 130 }} />
-              <col style={{ width: 166 }} />
-              <col style={{ width: 116 }} />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 180 }} />
-              <col style={{ width: 84 }} />
-              <col style={{ width: 96 }} />
+              <col style={{ width: "3%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "7%" }} />
             </colgroup>
             <thead>
               <tr style={{ background: "#f7f8fa" }}>
@@ -643,6 +646,7 @@ export default function FeedbackClient({
                 <th style={th}>의견</th>
                 <th style={th}>처리 상태</th>
                 <th style={th}>원인 분류</th>
+                <th style={th}>유관 부서</th>
                 <th style={th}>피드백 내용</th>
                 <th style={th}>담당자명</th>
                 <th style={th}></th>
@@ -651,7 +655,7 @@ export default function FeedbackClient({
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                  <td colSpan={12} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
                     조건에 맞는 불만족 건이 없습니다.
                   </td>
                 </tr>
@@ -697,6 +701,12 @@ export default function FeedbackClient({
                       title={r.cause_category ?? undefined}
                     >
                       {r.cause_category ?? "-"}
+                    </td>
+                    <td
+                      style={{ ...td, ...cellText, color: "#5a616e" }}
+                      title={r.related_department ?? undefined}
+                    >
+                      {r.related_department ?? "-"}
                     </td>
                     <td
                       style={{ ...td, ...cellText, color: "#3a4150" }}
@@ -767,7 +777,7 @@ function StatusSelect({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ position: "relative", display: "inline-block" }}>
+    <div style={{ position: "relative", display: "block" }}>
       {open && (
         <div
           onClick={() => setOpen(false)}
@@ -777,10 +787,12 @@ function StatusSelect({
       <div
         onClick={() => !disabled && setOpen((v) => !v)}
         style={{
-          display: "inline-flex",
+          display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          width: 104,
+          width: "100%",
+          maxWidth: 104,
+          margin: "0 auto",
           height: 36,
           padding: "0 12px",
           fontSize: 13,

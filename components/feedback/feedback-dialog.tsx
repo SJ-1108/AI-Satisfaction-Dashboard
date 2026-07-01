@@ -6,9 +6,17 @@ import { formatKstDateTime } from "@/lib/format-date";
 import type { FeedbackRow, FeedbackEdit } from "@/lib/data/feedback-view";
 import ReadField from "@/components/ui/read-field";
 import CloseButton from "@/components/ui/close-button";
+import Combobox from "@/components/ui/combobox";
+import { DEPARTMENTS } from "@/lib/departments";
 
 /** 원인 분류 프리셋 (단순화 디자인 — 칩 선택) */
-const CAUSE_PRESETS = ["데이터 부족", "오답·사실 오류", "질의 의도 불일치", "기타"];
+const CAUSE_PRESETS = [
+  "데이터 부족",
+  "오답·사실 오류",
+  "질의 의도 불일치",
+  "AI 개발 이슈",
+  "기타",
+];
 
 /**
  * 피드백 편집 모달 (FR-4.2 / FR-4.3) — 단순화 버전.
@@ -29,6 +37,7 @@ export default function FeedbackDialog({
   onClose: () => void;
 }) {
   const [cause, setCause] = useState<string | null>(row.cause_category ?? null);
+  const [dept, setDept] = useState<string>(row.related_department ?? "");
   const [content, setContent] = useState(row.action ?? "");
 
   // 기존 값이 프리셋에 없으면 칩으로 추가해 선택 상태를 유지
@@ -45,6 +54,7 @@ export default function FeedbackDialog({
       status: row.status, // 상태는 목록 인라인에서 변경 (여기선 유지)
       detail_reason: row.detail_reason, // 기존 값 보존
       cause_category: cause,
+      related_department: dept || null,
       action: content.trim() || null,
       memo: row.memo, // 기존 값 보존
     });
@@ -67,7 +77,7 @@ export default function FeedbackDialog({
       <div
         style={{
           width: "100%",
-          maxWidth: 520,
+          maxWidth: 660,
           height: 900,
           maxHeight: "90vh",
           background: "#fff",
@@ -146,6 +156,21 @@ export default function FeedbackDialog({
                 );
               })}
             </div>
+          </div>
+
+          {/* 유관 부서 */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#3a4150", marginBottom: 8 }}>
+              유관 부서
+            </div>
+            <Combobox
+              value={dept}
+              options={DEPARTMENTS}
+              onChange={setDept}
+              width={280}
+              ariaLabel="유관 부서"
+              placeholder="유관 부서(팀명) 입력"
+            />
           </div>
 
           {/* 피드백 내용 */}

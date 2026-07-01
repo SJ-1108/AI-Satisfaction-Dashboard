@@ -31,6 +31,7 @@ export async function saveFeedback(
     status: edit.status,
     detail_reason: edit.detail_reason,
     cause_category: edit.cause_category,
+    related_department: edit.related_department,
     action: edit.action,
     memo: edit.memo,
   };
