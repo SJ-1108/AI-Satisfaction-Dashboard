@@ -211,6 +211,7 @@ export default function FeedbackDialog({
         {/* 하단 버튼 */}
         <div style={{ flexShrink: 0, display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
           <button
+            type="button"
             onClick={onClose}
             disabled={saving}
             style={{
@@ -229,6 +230,7 @@ export default function FeedbackDialog({
             취소
           </button>
           <button
+            type="button"
             onClick={submit}
             disabled={saving}
             style={{

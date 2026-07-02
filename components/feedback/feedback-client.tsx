@@ -293,6 +293,13 @@ export default function FeedbackClient({
       setToast(successMsg);
       setTimeout(() => setToast(null), 4000);
       return true;
+    } catch (e) {
+      // 서버 액션이 throw 한 경우(세션/네트워크/DB 예외 등)도 조용히 넘어가지 않게 노출
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[feedback] 저장 중 예외:", e);
+      setToast(`저장 실패 — ${msg}`);
+      setTimeout(() => setToast(null), 6000);
+      return false;
     } finally {
       setSaving(false);
     }
