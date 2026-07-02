@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
+    "dev:db": "dotenv -e .env.test.local -- next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "dotenv-cli": "^7.4.4",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
     "typescript": "^5.7.3"
