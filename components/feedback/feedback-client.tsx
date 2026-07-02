@@ -22,6 +22,8 @@ import { exportRows, type ExportFormat } from "@/lib/export";
 import {
   FEEDBACK_STATUSES,
   statusLabel,
+  STATUS_COLOR,
+  STATUS_BG,
   type Feedback,
   type FeedbackStatus,
   type Satisfaction,
@@ -57,22 +59,6 @@ const CAUSE_COLORS = [
   "#e0635d",
   "#d5d9e0",
 ];
-
-/** 상태별 색상 (디자인 톤) */
-const STATUS_COLOR: Record<FeedbackStatus, string> = {
-  미확인: "#6b7280",
-  검토중: "#2f6bff",
-  조치완료: "#1f9d6a", // 저장값(화면 표시는 '처리완료')
-  보류: "#d98a00",
-};
-
-/** 상태별 연한 배경(드롭다운 pill) */
-const STATUS_BG: Record<FeedbackStatus, string> = {
-  미확인: "#eef0f3",
-  검토중: "#eaf1ff",
-  조치완료: "#e3f3ec", // 저장값(화면 표시는 '처리완료')
-  보류: "#fbf0db",
-};
 
 // ── 공통 인라인 스타일 ──
 const card: React.CSSProperties = {

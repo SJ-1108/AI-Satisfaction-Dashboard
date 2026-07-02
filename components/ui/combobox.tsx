@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * 인라인 콤보박스(자동완성) — 드롭다운 버튼 없이 텍스트 입력창을 그대로 노출한다.
- * 타이핑하면 label 부분일치로 후보가 아래에 뜨고, 클릭/선택하면 값이 확정된다.
- * 고정 목록(options)만 허용: 목록에 없는 자유 입력은 blur 시 이전 값으로 되돌린다.
- * 입력창을 비우고 포커스를 벗어나면 미선택("")으로 처리한다.
+ * 검색형 콤보박스(자동완성 + ▾ 드롭다운 버튼).
+ * 타이핑하면 부분일치로 후보가 뜨고, ▾ 버튼을 누르면 전체 목록이 열린다.
+ * 고정 목록(options)만 허용: 목록에 없는 자유 입력은 blur 시 되돌린다.
+ *
+ * 선택 시 입력창을 value(부모가 넘긴 값)로 초기화한다.
+ * - value=""(항상 빈 값)로 쓰면 "선택→초기화" 피커가 되어 복수 선택(칩 누적)에 쓸 수 있다.
+ * - value 를 상태로 유지하면 단일 선택 콤보박스로 동작한다(아래 value 동기화 effect).
  */
 export default function Combobox({
   value,
@@ -27,6 +30,7 @@ export default function Combobox({
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   // 외부 value 변경 시 입력 텍스트 동기화
   useEffect(() => {
@@ -43,25 +47,23 @@ export default function Combobox({
   function select(opt: string) {
     if (blurTimer.current) clearTimeout(blurTimer.current);
     onChange(opt);
-    setText(opt);
+    // 선택 후 입력창을 value 로 초기화. 피커 모드(value="")는 비워지고,
+    // 단일 선택 모드는 부모가 value 를 갱신하면 아래 effect 가 다시 채운다.
+    setText(value);
     setOpen(false);
   }
 
   function commitOnBlur() {
     setOpen(false);
-    const trimmed = text.trim();
-    if (trimmed === "") {
-      onChange(""); // 비우면 미선택
-      return;
-    }
-    const exact = options.find((o) => o === trimmed);
-    if (exact) onChange(exact);
-    else setText(value); // 목록에 없는 자유 입력은 되돌린다
+    const exact = options.find((o) => o === text.trim());
+    if (exact) onChange(exact); // 정확히 일치하면 확정/추가
+    setText(value); // 자유 입력·미확정은 이전 상태로 되돌린다
   }
 
   return (
     <div style={{ position: "relative", width }}>
       <input
+        ref={inputRef}
         aria-label={ariaLabel}
         value={text}
         placeholder={placeholder}
@@ -77,7 +79,7 @@ export default function Combobox({
         style={{
           width: "100%",
           height: 42,
-          padding: "0 12px",
+          padding: "0 36px 0 12px",
           fontSize: 13,
           fontFamily: "Pretendard, sans-serif",
           color: "#3a4150",
@@ -88,6 +90,58 @@ export default function Combobox({
           boxSizing: "border-box",
         }}
       />
+
+      {/* 드롭다운 토글 화살표 (클릭 시 전체 목록 열기/닫기) */}
+      <button
+        type="button"
+        aria-label={open ? "목록 닫기" : "목록 열기"}
+        tabIndex={-1}
+        // input blur 보다 먼저 처리해 포커스가 유지되도록 mousedown 사용
+        onMouseDown={(e) => {
+          e.preventDefault();
+          if (blurTimer.current) clearTimeout(blurTimer.current);
+          if (open) {
+            setOpen(false);
+          } else {
+            setText(value); // 열 때는 전체 목록이 보이도록 검색어 초기화
+            setOpen(true);
+            inputRef.current?.focus();
+          }
+        }}
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          width: 34,
+          height: 42,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          color: "#9aa1ad",
+        }}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          style={{
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform .15s",
+          }}
+        >
+          <path
+            d="M2.5 4.5 6 8l3.5-3.5"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
 
       {open && (
         <div
@@ -102,7 +156,8 @@ export default function Combobox({
             borderRadius: 10,
             boxShadow: "0 10px 28px rgba(16,24,40,.14)",
             padding: 6,
-            maxHeight: 260,
+            // 항목 3개 높이(약 34px/개)만 노출하고 나머지는 스크롤
+            maxHeight: 118,
             overflowY: "auto",
           }}
         >
