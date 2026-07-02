@@ -6,8 +6,15 @@ import { formatKstDateTime } from "@/lib/format-date";
 import type { FeedbackRow, FeedbackEdit } from "@/lib/data/feedback-view";
 import ReadField from "@/components/ui/read-field";
 import CloseButton from "@/components/ui/close-button";
-import Dropdown from "@/components/ui/dropdown";
+import Combobox from "@/components/ui/combobox";
 import { DEPARTMENTS } from "@/lib/departments";
+import {
+  FEEDBACK_STATUSES,
+  statusLabel,
+  STATUS_COLOR,
+  STATUS_BG,
+  type FeedbackStatus,
+} from "@/lib/types";
 
 /**
  * 유관 부서 문자열 파싱.
@@ -35,7 +42,7 @@ const CAUSE_PRESETS = [
 /**
  * 피드백 편집 모달 (FR-4.2 / FR-4.3) — 단순화 버전.
  * 원본(질의어·AI 답변·평가 사유·의견)은 읽기 전용, 원인 분류(칩) + 피드백 내용(조치)만 입력.
- * 진행 상태는 목록에서 인라인 변경. 상세사유·메모 등 기존 값은 보존하여 저장.
+ * 진행 상태는 모달·목록 인라인 양쪽에서 변경 가능(저장 후 목록과 연동). 상세사유·메모 등 기존 값은 보존하여 저장.
  */
 export default function FeedbackDialog({
   row,
@@ -56,15 +63,11 @@ export default function FeedbackDialog({
     parseDepartments(row.related_department),
   );
   const [content, setContent] = useState(row.action ?? "");
+  // 처리 상태: 모달에서 변경 → 저장 시 목록과 연동(persist 후 router.refresh)
+  const [status, setStatus] = useState<FeedbackStatus>(row.status);
 
-  // 드롭다운에는 아직 선택되지 않은 부서만 노출(중복 추가 방지). 맨 앞은 placeholder.
-  const deptOptions = [
-    { value: "", label: "유관 부서 선택" },
-    ...DEPARTMENTS.filter((d) => !depts.includes(d)).map((d) => ({
-      value: d,
-      label: d,
-    })),
-  ];
+  // 콤보박스에는 아직 선택되지 않은 부서만 노출(중복 추가 방지).
+  const deptOptions = DEPARTMENTS.filter((d) => !depts.includes(d));
 
   function addDept(d: string) {
     if (d && !depts.includes(d)) setDepts((prev) => [...prev, d]);
@@ -84,7 +87,7 @@ export default function FeedbackDialog({
   function submit() {
     onSave({
       satisfaction_id: row.satisfaction_id,
-      status: row.status, // 상태는 목록 인라인에서 변경 (여기선 유지)
+      status, // 모달에서 선택한 처리 상태 (목록과 연동)
       detail_reason: row.detail_reason, // 기존 값 보존
       cause_category: cause,
       // 선택된 부서 목록을 쉼표 구분 문자열로 저장(미선택 시 null)
@@ -200,12 +203,13 @@ export default function FeedbackDialog({
             {/* 드롭다운(고정 너비) + 칩 영역(남은 폭, 우측에서만 줄바꿈) 나란히 배치 */}
             <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
               <div style={{ flexShrink: 0 }}>
-                <Dropdown
+                <Combobox
                   value=""
                   options={deptOptions}
                   onChange={addDept}
                   width={260}
                   ariaLabel="유관 부서"
+                  placeholder="유관 부서(팀)명 입력"
                 />
               </div>
               <div
@@ -237,7 +241,10 @@ export default function FeedbackDialog({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {d}
+                    {/* 라인박스가 아닌 글자 높이 기준으로 중앙 정렬되도록 flex 로 감싼다 */}
+                    <span style={{ display: "inline-flex", alignItems: "center", lineHeight: 1 }}>
+                      {d}
+                    </span>
                     <button
                       type="button"
                       aria-label={`${d} 삭제`}
@@ -253,12 +260,18 @@ export default function FeedbackDialog({
                         borderRadius: 999,
                         background: "transparent",
                         color: "#2f6bff",
-                        fontSize: 14,
-                        lineHeight: 1,
                         cursor: "pointer",
                       }}
                     >
-                      ×
+                      {/* × 글리프 대신 SVG 로 버튼 중앙에 정확히 배치 */}
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                        <path
+                          d="M1.5 1.5l7 7M8.5 1.5l-7 7"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                        />
+                      </svg>
                     </button>
                   </span>
                 ))}
@@ -289,6 +302,44 @@ export default function FeedbackDialog({
                 boxSizing: "border-box",
               }}
             />
+          </div>
+
+          {/* 처리 상태 (상태별 지정색 칩 — 모달에서 선택 → 목록의 상태값과 연동) */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#3a4150", marginBottom: 8 }}>
+              처리 상태
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {FEEDBACK_STATUSES.map((s) => {
+                const sel = status === s;
+                const color = STATUS_COLOR[s];
+                return (
+                  <button
+                    type="button"
+                    key={s}
+                    onClick={() => setStatus(s)}
+                    aria-pressed={sel}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "9px 16px",
+                      border: `1px solid ${sel ? color : "transparent"}`,
+                      borderRadius: 999,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      fontFamily: "Pretendard, sans-serif",
+                      lineHeight: 1,
+                      // 선택: 지정색으로 채움(흰 글자) / 비선택: 연한 배경 + 지정색 글자
+                      color: sel ? "#fff" : color,
+                      background: sel ? color : STATUS_BG[s],
+                    }}
+                  >
+                    {statusLabel(s)}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* 작성자 + 최근 저장일시 */}

@@ -29,7 +29,7 @@ export const DUMMY_FEEDBACK: Feedback[] = [
     satisfaction_id: "s-0008",
     status: "조치완료", // 저장값(화면 표시는 '처리완료')
     detail_reason: "편입 영어 난이도 정보 오류",
-    cause_category: "오답/사실 오류",
+    cause_category: "오답·사실 오류",
     related_department: "입시컨텐츠팀",
     action: "출처 교정 및 프롬프트 가이드 반영 완료",
     memo: "유사 질의 재현 테스트 통과",
@@ -43,7 +43,7 @@ export const DUMMY_FEEDBACK: Feedback[] = [
     satisfaction_id: "s-0016",
     status: "보류",
     detail_reason: "토플 환산표 부정확",
-    cause_category: "오답/사실 오류",
+    cause_category: "오답·사실 오류",
     related_department: null,
     action: null,
     memo: "공식 환산표 기관별 상이 — 정책 확정 대기",
