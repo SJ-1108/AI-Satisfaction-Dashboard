@@ -619,7 +619,10 @@ export default function FeedbackClient({
 
       {/* 목록 */}
       <div style={card}>
-        <div style={{ overflowX: "auto" }}>
+        {/* overflow 를 두지 않는다: overflow-x:auto 는 overflow-y 도 auto 로 만들어
+            하단 행의 상태 드롭다운 팝오버를 세로로 잘라낸다. 표는 tableLayout:fixed +
+            퍼센트 컬럼(합계 100%)이라 가로 스크롤이 애초에 생기지 않는다. */}
+        <div>
           <table
             style={{
               width: "100%",
@@ -783,6 +786,7 @@ function StatusSelect({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+
   return (
     <div style={{ position: "relative", display: "block" }}>
       {open && (
@@ -820,8 +824,11 @@ function StatusSelect({
         <div
           style={{
             position: "absolute",
+            // 항상 버튼 하단에 고정. (리스트 overflow 래퍼를 제거해 하단 행도 잘리지 않음)
             top: 42,
-            left: 0,
+            // 트리거 버튼이 셀 안에서 가운데 정렬(margin:0 auto)이므로 팝오버도 중앙에 맞춘다
+            left: "50%",
+            transform: "translateX(-50%)",
             zIndex: 60,
             minWidth: 116,
             background: "#fff",
