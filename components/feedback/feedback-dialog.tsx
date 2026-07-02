@@ -6,8 +6,22 @@ import { formatKstDateTime } from "@/lib/format-date";
 import type { FeedbackRow, FeedbackEdit } from "@/lib/data/feedback-view";
 import ReadField from "@/components/ui/read-field";
 import CloseButton from "@/components/ui/close-button";
-import Combobox from "@/components/ui/combobox";
+import Dropdown from "@/components/ui/dropdown";
 import { DEPARTMENTS } from "@/lib/departments";
+
+/**
+ * 유관 부서 문자열 파싱.
+ * - null/빈값 → []
+ * - 단일 값("고12내신파트") → ["고12내신파트"]
+ * - 쉼표 구분("마케팅1팀, 서비스기획팀") → ["마케팅1팀", "서비스기획팀"]
+ */
+function parseDepartments(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 /** 원인 분류 프리셋 (단순화 디자인 — 칩 선택) */
 const CAUSE_PRESETS = [
@@ -37,8 +51,27 @@ export default function FeedbackDialog({
   onClose: () => void;
 }) {
   const [cause, setCause] = useState<string | null>(row.cause_category ?? null);
-  const [dept, setDept] = useState<string>(row.related_department ?? "");
+  // 유관 부서: 쉼표 구분 문자열 ↔ 칩 배열 (기존 단일/쉼표 값 모두 호환)
+  const [depts, setDepts] = useState<string[]>(() =>
+    parseDepartments(row.related_department),
+  );
   const [content, setContent] = useState(row.action ?? "");
+
+  // 드롭다운에는 아직 선택되지 않은 부서만 노출(중복 추가 방지). 맨 앞은 placeholder.
+  const deptOptions = [
+    { value: "", label: "유관 부서 선택" },
+    ...DEPARTMENTS.filter((d) => !depts.includes(d)).map((d) => ({
+      value: d,
+      label: d,
+    })),
+  ];
+
+  function addDept(d: string) {
+    if (d && !depts.includes(d)) setDepts((prev) => [...prev, d]);
+  }
+  function removeDept(d: string) {
+    setDepts((prev) => prev.filter((x) => x !== d));
+  }
 
   // 기존 값이 프리셋에 없으면 칩으로 추가해 선택 상태를 유지
   const causeChips = Array.from(
@@ -54,7 +87,8 @@ export default function FeedbackDialog({
       status: row.status, // 상태는 목록 인라인에서 변경 (여기선 유지)
       detail_reason: row.detail_reason, // 기존 값 보존
       cause_category: cause,
-      related_department: dept || null,
+      // 선택된 부서 목록을 쉼표 구분 문자열로 저장(미선택 시 null)
+      related_department: depts.length ? depts.join(", ") : null,
       action: content.trim() || null,
       memo: row.memo, // 기존 값 보존
     });
@@ -77,7 +111,7 @@ export default function FeedbackDialog({
       <div
         style={{
           width: "100%",
-          maxWidth: 660,
+          maxWidth: 820,
           height: 900,
           maxHeight: "90vh",
           background: "#fff",
@@ -158,19 +192,78 @@ export default function FeedbackDialog({
             </div>
           </div>
 
-          {/* 유관 부서 */}
+          {/* 유관 부서 (드롭다운 선택 → 칩 누적, 칩 X로 해제) */}
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#3a4150", marginBottom: 8 }}>
               유관 부서
             </div>
-            <Combobox
-              value={dept}
-              options={DEPARTMENTS}
-              onChange={setDept}
-              width={280}
-              ariaLabel="유관 부서"
-              placeholder="유관 부서(팀명) 입력"
-            />
+            {/* 드롭다운(고정 너비) + 칩 영역(남은 폭, 우측에서만 줄바꿈) 나란히 배치 */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <div style={{ flexShrink: 0 }}>
+                <Dropdown
+                  value=""
+                  options={deptOptions}
+                  onChange={addDept}
+                  width={260}
+                  ariaLabel="유관 부서"
+                />
+              </div>
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 8,
+                  minHeight: 42,
+                }}
+              >
+                {depts.map((d) => (
+                  <span
+                    key={d}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      height: 32,
+                      padding: "0 8px 0 12px",
+                      border: "1px solid #cdd9ff",
+                      borderRadius: 999,
+                      background: "#eef3ff",
+                      color: "#2f6bff",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {d}
+                    <button
+                      type="button"
+                      aria-label={`${d} 삭제`}
+                      onClick={() => removeDept(d)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 18,
+                        height: 18,
+                        padding: 0,
+                        border: "none",
+                        borderRadius: 999,
+                        background: "transparent",
+                        color: "#2f6bff",
+                        fontSize: 14,
+                        lineHeight: 1,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* 피드백 내용 */}
