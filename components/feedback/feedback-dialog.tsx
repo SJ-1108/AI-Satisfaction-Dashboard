@@ -144,11 +144,15 @@ export default function FeedbackDialog({
           <CloseButton onClick={onClose} />
         </div>
 
-        {/* 본문 (스크롤) */}
+        {/* 본문 (스크롤) — 입력 중 레이아웃 흔들림 방지:
+            scrollbarGutter:stable(스크롤바 토글 시 가로폭 고정),
+            overflowAnchor:none(리플로우 시 스크롤 위치 튐 방지) */}
         <div
           style={{
             flex: 1,
-            overflowY: "auto",
+            overflowY: "scroll",
+            scrollbarGutter: "stable",
+            overflowAnchor: "none",
             display: "flex",
             flexDirection: "column",
             gap: 14,
@@ -289,10 +293,12 @@ export default function FeedbackDialog({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               style={{
+                display: "block",
                 width: "100%",
                 height: 140,
                 padding: "12px 14px",
                 fontSize: 13,
+                lineHeight: 1.5,
                 fontFamily: "Pretendard, sans-serif",
                 color: "#1a1d23",
                 border: "1px solid #e2e5ea",
