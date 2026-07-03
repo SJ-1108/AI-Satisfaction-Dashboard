@@ -6,12 +6,12 @@
  * null / 빈 값 / 미지정은 "미지정" 으로 표시한다.
  */
 export const REASON_LABELS: Record<string, string> = {
-  insufficient: "정보 부족",
-  inappropriate: "부적절한 답변",
-  intent_mismatch: "의도 불일치",
-  outdated: "최신 정보 아님",
+  intent_mismatch: "질문 의도와 다른 정보를 답변함",
+  not_factual: "사실이 아닌 정보임",
+  insufficient: "필요한 정보가 부족함",
+  outdated: "최신 정보가 아님",
+  inappropriate: "부적절하거나 불쾌한 표현임",
   other: "기타",
-  not_factual: "사실과 다름",
 };
 
 /** null/빈 값/미지정 reason 의 표시 라벨 */
