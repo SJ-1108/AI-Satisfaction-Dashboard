@@ -73,3 +73,17 @@ export const DEPARTMENT_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: DEPARTMENT_UNSET_LABEL },
   ...DEPARTMENTS.map((d) => ({ value: d, label: d })),
 ];
+
+/**
+ * 유관 부서 문자열 파싱.
+ * - null/빈값 → []
+ * - 단일 값("고12내신파트") → ["고12내신파트"]
+ * - 쉼표 구분("마케팅1팀, 서비스기획팀") → ["마케팅1팀", "서비스기획팀"]
+ */
+export function parseDepartments(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}

@@ -13,6 +13,8 @@ import {
   handledRate,
 } from "@/lib/data/feedback-stats";
 import { reasonLabel, REASON_OPTIONS } from "@/lib/reasons";
+import { CAUSE_CATEGORIES, CAUSE_CHART_COLORS } from "@/lib/cause-categories";
+import { DEPARTMENTS, parseDepartments } from "@/lib/departments";
 import {
   formatKstDateTime,
   kstDatePart,
@@ -48,17 +50,8 @@ ChartJS.defaults.color = "#8a909c";
 
 const PAGE_SIZE = 10;
 
-/** 원인 분류 도넛 색상 팔레트 (순환) */
-const CAUSE_COLORS = [
-  "#2f6bff",
-  "#f06b66",
-  "#10b981",
-  "#f5b73d",
-  "#7c83f5",
-  "#22a565",
-  "#e0635d",
-  "#d5d9e0",
-];
+/** 원인 분류 도넛 색상 팔레트 — 공용 상수(lib/cause-categories) 재사용 */
+const CAUSE_COLORS = CAUSE_CHART_COLORS;
 
 // ── 공통 인라인 스타일 ──
 const card: React.CSSProperties = {
@@ -148,6 +141,8 @@ export default function FeedbackClient({
 
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | "all">("all");
   const [reasonFilter, setReasonFilter] = useState<string>("all");
+  const [causeFilter, setCauseFilter] = useState<string>("all");
+  const [deptFilter, setDeptFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -193,7 +188,7 @@ export default function FeedbackClient({
         backgroundColor: causeCounts.map(
           (_, i) => CAUSE_COLORS[i % CAUSE_COLORS.length],
         ),
-        borderWidth: 1,
+        borderWidth: 2,
         borderColor: "#fff",
         hoverOffset: 6,
       },
@@ -202,11 +197,21 @@ export default function FeedbackClient({
   const causeChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: "66%",
+    cutout: "62%",
     plugins: {
+      // 좁은 좌측(2fr) 카드 — 범례를 하단에 두어 도넛이 카드 폭을 온전히 쓰게 하고
+      // 항목 간격(padding)을 넉넉히 주어 눌려 보이지 않게 한다.
       legend: {
-        position: "right" as const,
-        labels: { boxWidth: 12, boxHeight: 12, padding: 12, font: { size: 12 } },
+        position: "bottom" as const,
+        align: "start" as const,
+        labels: {
+          usePointStyle: true,
+          pointStyle: "rect" as const,
+          boxWidth: 10,
+          boxHeight: 10,
+          padding: 12,
+          font: { size: 11 },
+        },
       },
       tooltip: {
         callbacks: {
@@ -243,6 +248,16 @@ export default function FeedbackClient({
     return allRows.filter((r) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (reasonFilter !== "all" && r.reason !== reasonFilter) return false;
+      if (causeFilter !== "all") {
+        const c = r.cause_category?.trim() || "미분류";
+        if (c !== causeFilter) return false;
+      }
+      // 유관 부서: 쉼표 구분 다중값이므로 부분 포함 매칭
+      if (
+        deptFilter !== "all" &&
+        !parseDepartments(r.related_department).includes(deptFilter)
+      )
+        return false;
       if (from && kstDatePart(r.created_at) < from) return false;
       if (to && kstDatePart(r.created_at) > to) return false;
       if (q) {
@@ -250,12 +265,24 @@ export default function FeedbackClient({
       }
       return true;
     });
-  }, [allRows, statusFilter, reasonFilter, search, dateFrom, dateTo, dateRangeInvalid]);
+  }, [
+    allRows,
+    statusFilter,
+    reasonFilter,
+    causeFilter,
+    deptFilter,
+    search,
+    dateFrom,
+    dateTo,
+    dateRangeInvalid,
+  ]);
 
   function resetFilters() {
     setSearch("");
     setReasonFilter("all");
     setStatusFilter("all");
+    setCauseFilter("all");
+    setDeptFilter("all");
     setDateFrom("");
     setDateTo("");
     setPage(1);
@@ -340,9 +367,18 @@ export default function FeedbackClient({
     { label: "전체", value: "all" },
     ...FEEDBACK_STATUSES.map((s) => ({ label: statusLabel(s), value: s })),
   ];
+  const causeOptions = [
+    { label: "전체", value: "all" },
+    ...CAUSE_CATEGORIES.map((c) => ({ label: c, value: c })),
+    { label: "미분류", value: "미분류" },
+  ];
+  const deptOptions = [
+    { label: "전체", value: "all" },
+    ...DEPARTMENTS.map((d) => ({ label: d, value: d })),
+  ];
 
   const kpis = [
-    { label: "불만족 총건수", value: allRows.length, color: "#e0635d" },
+    { label: "불만족 총건수", value: allRows.length, color: "#1a1d23" },
     ...FEEDBACK_STATUSES.map((s) => ({
       label: statusLabel(s),
       value: statusCounts[s],
@@ -369,7 +405,7 @@ export default function FeedbackClient({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
+          gridTemplateColumns: "repeat(6, 1fr)",
           gap: 16,
           marginBottom: 24,
         }}
@@ -416,7 +452,7 @@ export default function FeedbackClient({
           {causeCounts.length === 0 ? (
             <p style={{ color: "#8a909c", fontSize: 13 }}>데이터가 없습니다.</p>
           ) : (
-            <div style={{ height: 260, position: "relative" }}>
+            <div style={{ height: 320, position: "relative" }}>
               {mounted ? (
                 <Doughnut data={causeChartData} options={causeChartOptions} />
               ) : (
@@ -586,6 +622,30 @@ export default function FeedbackClient({
                 setPage(1);
               }}
               width={120}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={filterLabel}>원인 분류</span>
+            <Dropdown
+              value={causeFilter}
+              options={causeOptions}
+              onChange={(v) => {
+                setCauseFilter(v);
+                setPage(1);
+              }}
+              width={150}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={filterLabel}>유관 부서</span>
+            <Dropdown
+              value={deptFilter}
+              options={deptOptions}
+              onChange={(v) => {
+                setDeptFilter(v);
+                setPage(1);
+              }}
+              width={170}
             />
           </div>
           <input
