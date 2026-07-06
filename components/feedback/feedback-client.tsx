@@ -203,7 +203,7 @@ export default function FeedbackClient({
       // 항목 간격(padding)을 넉넉히 주어 눌려 보이지 않게 한다.
       legend: {
         position: "bottom" as const,
-        align: "start" as const,
+        align: "center" as const,
         labels: {
           usePointStyle: true,
           pointStyle: "rect" as const,
