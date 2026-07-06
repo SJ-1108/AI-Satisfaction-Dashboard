@@ -621,12 +621,11 @@ export default function FeedbackClient({
             <colgroup>
               <col style={{ width: "3%" }} />
               <col style={{ width: "7%" }} />
-              <col style={{ width: "12%" }} />
               <col style={{ width: "13%" }} />
-              <col style={{ width: "6%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "11%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "15%" }} />
               <col style={{ width: "7%" }} />
+              <col style={{ width: "11%" }} />
               <col style={{ width: "9%" }} />
               <col style={{ width: "9%" }} />
               <col style={{ width: "5%" }} />
@@ -639,7 +638,6 @@ export default function FeedbackClient({
                 <th style={th}>질의어</th>
                 <th style={th}>AI 답변</th>
                 <th style={th}>평가 사유</th>
-                <th style={th}>의견</th>
                 <th style={th}>처리 상태</th>
                 <th style={th}>원인 분류</th>
                 <th style={th}>유관 부서</th>
@@ -651,7 +649,7 @@ export default function FeedbackClient({
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                  <td colSpan={11} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
                     조건에 맞는 불만족 건이 없습니다.
                   </td>
                 </tr>
@@ -678,12 +676,6 @@ export default function FeedbackClient({
                       title={r.reason ? reasonLabel(r.reason) : undefined}
                     >
                       {r.reason ? reasonLabel(r.reason) : "-"}
-                    </td>
-                    <td
-                      style={{ ...td, ...cellText, color: "#9aa1ad" }}
-                      title={r.comment ?? undefined}
-                    >
-                      {r.comment || "-"}
                     </td>
                     <td style={td}>
                       <StatusSelect
@@ -788,10 +780,10 @@ function StatusSelect({
           alignItems: "center",
           justifyContent: "space-between",
           width: "100%",
-          maxWidth: 104,
+          maxWidth: 84,
           margin: "0 auto",
           height: 36,
-          padding: "0 12px",
+          padding: "0 10px",
           fontSize: 13,
           fontWeight: 600,
           color: STATUS_COLOR[value],
@@ -816,12 +808,12 @@ function StatusSelect({
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 60,
-            minWidth: 116,
+            width: 84,
             background: "#fff",
             border: "1px solid #e9ebef",
             borderRadius: 10,
             boxShadow: "0 10px 28px rgba(16,24,40,.14)",
-            padding: 6,
+            padding: 5,
           }}
         >
           {FEEDBACK_STATUSES.map((s) => (
@@ -832,7 +824,7 @@ function StatusSelect({
                 setOpen(false);
               }}
               style={{
-                padding: "9px 12px",
+                padding: "9px 10px",
                 borderRadius: 7,
                 cursor: "pointer",
                 fontSize: 13,
