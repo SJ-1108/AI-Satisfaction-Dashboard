@@ -153,6 +153,35 @@ export function computeReasonBreakdown(
     .sort((a, b) => reasonOrderIndex(a.reason) - reasonOrderIndex(b.reason));
 }
 
+// ── 원인 분류별 통계 ────────────────────────────────────────
+export interface CauseCount {
+  category: string; // 원인 분류 (없으면 "미분류")
+  count: number;
+}
+
+/**
+ * 기간 내 불만족(down) 건의 원인 분류(cause_category)별 집계, 내림차순.
+ * feedback.satisfaction_id 로 조인하며, 피드백이 없거나 미입력인 건은 "미분류"로 묶는다.
+ * 기간 필터는 호출 측에서 records 를 미리 거른 뒤 전달한다.
+ */
+export function computeCauseBreakdown(
+  records: Satisfaction[],
+  feedback: Feedback[],
+): CauseCount[] {
+  const causeById = new Map<string, string | null>();
+  for (const f of feedback) causeById.set(f.satisfaction_id, f.cause_category);
+
+  const map = new Map<string, number>();
+  for (const r of records) {
+    if (r.rating !== "down") continue;
+    const key = causeById.get(r.id)?.trim() || "미분류";
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+  return Array.from(map.entries())
+    .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
 // ── 불만족 및 피드백 처리 현황 ─────────────────────────────────
 export interface DailyFeedbackStatusRow {
   date: string; // 버킷 키 (일: YYYY-MM-DD, 주: 주 시작 금요일, 월: YYYY-MM) — 모두 KST
