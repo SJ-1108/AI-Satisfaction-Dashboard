@@ -587,12 +587,12 @@ export default function RecordsClient({
             }}
           >
             <colgroup>
-              <col style={{ width: "5%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "22%" }} />
-              <col style={{ width: "27%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "12%" }} />
+              <col style={{ width: "4%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "17%" }} />
+              <col style={{ width: "32%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "16%" }} />
               <col style={{ width: "13%" }} />
             </colgroup>
             <thead>
@@ -654,7 +654,10 @@ export default function RecordsClient({
                     <td style={td}>
                       <RatingBadge rating={r.rating} />
                     </td>
-                    <td style={{ ...td, color: r.reason ? "#5a616e" : "#9aa1ad" }}>
+                    <td
+                      style={{ ...tdEllipsis, color: r.reason ? "#5a616e" : "#9aa1ad" }}
+                      title={r.reason ? reasonLabel(r.reason) : undefined}
+                    >
                       {r.reason ? reasonLabel(r.reason) : "-"}
                     </td>
                     <td
