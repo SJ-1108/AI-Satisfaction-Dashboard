@@ -7,7 +7,8 @@ import type { FeedbackRow, FeedbackEdit } from "@/lib/data/feedback-view";
 import ReadField from "@/components/ui/read-field";
 import CloseButton from "@/components/ui/close-button";
 import Combobox from "@/components/ui/combobox";
-import { DEPARTMENTS } from "@/lib/departments";
+import { DEPARTMENTS, parseDepartments } from "@/lib/departments";
+import { CAUSE_CATEGORIES } from "@/lib/cause-categories";
 import {
   FEEDBACK_STATUSES,
   statusLabel,
@@ -15,29 +16,6 @@ import {
   STATUS_BG,
   type FeedbackStatus,
 } from "@/lib/types";
-
-/**
- * 유관 부서 문자열 파싱.
- * - null/빈값 → []
- * - 단일 값("고12내신파트") → ["고12내신파트"]
- * - 쉼표 구분("마케팅1팀, 서비스기획팀") → ["마케팅1팀", "서비스기획팀"]
- */
-function parseDepartments(raw: string | null): string[] {
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-/** 원인 분류 프리셋 (단순화 디자인 — 칩 선택) */
-const CAUSE_PRESETS = [
-  "데이터 부족",
-  "오답·사실 오류",
-  "질의 의도 불일치",
-  "AI 개발 이슈",
-  "기타",
-];
 
 /**
  * 피드백 편집 모달 (FR-4.2 / FR-4.3) — 단순화 버전.
@@ -78,7 +56,7 @@ export default function FeedbackDialog({
 
   // 기존 값이 프리셋에 없으면 칩으로 추가해 선택 상태를 유지
   const causeChips = Array.from(
-    new Set([...CAUSE_PRESETS, ...(row.cause_category ? [row.cause_category] : [])]),
+    new Set([...CAUSE_CATEGORIES, ...(row.cause_category ? [row.cause_category] : [])]),
   );
 
   const author = row.hasFeedback ? row.updated_by ?? currentUserName : currentUserName;

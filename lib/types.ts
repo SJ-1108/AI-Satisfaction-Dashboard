@@ -12,13 +12,19 @@ export type Rating = "up" | "down";
  * '조치완료'는 기존 DB 호환을 위해 저장값을 유지하고, 화면에는 '처리완료'로 표시한다
  * (표시명은 FEEDBACK_STATUS_LABELS / statusLabel 참조). DB CHECK 제약과 1:1 일치.
  */
-export type FeedbackStatus = "미확인" | "검토중" | "조치완료" | "보류";
+export type FeedbackStatus =
+  | "미확인"
+  | "검토중"
+  | "조치완료"
+  | "보류"
+  | "처리 불가";
 
 export const FEEDBACK_STATUSES: FeedbackStatus[] = [
   "미확인",
   "검토중",
   "조치완료",
   "보류",
+  "처리 불가",
 ];
 
 /**
@@ -30,6 +36,7 @@ export const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
   검토중: "검토중",
   조치완료: "처리완료",
   보류: "보류",
+  "처리 불가": "처리 불가",
 };
 
 /** 상태 저장값 → 화면 표시명. 알 수 없는 값은 그대로 반환(방어적). */
@@ -37,20 +44,22 @@ export function statusLabel(status: FeedbackStatus): string {
   return FEEDBACK_STATUS_LABELS[status] ?? status;
 }
 
-/** 상태별 색상 (디자인 톤) — 목록 pill·모달 칩 등에서 공용 사용 */
+/** 상태별 색상 (디자인 톤) — 목록 pill·모달 칩 등에서 공용 사용. 대시보드 처리 현황과 통일 */
 export const STATUS_COLOR: Record<FeedbackStatus, string> = {
-  미확인: "#6b7280",
-  검토중: "#2f6bff",
-  조치완료: "#1f9d6a", // 저장값(화면 표시는 '처리완료')
-  보류: "#d98a00",
+  미확인: "#8a8f98", // 웜/뉴트럴 그레이 (미처리) — 텍스트 대비 확보
+  검토중: "#bd5f56",
+  조치완료: "#ab3f3a", // 저장값(화면 표시는 '처리완료')
+  보류: "#932c2c",
+  "처리 불가": "#7a2627",
 };
 
-/** 상태별 연한 배경(pill·칩) */
+/** 상태별 연한 배경(pill·칩) — STATUS_COLOR 계열의 연한 틴트 */
 export const STATUS_BG: Record<FeedbackStatus, string> = {
-  미확인: "#eef0f3",
-  검토중: "#eaf1ff",
-  조치완료: "#e3f3ec", // 저장값(화면 표시는 '처리완료')
-  보류: "#fbf0db",
+  미확인: "#f4f0f0",
+  검토중: "#f6e7e5",
+  조치완료: "#f3e2e1", // 저장값(화면 표시는 '처리완료')
+  보류: "#f0dcdc",
+  "처리 불가": "#ecd9d9",
 };
 
 /**

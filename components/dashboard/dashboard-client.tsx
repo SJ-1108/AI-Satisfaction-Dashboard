@@ -17,6 +17,7 @@ import { Line, Doughnut, Bar } from "react-chartjs-2";
 import type { Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
 import { FEEDBACK_STATUSES, statusLabel } from "@/lib/types";
 import {
+  computeCauseBreakdown,
   computeDailyFeedbackStatus,
   computeKpis,
   computeReasonBreakdown,
@@ -46,16 +47,29 @@ ChartJS.defaults.font.family = "Pretendard, -apple-system, sans-serif";
 ChartJS.defaults.color = "#8a909c";
 
 // 디자인 팔레트
-const BLUE = "#2f6bff"; // 만족
-const RED = "#f06b66"; // 불만족 (차트)
+const BLUE = "#2450c8"; // 만족 (딥 블루)
+const RED = "#e8635d"; // 불만족 (추이·비중·사유별 분포 차트)
 const DISSAT = "#e0635d"; // 불만족 (KPI/표 강조)
 
-/** 상태별 누적 막대 색상 (디자인 기준) */
+/** 원인 분류별 통계 도넛 색상 — 테라코타→샌드 그라데이션(진→연) 8단계 */
+const CAUSE_COLORS = [
+  "#8f4a33",
+  "#a55f42",
+  "#b77452",
+  "#c68a68",
+  "#d29f80",
+  "#dbb298",
+  "#e3c4ac",
+  "#e9d2be",
+];
+
+/** 상태별 누적 막대 색상 — 처리 단계(로즈→딥 레드 계열) */
 const STATUS_COLOR: Record<FeedbackStatus, string> = {
-  미확인: "#d5d9e0",
-  검토중: "#7c83f5",
-  조치완료: "#10b981", // 저장값(화면 표시는 '처리완료')
-  보류: "#f5b73d",
+  미확인: "#cdc2c3", // 웜 그레이 (미처리)
+  검토중: "#bd5f56",
+  조치완료: "#ab3f3a", // 저장값(화면 표시는 '처리완료')
+  보류: "#932c2c",
+  "처리 불가": "#7a2627",
 };
 
 const GRID = { color: "#f0f2f5" } as const;
@@ -197,6 +211,10 @@ export default function DashboardClient({
     [filtered, granularity],
   );
   const reasons = useMemo(() => computeReasonBreakdown(filtered), [filtered]);
+  const causes = useMemo(
+    () => computeCauseBreakdown(filtered, feedback),
+    [filtered, feedback],
+  );
   const daily = useMemo(
     () => computeDailyFeedbackStatus(filtered, feedback, granularity),
     [filtered, feedback, granularity],
@@ -205,6 +223,7 @@ export default function DashboardClient({
   const hasRecords = records.length > 0; // 업로드 데이터 존재 여부
   const hasData = filtered.length > 0; // 선택 기간 내 데이터 존재 여부
   const reasonTotal = reasons.reduce((s, r) => s + r.count, 0);
+  const causeTotal = causes.reduce((s, c) => s + c.count, 0);
 
   // ── 추이 (line) ──
   const trendData = {
@@ -392,6 +411,64 @@ export default function DashboardClient({
     },
   };
 
+  // ── 원인 분류별 통계 (도넛) ──
+  const causeData = {
+    labels: causes.map((c) => c.category),
+    datasets: [
+      {
+        data: causes.map((c) => c.count),
+        backgroundColor: causes.map(
+          (_, i) => CAUSE_COLORS[i % CAUSE_COLORS.length],
+        ),
+        // 작은 조각이 흰 테두리에 묻히지 않도록 얇게(2)
+        borderWidth: 2,
+        borderColor: "#fff",
+        hoverOffset: 6,
+      },
+    ],
+  };
+
+  const causeOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: "62%",
+    plugins: {
+      // 좁은 1/4 폭 카드 — 범례를 하단에 두어 도넛이 카드 폭을 온전히 쓰게 하고,
+      // 항목 간격(padding)을 넉넉히 주어 쪼개져 보이지 않게 한다.
+      legend: {
+        display: true,
+        position: "bottom" as const,
+        align: "start" as const,
+        labels: {
+          usePointStyle: true,
+          pointStyle: "rect" as const,
+          boxWidth: 10,
+          boxHeight: 10,
+          padding: 12,
+          font: { size: 11 },
+        },
+      },
+      tooltip: {
+        callbacks: {
+          title: () => "",
+          labelColor: (ctx: TooltipItem<"doughnut">) => {
+            const bg = (ctx.dataset.backgroundColor as string[])[ctx.dataIndex];
+            return {
+              borderColor: bg,
+              backgroundColor: bg,
+              borderWidth: 0,
+              borderRadius: 3,
+            };
+          },
+          label: (ctx: TooltipItem<"doughnut">) => {
+            const v = ctx.parsed;
+            return [`${ctx.label}`, `${v.toLocaleString()}건 (${pct(v, causeTotal)})`];
+          },
+        },
+      },
+    },
+  };
+
   // 세그먼트(일/주/월) 선택 → granularity + 조회 기간 자동 연동
   function applyGranularity(g: Granularity) {
     const anchor = range?.max ?? kstDatePart(new Date().toISOString());
@@ -470,19 +547,42 @@ export default function DashboardClient({
             ))}
           </div>
 
-          {/* 2) 조회 툴바 */}
+          {/* 기간별 만족도 평가 조회 — 회색 패널로 그룹화(누적 현황과 시각적 구분) */}
           <div
             style={{
-              marginBottom: 24,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              gap: 16,
-              flexWrap: "wrap",
+              background: "#f7f5f1",
+              border: "1px solid #ece7de",
+              borderRadius: 14,
+              padding: "20px 22px",
             }}
           >
-            <div style={{ ...sectionTitle, marginRight: "auto" }}>
-              기간별 만족도 평가 조회
+            {/* 2) 조회 툴바 */}
+            <div
+              style={{
+                marginBottom: 24,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: 16,
+                flexWrap: "wrap",
+              }}
+            >
+            <div
+              style={{
+                marginRight: "auto",
+                display: "flex",
+                alignItems: "baseline",
+                gap: 12,
+              }}
+            >
+              <div style={sectionTitle}>기간별 만족도 평가 조회</div>
+              <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>
+                총 평가{" "}
+                <b style={{ color: BLUE, fontWeight: 700 }}>
+                  {kpis.total.toLocaleString()}
+                </b>
+                건
+              </div>
             </div>
 
             {/* 일/주/월 세그먼트 */}
@@ -512,7 +612,7 @@ export default function DashboardClient({
                       color: active ? "#fff" : "#6b7280",
                       background: active ? BLUE : "transparent",
                       boxShadow: active
-                        ? "0 1px 2px rgba(47,107,255,.3)"
+                        ? "0 1px 2px rgba(36,80,200,.3)"
                         : "none",
                       transition: "all .12s",
                     }}
@@ -597,8 +697,63 @@ export default function DashboardClient({
                 </div>
               </div>
 
-              {/* 4) 불만족 평가 처리 현황 */}
-              <div style={{ ...cardStyle, padding: "22px 24px", marginBottom: 24 }}>
+              {/* 4) 불만족 사유별 분포 + 원인 분류별 통계
+                  (상단 추이·비중 행과 동일하게 3:1 4열 그리드로 정렬) */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: 16,
+                  marginBottom: 24,
+                }}
+              >
+                <div
+                  style={{
+                    ...cardStyle,
+                    padding: "22px 24px",
+                    minWidth: 0,
+                    gridColumn: "span 3",
+                  }}
+                >
+                  <div style={chartTitle}>불만족 사유별 분포</div>
+                  {reasons.length === 0 ? (
+                    <p style={{ color: "#8a909c" }}>불만족 평가가 없습니다.</p>
+                  ) : (
+                    <div style={{ height: 360, position: "relative" }}>
+                      {mounted ? (
+                        <Bar data={reasonData} options={reasonOptions} />
+                      ) : (
+                        <ChartLoading />
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    ...cardStyle,
+                    padding: "22px 24px",
+                    minWidth: 0,
+                    gridColumn: "span 1",
+                  }}
+                >
+                  <div style={chartTitle}>원인 분류별 통계</div>
+                  {causes.length === 0 ? (
+                    <p style={{ color: "#8a909c" }}>불만족 평가가 없습니다.</p>
+                  ) : (
+                    <div style={{ height: 360, position: "relative" }}>
+                      {mounted ? (
+                        <Doughnut data={causeData} options={causeOptions} />
+                      ) : (
+                        <ChartLoading />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 5) 불만족 평가 처리 현황 */}
+              <div style={{ ...cardStyle, padding: "22px 24px" }}>
                 <div style={chartTitle}>불만족 평가 처리 현황</div>
                 {daily.length === 0 ? (
                   <p style={{ color: "#8a909c" }}>데이터가 없습니다.</p>
@@ -638,6 +793,7 @@ export default function DashboardClient({
                             <th style={th}>검토중</th>
                             <th style={th}>처리완료</th>
                             <th style={th}>보류</th>
+                            <th style={th}>처리 불가</th>
                             <th style={th}>처리완료율</th>
                           </tr>
                         </thead>
@@ -669,12 +825,13 @@ export default function DashboardClient({
                                 {d.down}
                               </td>
                               <td style={td}>{d.downRate.toFixed(1)}%</td>
-                              <td style={{ ...td, color: "#4d82ff" }}>
+                              <td style={{ ...td, color: BLUE }}>
                                 {d.status["미확인"]}
                               </td>
                               <td style={td}>{d.status["검토중"]}</td>
                               <td style={td}>{d.status["조치완료"]}</td>
                               <td style={td}>{d.status["보류"]}</td>
+                              <td style={td}>{d.status["처리 불가"]}</td>
                               <td style={td}>
                                 {d.handledRate === null
                                   ? "-"
@@ -688,24 +845,9 @@ export default function DashboardClient({
                   </>
                 )}
               </div>
-
-              {/* 5) 불만족 사유별 분포 */}
-              <div style={{ ...cardStyle, padding: "22px 24px" }}>
-                <div style={chartTitle}>불만족 사유별 분포</div>
-                {reasons.length === 0 ? (
-                  <p style={{ color: "#8a909c" }}>불만족 평가가 없습니다.</p>
-                ) : (
-                  <div style={{ height: 300, position: "relative" }}>
-                    {mounted ? (
-                      <Bar data={reasonData} options={reasonOptions} />
-                    ) : (
-                      <ChartLoading />
-                    )}
-                  </div>
-                )}
-              </div>
             </>
           )}
+          </div>
         </>
       )}
     </div>
