@@ -88,10 +88,11 @@ const LEGEND_TOP = {
   align: "end" as const,
   labels: LEGEND_LABELS,
 };
-// 비중(도넛) — 범례 세로형(우측)
-const LEGEND_RIGHT = {
+// 비중(도넛) — 범례 중앙 하단
+const LEGEND_BOTTOM = {
   display: true,
-  position: "right" as const,
+  position: "bottom" as const,
+  align: "center" as const,
   labels: LEGEND_LABELS,
 };
 
@@ -296,7 +297,7 @@ export default function DashboardClient({
     maintainAspectRatio: false,
     cutout: "66%",
     plugins: {
-      legend: LEGEND_RIGHT,
+      legend: LEGEND_BOTTOM,
       tooltip: {
         callbacks: {
           // 기본 title(범례명 중복)을 비워 2줄로
@@ -438,7 +439,7 @@ export default function DashboardClient({
       legend: {
         display: true,
         position: "bottom" as const,
-        align: "start" as const,
+        align: "center" as const,
         labels: {
           usePointStyle: true,
           pointStyle: "rect" as const,
