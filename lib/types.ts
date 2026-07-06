@@ -37,6 +37,22 @@ export function statusLabel(status: FeedbackStatus): string {
   return FEEDBACK_STATUS_LABELS[status] ?? status;
 }
 
+/** 상태별 색상 (디자인 톤) — 목록 pill·모달 칩 등에서 공용 사용 */
+export const STATUS_COLOR: Record<FeedbackStatus, string> = {
+  미확인: "#6b7280",
+  검토중: "#2f6bff",
+  조치완료: "#1f9d6a", // 저장값(화면 표시는 '처리완료')
+  보류: "#d98a00",
+};
+
+/** 상태별 연한 배경(pill·칩) */
+export const STATUS_BG: Record<FeedbackStatus, string> = {
+  미확인: "#eef0f3",
+  검토중: "#eaf1ff",
+  조치완료: "#e3f3ec", // 저장값(화면 표시는 '처리완료')
+  보류: "#fbf0db",
+};
+
 /**
  * 외부(DB·엑셀 등) 상태 문자열을 저장값 도메인으로 정규화한다.
  * 과거 표기 '처리완료'가 데이터에 남아 있어도 저장값 '조치완료'로 흡수한다.
