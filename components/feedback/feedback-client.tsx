@@ -13,7 +13,11 @@ import {
   handledRate,
 } from "@/lib/data/feedback-stats";
 import { reasonLabel, REASON_OPTIONS } from "@/lib/reasons";
-import { CAUSE_CATEGORIES, CAUSE_CHART_COLORS } from "@/lib/cause-categories";
+import {
+  CAUSE_CATEGORIES,
+  CAUSE_CHART_COLORS,
+  CAUSE_FALLBACK_COLOR,
+} from "@/lib/cause-categories";
 import { DEPARTMENTS, parseDepartments } from "@/lib/departments";
 import {
   formatKstDateTime,
@@ -25,7 +29,9 @@ import {
   FEEDBACK_STATUSES,
   statusLabel,
   STATUS_COLOR,
-  STATUS_BG,
+  statusTint,
+  statusInk,
+  onWhiteText,
   type Feedback,
   type FeedbackStatus,
   type Satisfaction,
@@ -50,8 +56,9 @@ ChartJS.defaults.color = "#8a909c";
 
 const PAGE_SIZE = 10;
 
-/** 원인 분류 도넛 색상 팔레트 — 공용 상수(lib/cause-categories) 재사용 */
-const CAUSE_COLORS = CAUSE_CHART_COLORS;
+/** 원인 도넛 — 링 두께 25px 고정(반지름 130 − 안쪽 105). 대시보드보다 크게. */
+const DONUT_RADIUS = 130;
+const DONUT_CUTOUT = 105;
 
 // ── 공통 인라인 스타일 ──
 const card: React.CSSProperties = {
@@ -186,7 +193,7 @@ export default function FeedbackClient({
       {
         data: causeCounts.map((c) => c.count),
         backgroundColor: causeCounts.map(
-          (_, i) => CAUSE_COLORS[i % CAUSE_COLORS.length],
+          (c) => CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
         ),
         borderWidth: 2,
         borderColor: "#fff",
@@ -197,7 +204,8 @@ export default function FeedbackClient({
   const causeChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: "62%",
+    radius: DONUT_RADIUS,
+    cutout: DONUT_CUTOUT,
     plugins: {
       // 범례를 도넛 우측에 세로로 배치
       legend: {
@@ -381,7 +389,7 @@ export default function FeedbackClient({
     ...FEEDBACK_STATUSES.map((s) => ({
       label: statusLabel(s),
       value: statusCounts[s],
-      color: STATUS_COLOR[s],
+      color: onWhiteText(STATUS_COLOR[s]),
     })),
   ];
 
@@ -526,7 +534,7 @@ export default function FeedbackClient({
                       style={{
                         ...td,
                         padding: "9px 12px",
-                        color: STATUS_COLOR[r.status],
+                        color: statusInk(STATUS_COLOR[r.status]),
                         fontWeight: 600,
                         whiteSpace: "nowrap",
                       }}
@@ -645,6 +653,8 @@ export default function FeedbackClient({
                 setPage(1);
               }}
               width={170}
+              searchable
+              ariaLabel="유관 부서 필터"
             />
           </div>
           <input
@@ -838,15 +848,16 @@ function StatusSelect({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          gap: 6,
           width: "100%",
-          maxWidth: 84,
+          maxWidth: 96,
           margin: "0 auto",
           height: 36,
           padding: "0 10px",
           fontSize: 13,
           fontWeight: 600,
-          color: STATUS_COLOR[value],
-          background: STATUS_BG[value],
+          color: statusInk(STATUS_COLOR[value]),
+          background: statusTint(STATUS_COLOR[value]),
           border: `1px solid ${open ? "#2f6bff" : "transparent"}`,
           borderRadius: 10,
           cursor: disabled ? "not-allowed" : "pointer",
@@ -854,7 +865,7 @@ function StatusSelect({
           opacity: disabled ? 0.6 : 1,
         }}
       >
-        <span>{statusLabel(value)}</span>
+        <span style={{ whiteSpace: "nowrap" }}>{statusLabel(value)}</span>
         <span style={{ color: "#9aa1ad", fontSize: 9 }}>▼</span>
       </div>
       {open && (
@@ -867,7 +878,7 @@ function StatusSelect({
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 60,
-            width: 84,
+            width: 96,
             background: "#fff",
             border: "1px solid #e9ebef",
             borderRadius: 10,

@@ -14,8 +14,9 @@ import {
   type TooltipItem,
 } from "chart.js";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
-import type { Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
-import { FEEDBACK_STATUSES, statusLabel } from "@/lib/types";
+import type { Feedback, Satisfaction } from "@/lib/types";
+import { FEEDBACK_STATUSES, STATUS_COLOR, statusLabel } from "@/lib/types";
+import { CAUSE_CHART_COLORS, CAUSE_FALLBACK_COLOR } from "@/lib/cause-categories";
 import {
   computeCauseBreakdown,
   computeDailyFeedbackStatus,
@@ -58,27 +59,6 @@ const DISSAT = "#e0635d"; // 불만족 (KPI/표 강조)
  */
 const DONUT_RADIUS = 115; // 바깥 반지름(px)
 const DONUT_CUTOUT = 90; // 안쪽 반지름(px) → 링 두께 = 25px
-
-/** 원인 분류별 통계 도넛 색상 — 테라코타→샌드 그라데이션(진→연) 8단계 */
-const CAUSE_COLORS = [
-  "#8f4a33",
-  "#a55f42",
-  "#b77452",
-  "#c68a68",
-  "#d29f80",
-  "#dbb298",
-  "#e3c4ac",
-  "#e9d2be",
-];
-
-/** 상태별 누적 막대 색상 — 처리 단계(로즈→딥 레드 계열) */
-const STATUS_COLOR: Record<FeedbackStatus, string> = {
-  미확인: "#cdc2c3", // 웜 그레이 (미처리)
-  검토중: "#bd5f56",
-  조치완료: "#ab3f3a", // 저장값(화면 표시는 '처리완료')
-  보류: "#932c2c",
-  "처리 불가": "#7a2627",
-};
 
 const GRID = { color: "#f0f2f5" } as const;
 // 라인/도넛 범례 칩을 동일한 사각형(같은 크기)으로 통일
@@ -429,7 +409,7 @@ export default function DashboardClient({
       {
         data: causes.map((c) => c.count),
         backgroundColor: causes.map(
-          (_, i) => CAUSE_COLORS[i % CAUSE_COLORS.length],
+          (c) => CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
         ),
         // 작은 조각이 흰 테두리에 묻히지 않도록 얇게(2)
         borderWidth: 2,

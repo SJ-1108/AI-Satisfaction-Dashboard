@@ -44,23 +44,75 @@ export function statusLabel(status: FeedbackStatus): string {
   return FEEDBACK_STATUS_LABELS[status] ?? status;
 }
 
-/** 상태별 색상 (디자인 톤) — 목록 pill·모달 칩 등에서 공용 사용. 대시보드 처리 현황과 통일 */
+/** 상태별 색상 — 목록 pill·모달 칩·차트 등에서 공용 사용. 대시보드 처리 현황과 통일 */
 export const STATUS_COLOR: Record<FeedbackStatus, string> = {
-  미확인: "#8a8f98", // 웜/뉴트럴 그레이 (미처리) — 텍스트 대비 확보
-  검토중: "#bd5f56",
-  조치완료: "#ab3f3a", // 저장값(화면 표시는 '처리완료')
-  보류: "#932c2c",
-  "처리 불가": "#7a2627",
+  미확인: "#e2e6ec",
+  검토중: "#8fb0f2",
+  조치완료: "#2f6bff", // 저장값(화면 표시는 '처리완료')
+  보류: "#97a2b4",
+  "처리 불가": "#a63a35",
 };
 
-/** 상태별 연한 배경(pill·칩) — STATUS_COLOR 계열의 연한 틴트 */
-export const STATUS_BG: Record<FeedbackStatus, string> = {
-  미확인: "#f4f0f0",
-  검토중: "#f6e7e5",
-  조치완료: "#f3e2e1", // 저장값(화면 표시는 '처리완료')
-  보류: "#f0dcdc",
-  "처리 불가": "#ecd9d9",
-};
+/**
+ * 배경색 위에 올릴 텍스트 색을 상대 휘도로 자동 선택(solid pill·칩 텍스트).
+ * 밝은 배경 → 진한 글자, 어두운 배경 → 흰 글자.
+ */
+export function statusTextColor(bg: string): string {
+  return relativeLuminance(bg) > 0.6 ? "#1a1d23" : "#ffffff";
+}
+
+/**
+ * 흰 배경 위 텍스트용 색 보정(KPI 숫자 등). 원색이 너무 밝아 흰 배경에서
+ * 안 읽히면 검정 쪽으로 섞어 가독성을 확보하고, 그 외에는 원색을 유지한다.
+ */
+export function onWhiteText(color: string): string {
+  return relativeLuminance(color) > 0.65 ? mixToward(color, "#1a1d23", 0.55) : color;
+}
+
+/** 상태색의 연한 틴트 배경(pill·드롭다운 버튼). 흰색 쪽으로 섞어 옅게. */
+export function statusTint(color: string): string {
+  return mixToward(color, "#ffffff", 0.8);
+}
+
+/**
+ * 틴트/흰 배경 위에서 읽히는 진한 상태 텍스트 색.
+ * 원색이 밝으면 충분히 어두워질 때까지 검정 쪽으로 반복해서 섞고,
+ * 이미 어두운 색(처리완료·처리 불가 등)은 그대로 둔다. 색상(hue)은 유지.
+ */
+export function statusInk(color: string): string {
+  let c = color;
+  for (let i = 0; i < 8 && relativeLuminance(c) > 0.4; i++) {
+    c = mixToward(c, "#1a1d23", 0.4);
+  }
+  return c;
+}
+
+/** #rgb/#rrggbb → {r,g,b} (0-255). */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const n = parseInt(h, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+/** sRGB 상대 휘도(0=검정, 1=흰색). */
+function relativeLuminance(hex: string): number {
+  const { r, g, b } = hexToRgb(hex);
+  const lin = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/** color 를 target 방향으로 t(0~1) 만큼 섞은 #rrggbb 반환. */
+function mixToward(color: string, target: string, t: number): string {
+  const a = hexToRgb(color);
+  const b = hexToRgb(target);
+  const ch = (x: number, y: number) =>
+    Math.round(x + (y - x) * t).toString(16).padStart(2, "0");
+  return `#${ch(a.r, b.r)}${ch(a.g, b.g)}${ch(a.b, b.b)}`;
+}
 
 /**
  * 외부(DB·엑셀 등) 상태 문자열을 저장값 도메인으로 정규화한다.
