@@ -51,8 +51,13 @@ const BLUE = "#2450c8"; // 만족 (딥 블루)
 const RED = "#e8635d"; // 불만족 (추이·비중·사유별 분포 차트)
 const DISSAT = "#e0635d"; // 불만족 (KPI/표 강조)
 
-/** 도넛 차트 링 두께 — 비중·원인 분류 도넛 공용(동일 두께 유지) */
-const DONUT_CUTOUT = "66%";
+/**
+ * 도넛 차트 기하 구조 — 비중·원인 분류 도넛 공용.
+ * 반지름/안쪽 지름을 px로 고정해 두 차트의 링 두께를 동일하게 유지한다.
+ * (cutout을 %로 두면 컨테이너·범례 크기에 따라 반지름이 달라져 두께가 어긋난다.)
+ */
+const DONUT_RADIUS = 115; // 바깥 반지름(px)
+const DONUT_CUTOUT = 90; // 안쪽 반지름(px) → 링 두께 = 25px
 
 /** 원인 분류별 통계 도넛 색상 — 테라코타→샌드 그라데이션(진→연) 8단계 */
 const CAUSE_COLORS = [
@@ -287,7 +292,8 @@ export default function DashboardClient({
       {
         data: [kpis.up, kpis.down],
         backgroundColor: [BLUE, RED],
-        borderWidth: 4,
+        // 원인 분류 도넛과 링 두께를 맞추기 위해 흰 테두리 두께 통일(2)
+        borderWidth: 2,
         borderColor: "#fff",
         hoverOffset: 6,
       },
@@ -298,6 +304,7 @@ export default function DashboardClient({
   const ratingOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    radius: DONUT_RADIUS,
     cutout: DONUT_CUTOUT,
     plugins: {
       legend: LEGEND_BOTTOM,
@@ -435,6 +442,7 @@ export default function DashboardClient({
   const causeOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    radius: DONUT_RADIUS,
     cutout: DONUT_CUTOUT,
     plugins: {
       // 좁은 1/4 폭 카드 — 범례를 하단에 두어 도넛이 카드 폭을 온전히 쓰게 하고,
