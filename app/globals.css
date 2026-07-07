@@ -1017,3 +1017,65 @@ details > summary:hover {
 details > summary.bad {
   color: var(--down);
 }
+
+/* 대시보드는 화면에서 전체폭(유동)을 사용한다.
+   인쇄 시에만 아래 @media print 에서 콘텐츠를 1280px로 좁히며,
+   이때 폭이 바뀌므로 컴포넌트(dashboard-client)가 beforeprint 시점에
+   Chart.js 차트를 강제 리사이즈해 인쇄 폭에 맞춰 다시 그린다. */
+
+/* ──────────────────────────────────────────────────────────────
+   PDF 내보내기 (인쇄) — 대시보드 보고용 A4 출력
+   design_handoff_pdf_export/README.md 명세를 이 앱의 클래스 구조에
+   맞게 재현: 사이드바(aside.sidebar)·버튼·개발 배너를 숨기고,
+   콘텐츠를 1280px로 고정한 뒤 A4 세로 폭에 맞춰 균일 축소(zoom)한다.
+   대시보드 헤더의 "PDF 내보내기" 버튼 → window.print() 로 진입.
+   ────────────────────────────────────────────────────────────── */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    /* 패널·차트·배지의 색을 인쇄에서도 보존 */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 사이드바(LNB)·개발 모드 배너·모든 버튼류 숨김 */
+  .sidebar {
+    display: none !important;
+  }
+  .dev-banner {
+    display: none !important;
+  }
+  button {
+    display: none !important;
+  }
+
+  /* 본문: 사이드바 오프셋·패딩 제거 후 A4 폭에 맞춰 '통째로' 균일 축소.
+     배율(--pdf-zoom)은 인쇄 직전 dashboard-client 가 현재 콘텐츠 폭 기준으로
+     계산해 넣는다. (변수 미설정 시 1280 기준 폴백 0.54) */
+  .main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    zoom: var(--pdf-zoom, 0.54);
+  }
+
+  /* 인쇄 콘텐츠 폭을 '현재 화면 폭 그대로'(--pdf-width) 고정 + 가로 중앙정렬.
+     화면 폭과 동일하게 두어야 Chart.js 캔버스가 리플로우 없이 그대로
+     스케일되어 차트가 틀어지지 않는다. (변수 미설정 시 1280 폴백) */
+  .dashboard {
+    width: var(--pdf-width, 1280px);
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  /* 카드·표가 페이지 경계에서 잘리지 않도록 */
+  .card-block,
+  table {
+    break-inside: avoid;
+  }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}

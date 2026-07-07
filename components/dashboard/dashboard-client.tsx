@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -46,6 +46,10 @@ ChartJS.register(
 // 차트 공통 기본값 (Pretendard, 디자인 톤)
 ChartJS.defaults.font.family = "Pretendard, -apple-system, sans-serif";
 ChartJS.defaults.color = "#8a909c";
+// 애니메이션 비활성화 — 인쇄(beforeprint) 시 resize()가 캔버스를 '동기적으로'
+// 다시 그리도록 하기 위함. 애니메이션이 켜져 있으면 그리기가 rAF로 지연되어
+// 인쇄 스냅샷에 리사이즈 결과가 반영되지 않는다. (프로토타입과 동일)
+ChartJS.defaults.animation = false;
 
 // 디자인 팔레트
 const BLUE = "#2450c8"; // 만족 (딥 블루)
@@ -128,6 +132,22 @@ const chartTitle: React.CSSProperties = {
   marginBottom: 4,
   letterSpacing: "-0.3px",
 };
+// PDF 내보내기 버튼 (헤더 우측) — design_handoff_pdf_export 명세 수치
+const exportBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  height: 40,
+  padding: "0 16px",
+  fontSize: 13,
+  fontWeight: 600,
+  fontFamily: "Pretendard, sans-serif",
+  color: "#5a616e",
+  background: "#fff",
+  border: "1px solid #e2e5ea",
+  borderRadius: 10,
+  cursor: "pointer",
+};
 const resetBtnStyle: React.CSSProperties = {
   height: 38,
   padding: "0 16px",
@@ -154,6 +174,63 @@ const td: React.CSSProperties = {
   color: "#6b7280",
 };
 
+/**
+ * 인쇄용 차트 스냅샷 — Chromium 버그 우회.
+ * 인쇄 시 콘텐츠를 A4 폭에 맞추려 `.main`에 CSS `zoom`을 거는데, 현재 Chromium은
+ * zoom이 걸린 조상 아래의 <canvas>에서 도넛(arc)을 합성하지 못해 도넛 차트가
+ * 통째로 사라진다(선/막대는 정상). 각 차트 캔버스를 정적 이미지로 스냅샷해 그 자리에
+ * 얹으면(캔버스는 숨김) 이미지는 zoom 아래에서도 정상 렌더되어 인쇄에 온전히 나온다.
+ * 반환된 restore()로 인쇄 후 원상복구한다. 스냅샷은 화면(zoom 미적용) 상태에서
+ * 떠야 도넛이 살아있는 비트맵을 캡처한다.
+ */
+function snapshotChartsToImages(): {
+  imgs: HTMLImageElement[];
+  restore: () => void;
+} {
+  const canvases = Array.from(
+    document.querySelectorAll<HTMLCanvasElement>(".dashboard canvas"),
+  );
+  const imgs: HTMLImageElement[] = [];
+  const hidden: HTMLCanvasElement[] = [];
+  for (const c of canvases) {
+    const w = c.clientWidth;
+    const h = c.clientHeight;
+    if (!w || !h) continue;
+    let url: string;
+    try {
+      url = c.toDataURL("image/png");
+    } catch {
+      continue; // 오염된 캔버스(예상 밖)면 건너뜀
+    }
+    const img = document.createElement("img");
+    img.src = url;
+    img.style.width = `${w}px`;
+    img.style.height = `${h}px`;
+    img.style.display = "block";
+    img.dataset.pdfSnap = "1";
+    c.parentElement?.insertBefore(img, c);
+    c.style.display = "none";
+    imgs.push(img);
+    hidden.push(c);
+  }
+  const restore = () => {
+    imgs.forEach((img) => img.remove());
+    hidden.forEach((c) => {
+      c.style.display = "";
+    });
+  };
+  return { imgs, restore };
+}
+
+/** 스냅샷 이미지들이 디코드 완료될 때까지 대기 (인쇄 캡처 전 보장). */
+function decodeImages(imgs: HTMLImageElement[]): Promise<unknown> {
+  return Promise.all(
+    imgs.map((img) =>
+      img.decode ? img.decode().catch(() => undefined) : Promise.resolve(),
+    ),
+  );
+}
+
 /** 메뉴 ① 대시보드 (FR-2) — 누적 데이터(DB 또는 더미) 기준. */
 export default function DashboardClient({
   records,
@@ -174,7 +251,65 @@ export default function DashboardClient({
 
   // Chart.js 는 브라우저 캔버스가 필요하므로, 클라이언트 mount 후에만 렌더한다.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // PDF(인쇄) 화질 확보 — 캔버스 차트는 화면 해상도로 래스터되어 인쇄 시 흐려지므로
+    // devicePixelRatio 를 올려 고해상도로 렌더한다. (design_handoff_pdf_export 명세)
+    ChartJS.defaults.devicePixelRatio = Math.max(3, window.devicePixelRatio || 1);
+    setMounted(true);
+  }, []);
+
+  // ── PDF 내보내기(인쇄) 스케일 ──
+  // 화면은 전체폭(유동)이라 콘텐츠 폭이 화면마다 다르다. 인쇄 시 콘텐츠 폭을
+  // '억지로 바꾸면' Chart.js 캔버스가 리플로우되며 틀어진다(이전 버그의 원인).
+  // 그래서 인쇄에서도 콘텐츠 폭을 '현재 화면 폭 그대로' 고정(--pdf-width)하고,
+  // A4 인쇄 가능폭에 맞는 배율(--pdf-zoom)로 통째로 균일 축소만 한다.
+  // → 캔버스는 리플로우 없이 그대로 스케일되어 틀어지지 않는다(프로토타입과 동일한 원리).
+  const applyPrintScale = useCallback(() => {
+    const root = document.querySelector<HTMLElement>(".dashboard");
+    const contentWidth = root?.offsetWidth || 1280;
+    const PRINTABLE_WIDTH = 703; // A4 세로, @page margin 12mm 기준 인쇄 가능폭(px, 96dpi)
+    const zoom = Math.min(1, PRINTABLE_WIDTH / contentWidth);
+    const s = document.documentElement.style;
+    s.setProperty("--pdf-width", `${contentWidth}px`);
+    s.setProperty("--pdf-zoom", `${zoom}`);
+  }, []);
+
+  // 인쇄 중 활성화된 스냅샷 원복 함수 (버튼/Ctrl+P 경로 공용).
+  const snapRestoreRef = useRef<null | (() => void)>(null);
+
+  // 브라우저 인쇄(Ctrl+P)도 커버 — 인쇄 직전 배율 계산 + 차트 스냅샷, 인쇄 후 원복.
+  useEffect(() => {
+    const before = () => {
+      if (snapRestoreRef.current) return; // 버튼 경로에서 이미 처리됨
+      applyPrintScale();
+      snapRestoreRef.current = snapshotChartsToImages().restore;
+    };
+    const after = () => {
+      snapRestoreRef.current?.();
+      snapRestoreRef.current = null;
+    };
+    window.addEventListener("beforeprint", before);
+    window.addEventListener("afterprint", after);
+    return () => {
+      window.removeEventListener("beforeprint", before);
+      window.removeEventListener("afterprint", after);
+    };
+  }, [applyPrintScale]);
+
+  // "PDF 내보내기" 버튼 — 배율 계산 → 차트 스냅샷(이미지 디코드 대기) → 인쇄 → 원복.
+  // (버튼 경로는 화면 상태에서 스냅샷을 미리 떠 이미지 로드를 보장하므로 가장 안정적)
+  const exportPdf = useCallback(async () => {
+    applyPrintScale();
+    const { imgs, restore } = snapshotChartsToImages();
+    snapRestoreRef.current = restore; // beforeprint 재스냅샷 방지
+    try {
+      await decodeImages(imgs);
+      window.print();
+    } finally {
+      restore();
+      snapRestoreRef.current = null;
+    }
+  }, [applyPrintScale]);
 
   const [granularity, setGranularity] = useState<Granularity>("day");
   const [from, setFrom] = useState(defaultRange.from);
@@ -482,9 +617,17 @@ export default function DashboardClient({
   ];
 
   return (
-    <div>
-      {/* 헤더 */}
-      <div style={{ marginBottom: 40 }}>
+    <div className="dashboard">
+      {/* 헤더 — 좌측 타이틀 / 우측 PDF 내보내기 버튼 */}
+      <div
+        style={{
+          marginBottom: 40,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+        }}
+      >
         <h1
           style={{
             margin: 0,
@@ -495,6 +638,29 @@ export default function DashboardClient({
         >
           대시보드
         </h1>
+        <button
+          type="button"
+          style={exportBtnStyle}
+          onClick={() => void exportPdf()}
+          title="대시보드를 PDF로 내보내기 (인쇄 대화상자에서 'PDF로 저장' 선택)"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#5a616e"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          PDF 내보내기
+        </button>
       </div>
 
       {!hasRecords ? (
@@ -514,7 +680,11 @@ export default function DashboardClient({
             }}
           >
             {stats.map((s) => (
-              <div key={s.label} style={{ ...cardStyle, padding: "20px 22px" }}>
+              <div
+                key={s.label}
+                className="card-block"
+                style={{ ...cardStyle, padding: "20px 22px" }}
+              >
                 <div
                   style={{
                     fontSize: 13,
@@ -653,6 +823,7 @@ export default function DashboardClient({
                 }}
               >
                 <div
+                  className="card-block"
                   style={{
                     ...cardStyle,
                     padding: "20px 22px",
@@ -671,6 +842,7 @@ export default function DashboardClient({
                 </div>
 
                 <div
+                  className="card-block"
                   style={{
                     ...cardStyle,
                     padding: "20px 22px",
@@ -700,6 +872,7 @@ export default function DashboardClient({
                 }}
               >
                 <div
+                  className="card-block"
                   style={{
                     ...cardStyle,
                     padding: "22px 24px",
@@ -722,6 +895,7 @@ export default function DashboardClient({
                 </div>
 
                 <div
+                  className="card-block"
                   style={{
                     ...cardStyle,
                     padding: "22px 24px",
