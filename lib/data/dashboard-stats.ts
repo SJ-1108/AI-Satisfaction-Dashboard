@@ -5,6 +5,7 @@ import {
   reasonOrderIndex,
   REASON_UNSET_LABEL,
 } from "@/lib/reasons";
+import { parseDepartments } from "@/lib/departments";
 import { kstDatePart } from "@/lib/format-date";
 
 /**
@@ -179,6 +180,36 @@ export function computeCauseBreakdown(
   }
   return Array.from(map.entries())
     .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// ── 유관 부서별 협의 필요 비중 ──────────────────────────────
+export interface DepartmentCount {
+  department: string;
+  count: number;
+}
+
+/**
+ * 기간 내 불만족(down) 건 중 '유관 부서'가 지정된(=협의 필요) 건을 부서별로 집계, 내림차순.
+ * related_department 는 쉼표 구분 다중값이라 부서별로 각각 1건씩 카운트한다.
+ * 부서 미지정(협의 불필요) 건은 제외한다. 기간 필터는 호출 측에서 records 를 미리 거른다.
+ */
+export function computeDepartmentBreakdown(
+  records: Satisfaction[],
+  feedback: Feedback[],
+): DepartmentCount[] {
+  const deptById = new Map<string, string | null>();
+  for (const f of feedback) deptById.set(f.satisfaction_id, f.related_department);
+
+  const map = new Map<string, number>();
+  for (const r of records) {
+    if (r.rating !== "down") continue;
+    for (const d of parseDepartments(deptById.get(r.id) ?? null)) {
+      map.set(d, (map.get(d) ?? 0) + 1);
+    }
+  }
+  return Array.from(map.entries())
+    .map(([department, count]) => ({ department, count }))
     .sort((a, b) => b.count - a.count);
 }
 

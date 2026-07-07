@@ -65,6 +65,30 @@ export const DEPARTMENTS: string[] = [
   "학습지원팀 서비스운영파트",
 ];
 
+/**
+ * 유관 부서 도넛 색상 팔레트 — 부서는 동적·다수라 정렬 인덱스로 순환 배정한다.
+ * (원인 분류 도넛의 웜톤 팔레트와 구분되는 카테고리컬 팔레트: 블루~틸~퍼플~그린 등)
+ */
+export const DEPARTMENT_CHART_COLORS: string[] = [
+  "#2f6bff", // 블루
+  "#e8635d", // 코랄
+  "#3fa7a0", // 틸
+  "#f0a04b", // 앰버
+  "#7b6ef0", // 퍼플
+  "#4cae6a", // 그린
+  "#e07bb0", // 핑크
+  "#5a8fd6", // 라이트 블루
+  "#c8886a", // 테라코타
+  "#a8709e", // 모브
+  "#d4b23f", // 골드
+  "#6e8b3d", // 올리브
+];
+
+/** 정렬 인덱스로 부서 색상 배정(팔레트 순환). */
+export function departmentColor(index: number): string {
+  return DEPARTMENT_CHART_COLORS[index % DEPARTMENT_CHART_COLORS.length];
+}
+
 /** 드롭다운 미선택 라벨 (value="" = null 저장) */
 export const DEPARTMENT_UNSET_LABEL = "선택";
 

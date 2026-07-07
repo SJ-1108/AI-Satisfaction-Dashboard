@@ -81,7 +81,7 @@ export default function Combobox({
           height: 42,
           padding: "0 36px 0 12px",
           fontSize: 13,
-          fontFamily: "Pretendard, sans-serif",
+          fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
           color: "#3a4150",
           background: "#fff",
           border: `1px solid ${open ? "#2f6bff" : "#e2e5ea"}`,

@@ -17,9 +17,11 @@ import { Line, Doughnut, Bar } from "react-chartjs-2";
 import type { Feedback, Satisfaction } from "@/lib/types";
 import { FEEDBACK_STATUSES, STATUS_COLOR, statusLabel } from "@/lib/types";
 import { CAUSE_CHART_COLORS, CAUSE_FALLBACK_COLOR } from "@/lib/cause-categories";
+import { departmentColor } from "@/lib/departments";
 import {
   computeCauseBreakdown,
   computeDailyFeedbackStatus,
+  computeDepartmentBreakdown,
   computeKpis,
   computeReasonBreakdown,
   computeTrend,
@@ -29,6 +31,7 @@ import {
   type Granularity,
 } from "@/lib/data/dashboard-stats";
 import { isDateRangeInvalid, kstDatePart } from "@/lib/format-date";
+import { useChartPdfExport } from "@/lib/use-chart-pdf-export";
 import DateRangePicker from "@/components/ui/date-range-picker";
 
 // Chart.js 모듈 등록 (한 번만)
@@ -44,8 +47,13 @@ ChartJS.register(
 );
 
 // 차트 공통 기본값 (Pretendard, 디자인 톤)
-ChartJS.defaults.font.family = "Pretendard, -apple-system, sans-serif";
+ChartJS.defaults.font.family =
+  "'Pretendard Variable', Pretendard, -apple-system, sans-serif";
 ChartJS.defaults.color = "#8a909c";
+// 애니메이션 비활성화 — 인쇄(beforeprint) 시 resize()가 캔버스를 '동기적으로'
+// 다시 그리도록 하기 위함. 애니메이션이 켜져 있으면 그리기가 rAF로 지연되어
+// 인쇄 스냅샷에 리사이즈 결과가 반영되지 않는다. (프로토타입과 동일)
+ChartJS.defaults.animation = false;
 
 // 디자인 팔레트
 const BLUE = "#2450c8"; // 만족 (딥 블루)
@@ -128,12 +136,28 @@ const chartTitle: React.CSSProperties = {
   marginBottom: 4,
   letterSpacing: "-0.3px",
 };
+// PDF 내보내기 버튼 (헤더 우측) — design_handoff_pdf_export 명세 수치
+const exportBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  height: 40,
+  padding: "0 16px",
+  fontSize: 13,
+  fontWeight: 600,
+  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
+  color: "#5a616e",
+  background: "#fff",
+  border: "1px solid #e2e5ea",
+  borderRadius: 10,
+  cursor: "pointer",
+};
 const resetBtnStyle: React.CSSProperties = {
   height: 38,
   padding: "0 16px",
   fontSize: 13,
   fontWeight: 600,
-  fontFamily: "Pretendard, sans-serif",
+  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
   color: "#2f6bff",
   background: "#fff",
   border: "1px solid #2f6bff",
@@ -174,7 +198,16 @@ export default function DashboardClient({
 
   // Chart.js 는 브라우저 캔버스가 필요하므로, 클라이언트 mount 후에만 렌더한다.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // PDF(인쇄) 화질 확보 — 캔버스 차트는 화면 해상도로 래스터되어 인쇄 시 흐려지므로
+    // devicePixelRatio 를 올려 고해상도로 렌더한다. (design_handoff_pdf_export 명세)
+    ChartJS.defaults.devicePixelRatio = Math.max(3, window.devicePixelRatio || 1);
+    setMounted(true);
+  }, []);
+
+  // PDF 내보내기(인쇄) — 차트 스냅샷 + A4 리플로우 공용 훅. 차트 컨테이너에는
+  // className="pdf-chart-box" 를 지정한다. (zoom 미사용 이유는 훅 주석 참조)
+  const { exportPdf } = useChartPdfExport();
 
   const [granularity, setGranularity] = useState<Granularity>("day");
   const [from, setFrom] = useState(defaultRange.from);
@@ -208,11 +241,17 @@ export default function DashboardClient({
     () => computeDailyFeedbackStatus(filtered, feedback, granularity),
     [filtered, feedback, granularity],
   );
+  // 유관 부서별 협의 필요 비중 — 기간 필터 적용분(filtered) 기준 (처리 현황과 동일 기준).
+  const departments = useMemo(
+    () => computeDepartmentBreakdown(filtered, feedback),
+    [filtered, feedback],
+  );
 
   const hasRecords = records.length > 0; // 업로드 데이터 존재 여부
   const hasData = filtered.length > 0; // 선택 기간 내 데이터 존재 여부
   const reasonTotal = reasons.reduce((s, r) => s + r.count, 0);
   const causeTotal = causes.reduce((s, c) => s + c.count, 0);
+  const deptTotal = departments.reduce((s, d) => s + d.count, 0);
 
   // ── 추이 (line) ──
   const trendData = {
@@ -461,6 +500,61 @@ export default function DashboardClient({
     },
   };
 
+  // ── 유관 부서별 협의 필요 비중 (도넛) ──
+  const deptData = {
+    labels: departments.map((d) => d.department),
+    datasets: [
+      {
+        data: departments.map((d) => d.count),
+        backgroundColor: departments.map((_, i) => departmentColor(i)),
+        borderWidth: 2,
+        borderColor: "#fff",
+        hoverOffset: 6,
+      },
+    ],
+  };
+
+  const deptOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    radius: DONUT_RADIUS,
+    cutout: DONUT_CUTOUT,
+    plugins: {
+      // 좁은 1/4 폭 카드 — 원인 분류 도넛과 동일하게 범례 하단 배치.
+      legend: {
+        display: true,
+        position: "bottom" as const,
+        align: "center" as const,
+        labels: {
+          usePointStyle: true,
+          pointStyle: "rect" as const,
+          boxWidth: 10,
+          boxHeight: 10,
+          padding: 12,
+          font: { size: 11 },
+        },
+      },
+      tooltip: {
+        callbacks: {
+          title: () => "",
+          labelColor: (ctx: TooltipItem<"doughnut">) => {
+            const bg = (ctx.dataset.backgroundColor as string[])[ctx.dataIndex];
+            return {
+              borderColor: bg,
+              backgroundColor: bg,
+              borderWidth: 0,
+              borderRadius: 3,
+            };
+          },
+          label: (ctx: TooltipItem<"doughnut">) => {
+            const v = ctx.parsed;
+            return [`${ctx.label}`, `${v.toLocaleString()}건 (${pct(v, deptTotal)})`];
+          },
+        },
+      },
+    },
+  };
+
   // 세그먼트(일/주/월) 선택 → granularity + 조회 기간 자동 연동
   function applyGranularity(g: Granularity) {
     const anchor = range?.max ?? kstDatePart(new Date().toISOString());
@@ -482,9 +576,17 @@ export default function DashboardClient({
   ];
 
   return (
-    <div>
-      {/* 헤더 */}
-      <div style={{ marginBottom: 40 }}>
+    <div className="dashboard pdf-report">
+      {/* 헤더 — 좌측 타이틀 / 우측 PDF 내보내기 버튼 */}
+      <div
+        style={{
+          marginBottom: 40,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+        }}
+      >
         <h1
           style={{
             margin: 0,
@@ -495,6 +597,29 @@ export default function DashboardClient({
         >
           대시보드
         </h1>
+        <button
+          type="button"
+          style={exportBtnStyle}
+          onClick={() => void exportPdf()}
+          title="대시보드를 PDF로 내보내기 (인쇄 대화상자에서 'PDF로 저장' 선택)"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#5a616e"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          PDF 내보내기
+        </button>
       </div>
 
       {!hasRecords ? (
@@ -514,7 +639,11 @@ export default function DashboardClient({
             }}
           >
             {stats.map((s) => (
-              <div key={s.label} style={{ ...cardStyle, padding: "20px 22px" }}>
+              <div
+                key={s.label}
+                className="card-block"
+                style={{ ...cardStyle, padding: "20px 22px" }}
+              >
                 <div
                   style={{
                     fontSize: 13,
@@ -599,7 +728,7 @@ export default function DashboardClient({
                       padding: "7px 16px",
                       fontSize: 13,
                       fontWeight: 600,
-                      fontFamily: "Pretendard, sans-serif",
+                      fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
                       borderRadius: 7,
                       color: active ? "#fff" : "#6b7280",
                       background: active ? BLUE : "transparent",
@@ -653,6 +782,7 @@ export default function DashboardClient({
                 }}
               >
                 <div
+                  className="card-block"
                   style={{
                     ...cardStyle,
                     padding: "20px 22px",
@@ -661,7 +791,7 @@ export default function DashboardClient({
                   }}
                 >
                   <div style={chartTitle}>만족도 평가 추이</div>
-                  <div style={{ height: 300, position: "relative" }}>
+                  <div className="pdf-chart-box" style={{ height: 300, position: "relative" }}>
                     {mounted ? (
                       <Line data={trendData} options={trendOptions} />
                     ) : (
@@ -671,6 +801,7 @@ export default function DashboardClient({
                 </div>
 
                 <div
+                  className="card-block"
                   style={{
                     ...cardStyle,
                     padding: "20px 22px",
@@ -679,7 +810,7 @@ export default function DashboardClient({
                   }}
                 >
                   <div style={chartTitle}>만족/불만족 비중</div>
-                  <div style={{ height: 300, position: "relative" }}>
+                  <div className="pdf-chart-box" style={{ height: 300, position: "relative" }}>
                     {mounted ? (
                       <Doughnut data={ratingData} options={ratingOptions} />
                     ) : (
@@ -700,6 +831,7 @@ export default function DashboardClient({
                 }}
               >
                 <div
+                  className="card-block"
                   style={{
                     ...cardStyle,
                     padding: "22px 24px",
@@ -711,7 +843,7 @@ export default function DashboardClient({
                   {reasons.length === 0 ? (
                     <p style={{ color: "#8a909c" }}>불만족 평가가 없습니다.</p>
                   ) : (
-                    <div style={{ height: 360, position: "relative" }}>
+                    <div className="pdf-chart-box" style={{ height: 360, position: "relative" }}>
                       {mounted ? (
                         <Bar data={reasonData} options={reasonOptions} />
                       ) : (
@@ -722,6 +854,7 @@ export default function DashboardClient({
                 </div>
 
                 <div
+                  className="card-block"
                   style={{
                     ...cardStyle,
                     padding: "22px 24px",
@@ -733,7 +866,7 @@ export default function DashboardClient({
                   {causes.length === 0 ? (
                     <p style={{ color: "#8a909c" }}>불만족 평가가 없습니다.</p>
                   ) : (
-                    <div style={{ height: 360, position: "relative" }}>
+                    <div className="pdf-chart-box" style={{ height: 360, position: "relative" }}>
                       {mounted ? (
                         <Doughnut data={causeData} options={causeOptions} />
                       ) : (
@@ -744,14 +877,30 @@ export default function DashboardClient({
                 </div>
               </div>
 
-              {/* 5) 불만족 평가 처리 현황 */}
-              <div style={{ ...cardStyle, padding: "22px 24px" }}>
+              {/* 5) 불만족 평가 처리 현황 + 유관 부서별 협의 필요 비중(우측 도넛) */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: 16,
+                  alignItems: "start",
+                }}
+              >
+                <div
+                  style={{
+                    ...cardStyle,
+                    padding: "22px 24px",
+                    minWidth: 0,
+                    gridColumn: "span 3",
+                  }}
+                >
                 <div style={chartTitle}>불만족 평가 처리 현황</div>
                 {daily.length === 0 ? (
                   <p style={{ color: "#8a909c" }}>데이터가 없습니다.</p>
                 ) : (
                   <>
                     <div
+                      className="pdf-chart-box"
                       style={{
                         height: 300,
                         position: "relative",
@@ -836,6 +985,34 @@ export default function DashboardClient({
                     </div>
                   </>
                 )}
+                </div>
+
+                {/* 유관 부서별 협의 필요 비중 (처리 현황 카드 우측) */}
+                <div
+                  className="card-block"
+                  style={{
+                    ...cardStyle,
+                    padding: "22px 24px",
+                    minWidth: 0,
+                    gridColumn: "span 1",
+                  }}
+                >
+                  <div style={chartTitle}>유관 부서별 협의 필요 비중</div>
+                  {departments.length === 0 ? (
+                    <p style={{ color: "#8a909c" }}>협의가 필요한 부서가 없습니다.</p>
+                  ) : (
+                    <div
+                      className="pdf-chart-box"
+                      style={{ height: 360, position: "relative" }}
+                    >
+                      {mounted ? (
+                        <Doughnut data={deptData} options={deptOptions} />
+                      ) : (
+                        <ChartLoading />
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           )}

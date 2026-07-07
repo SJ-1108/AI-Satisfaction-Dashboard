@@ -30,7 +30,7 @@ export default function Pager({
     padding: "0 14px",
     fontSize: 13,
     fontWeight: 600,
-    fontFamily: "Pretendard, sans-serif",
+    fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
     color: disabled ? "#c2c7d0" : "#3a4150",
     background: disabled ? "#f5f6f8" : "#fff",
     border: "1px solid #e2e5ea",

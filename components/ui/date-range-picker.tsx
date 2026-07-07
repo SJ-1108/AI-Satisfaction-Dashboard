@@ -88,7 +88,7 @@ export default function DateRangePicker({
     fontSize: 15,
     cursor: "pointer",
     borderRadius: 7,
-    fontFamily: "Pretendard, sans-serif",
+    fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
   };
 
   return (
@@ -252,7 +252,7 @@ export default function DateRangePicker({
                 padding: "0 14px",
                 fontSize: 13,
                 fontWeight: 600,
-                fontFamily: "Pretendard, sans-serif",
+                fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
                 color: "#5a616e",
                 background: "#fff",
                 border: "1px solid #e2e5ea",
@@ -269,7 +269,7 @@ export default function DateRangePicker({
                 padding: "0 16px",
                 fontSize: 13,
                 fontWeight: 700,
-                fontFamily: "Pretendard, sans-serif",
+                fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
                 color: "#fff",
                 background: "#2f6bff",
                 border: "none",
