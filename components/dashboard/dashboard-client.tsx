@@ -51,6 +51,9 @@ const BLUE = "#2450c8"; // 만족 (딥 블루)
 const RED = "#e8635d"; // 불만족 (추이·비중·사유별 분포 차트)
 const DISSAT = "#e0635d"; // 불만족 (KPI/표 강조)
 
+/** 도넛 차트 링 두께 — 비중·원인 분류 도넛 공용(동일 두께 유지) */
+const DONUT_CUTOUT = "66%";
+
 /** 원인 분류별 통계 도넛 색상 — 테라코타→샌드 그라데이션(진→연) 8단계 */
 const CAUSE_COLORS = [
   "#8f4a33",
@@ -295,7 +298,7 @@ export default function DashboardClient({
   const ratingOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: "66%",
+    cutout: DONUT_CUTOUT,
     plugins: {
       legend: LEGEND_BOTTOM,
       tooltip: {
@@ -432,7 +435,7 @@ export default function DashboardClient({
   const causeOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: "62%",
+    cutout: DONUT_CUTOUT,
     plugins: {
       // 좁은 1/4 폭 카드 — 범례를 하단에 두어 도넛이 카드 폭을 온전히 쓰게 하고,
       // 항목 간격(padding)을 넉넉히 주어 쪼개져 보이지 않게 한다.
