@@ -49,10 +49,14 @@ import {
   type TooltipItem,
 } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
+import { useChartPdfExport } from "@/lib/use-chart-pdf-export";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
-ChartJS.defaults.font.family = "Pretendard, -apple-system, sans-serif";
+ChartJS.defaults.font.family =
+  "'Pretendard Variable', Pretendard, -apple-system, sans-serif";
 ChartJS.defaults.color = "#8a909c";
+// 인쇄 스냅샷이 최종 상태를 담도록 애니메이션 비활성화. (devicePixelRatio 는 window 접근이라 mount 후 설정)
+ChartJS.defaults.animation = false;
 
 const PAGE_SIZE = 10;
 
@@ -73,7 +77,7 @@ const exportBtn: React.CSSProperties = {
   padding: "0 16px",
   fontSize: 13,
   fontWeight: 600,
-  fontFamily: "Pretendard, sans-serif",
+  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
   color: "#5a616e",
   background: "#fff",
   border: "1px solid #e2e5ea",
@@ -85,7 +89,7 @@ const outlineBtn: React.CSSProperties = {
   padding: "0 16px",
   fontSize: 13,
   fontWeight: 600,
-  fontFamily: "Pretendard, sans-serif",
+  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
   color: "#2f6bff",
   background: "#fff",
   border: "1px solid #2f6bff",
@@ -98,7 +102,7 @@ const searchInput: React.CSSProperties = {
   height: 42,
   padding: "0 14px",
   fontSize: 13,
-  fontFamily: "Pretendard, sans-serif",
+  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
   color: "#1a1d23",
   border: "1px solid #e2e5ea",
   borderRadius: 10,
@@ -160,7 +164,14 @@ export default function FeedbackClient({
 
   // Chart.js 는 브라우저 캔버스가 필요하므로 mount 후에만 렌더
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // 인쇄(PDF) 화질 확보 — 캔버스를 고해상도로 래스터
+    ChartJS.defaults.devicePixelRatio = Math.max(3, window.devicePixelRatio || 1);
+    setMounted(true);
+  }, []);
+
+  // PDF 내보내기(인쇄) — 차트 스냅샷 + A4 리플로우 공용 훅. 차트 컨테이너에 pdf-chart-box 지정.
+  const { exportPdf } = useChartPdfExport();
 
   const allRows = useMemo(
     () => buildFeedbackRows(satisfaction, feedback),
@@ -394,17 +405,64 @@ export default function FeedbackClient({
   ];
 
   return (
-    <div>
-      <h1
+    <div className="pdf-report">
+      <div
         style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
           margin: "0 0 28px",
-          fontSize: 22,
-          fontWeight: 700,
-          letterSpacing: "-0.5px",
         }}
       >
-        불만족 평가 관리
-      </h1>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: 22,
+            fontWeight: 700,
+            letterSpacing: "-0.5px",
+          }}
+        >
+          불만족 평가 관리
+        </h1>
+        <button
+          type="button"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            height: 40,
+            padding: "0 16px",
+            fontSize: 13,
+            fontWeight: 600,
+            fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
+            color: "#5a616e",
+            background: "#fff",
+            border: "1px solid #e2e5ea",
+            borderRadius: 10,
+            cursor: "pointer",
+          }}
+          onClick={() => void exportPdf()}
+          title="이 페이지를 PDF로 내보내기 (인쇄 대화상자에서 'PDF로 저장' 선택)"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#5a616e"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          PDF 내보내기
+        </button>
+      </div>
 
       {toast && <div className="toast">{toast}</div>}
 
@@ -459,7 +517,7 @@ export default function FeedbackClient({
           {causeCounts.length === 0 ? (
             <p style={{ color: "#8a909c", fontSize: 13 }}>데이터가 없습니다.</p>
           ) : (
-            <div style={{ height: 320, position: "relative" }}>
+            <div className="pdf-chart-box" style={{ height: 320, position: "relative" }}>
               {mounted ? (
                 <Doughnut data={causeChartData} options={causeChartOptions} />
               ) : (
@@ -565,8 +623,9 @@ export default function FeedbackClient({
         </div>
       </div>
 
-      {/* 내보내기 */}
+      {/* 내보내기 (인쇄 시 숨김) */}
       <div
+        className="no-print"
         style={{
           display: "flex",
           gap: 10,
@@ -592,8 +651,8 @@ export default function FeedbackClient({
         </button>
       </div>
 
-      {/* 필터 */}
-      <div style={{ ...card, marginBottom: 20 }}>
+      {/* 필터 (인쇄 시 숨김) */}
+      <div className="no-print" style={{ ...card, marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={filterLabel}>기간</span>
@@ -679,6 +738,7 @@ export default function FeedbackClient({
             퍼센트 컬럼(합계 100%)이라 가로 스크롤이 애초에 생기지 않는다. */}
         <div>
           <table
+            className="fb-list-table"
             style={{
               width: "100%",
               borderCollapse: "collapse",
@@ -785,7 +845,7 @@ export default function FeedbackClient({
                           padding: "0 14px",
                           fontSize: 12,
                           fontWeight: 600,
-                          fontFamily: "Pretendard, sans-serif",
+                          fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
                           color: "#fff",
                           background: "#2f6bff",
                           border: "none",
@@ -804,7 +864,7 @@ export default function FeedbackClient({
           </table>
         </div>
 
-        <div style={{ marginTop: 18 }}>
+        <div className="no-print" style={{ marginTop: 18 }}>
           <Pager page={safePage} totalPages={totalPages} onPage={setPage} />
         </div>
       </div>

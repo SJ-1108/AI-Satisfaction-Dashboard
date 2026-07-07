@@ -25,7 +25,7 @@ export default function SignOutButton() {
         height: 38,
         fontSize: 13,
         fontWeight: 600,
-        fontFamily: "Pretendard, sans-serif",
+        fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
         color: "#5a616e",
         background: "#fff",
         border: "1px solid #e2e5ea",

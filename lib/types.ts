@@ -62,11 +62,16 @@ export function statusTextColor(bg: string): string {
 }
 
 /**
- * 흰 배경 위 텍스트용 색 보정(KPI 숫자 등). 원색이 너무 밝아 흰 배경에서
- * 안 읽히면 검정 쪽으로 섞어 가독성을 확보하고, 그 외에는 원색을 유지한다.
+ * 흰 배경 위 텍스트용 색 보정(KPI 숫자 등). 흰 배경에서 충분한 대비를 얻을 때까지
+ * 검정 쪽으로 반복해서 섞고(색상 hue 유지), 이미 어두운 색은 그대로 둔다.
+ * (검토중 #8fb0f2·보류 #97a2b4 처럼 '중간 밝기' 색도 확실히 진하게 만들어 가독성 확보.)
  */
 export function onWhiteText(color: string): string {
-  return relativeLuminance(color) > 0.65 ? mixToward(color, "#1a1d23", 0.55) : color;
+  let c = color;
+  for (let i = 0; i < 8 && relativeLuminance(c) > 0.3; i++) {
+    c = mixToward(c, "#1a1d23", 0.4);
+  }
+  return c;
 }
 
 /** 상태색의 연한 틴트 배경(pill·드롭다운 버튼). 흰색 쪽으로 섞어 옅게. */
