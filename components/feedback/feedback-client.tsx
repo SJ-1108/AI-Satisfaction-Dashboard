@@ -199,10 +199,9 @@ export default function FeedbackClient({
     maintainAspectRatio: false,
     cutout: "62%",
     plugins: {
-      // 좁은 좌측(2fr) 카드 — 범례를 하단에 두어 도넛이 카드 폭을 온전히 쓰게 하고
-      // 항목 간격(padding)을 넉넉히 주어 눌려 보이지 않게 한다.
+      // 범례를 도넛 우측에 세로로 배치
       legend: {
-        position: "bottom" as const,
+        position: "right" as const,
         align: "center" as const,
         labels: {
           usePointStyle: true,
