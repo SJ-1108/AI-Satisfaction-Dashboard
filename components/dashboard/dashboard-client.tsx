@@ -14,8 +14,9 @@ import {
   type TooltipItem,
 } from "chart.js";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
-import type { Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
-import { FEEDBACK_STATUSES, statusLabel } from "@/lib/types";
+import type { Feedback, Satisfaction } from "@/lib/types";
+import { FEEDBACK_STATUSES, STATUS_COLOR, statusLabel } from "@/lib/types";
+import { CAUSE_CHART_COLORS, CAUSE_FALLBACK_COLOR } from "@/lib/cause-categories";
 import {
   computeCauseBreakdown,
   computeDailyFeedbackStatus,
@@ -51,26 +52,13 @@ const BLUE = "#2450c8"; // 만족 (딥 블루)
 const RED = "#e8635d"; // 불만족 (추이·비중·사유별 분포 차트)
 const DISSAT = "#e0635d"; // 불만족 (KPI/표 강조)
 
-/** 원인 분류별 통계 도넛 색상 — 테라코타→샌드 그라데이션(진→연) 8단계 */
-const CAUSE_COLORS = [
-  "#8f4a33",
-  "#a55f42",
-  "#b77452",
-  "#c68a68",
-  "#d29f80",
-  "#dbb298",
-  "#e3c4ac",
-  "#e9d2be",
-];
-
-/** 상태별 누적 막대 색상 — 처리 단계(로즈→딥 레드 계열) */
-const STATUS_COLOR: Record<FeedbackStatus, string> = {
-  미확인: "#cdc2c3", // 웜 그레이 (미처리)
-  검토중: "#bd5f56",
-  조치완료: "#ab3f3a", // 저장값(화면 표시는 '처리완료')
-  보류: "#932c2c",
-  "처리 불가": "#7a2627",
-};
+/**
+ * 도넛 차트 기하 구조 — 비중·원인 분류 도넛 공용.
+ * 반지름/안쪽 지름을 px로 고정해 두 차트의 링 두께를 동일하게 유지한다.
+ * (cutout을 %로 두면 컨테이너·범례 크기에 따라 반지름이 달라져 두께가 어긋난다.)
+ */
+const DONUT_RADIUS = 115; // 바깥 반지름(px)
+const DONUT_CUTOUT = 90; // 안쪽 반지름(px) → 링 두께 = 25px
 
 const GRID = { color: "#f0f2f5" } as const;
 // 라인/도넛 범례 칩을 동일한 사각형(같은 크기)으로 통일
@@ -88,10 +76,11 @@ const LEGEND_TOP = {
   align: "end" as const,
   labels: LEGEND_LABELS,
 };
-// 비중(도넛) — 범례 세로형(우측)
-const LEGEND_RIGHT = {
+// 비중(도넛) — 범례 중앙 하단
+const LEGEND_BOTTOM = {
   display: true,
-  position: "right" as const,
+  position: "bottom" as const,
+  align: "center" as const,
   labels: LEGEND_LABELS,
 };
 
@@ -283,7 +272,8 @@ export default function DashboardClient({
       {
         data: [kpis.up, kpis.down],
         backgroundColor: [BLUE, RED],
-        borderWidth: 4,
+        // 원인 분류 도넛과 링 두께를 맞추기 위해 흰 테두리 두께 통일(2)
+        borderWidth: 2,
         borderColor: "#fff",
         hoverOffset: 6,
       },
@@ -294,9 +284,10 @@ export default function DashboardClient({
   const ratingOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: "66%",
+    radius: DONUT_RADIUS,
+    cutout: DONUT_CUTOUT,
     plugins: {
-      legend: LEGEND_RIGHT,
+      legend: LEGEND_BOTTOM,
       tooltip: {
         callbacks: {
           // 기본 title(범례명 중복)을 비워 2줄로
@@ -418,7 +409,7 @@ export default function DashboardClient({
       {
         data: causes.map((c) => c.count),
         backgroundColor: causes.map(
-          (_, i) => CAUSE_COLORS[i % CAUSE_COLORS.length],
+          (c) => CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
         ),
         // 작은 조각이 흰 테두리에 묻히지 않도록 얇게(2)
         borderWidth: 2,
@@ -431,14 +422,15 @@ export default function DashboardClient({
   const causeOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: "62%",
+    radius: DONUT_RADIUS,
+    cutout: DONUT_CUTOUT,
     plugins: {
       // 좁은 1/4 폭 카드 — 범례를 하단에 두어 도넛이 카드 폭을 온전히 쓰게 하고,
       // 항목 간격(padding)을 넉넉히 주어 쪼개져 보이지 않게 한다.
       legend: {
         display: true,
         position: "bottom" as const,
-        align: "start" as const,
+        align: "center" as const,
         labels: {
           usePointStyle: true,
           pointStyle: "rect" as const,

@@ -13,7 +13,8 @@ import {
   FEEDBACK_STATUSES,
   statusLabel,
   STATUS_COLOR,
-  STATUS_BG,
+  statusTint,
+  statusInk,
   type FeedbackStatus,
 } from "@/lib/types";
 
@@ -307,16 +308,18 @@ export default function FeedbackDialog({
                       display: "inline-flex",
                       alignItems: "center",
                       padding: "9px 16px",
-                      border: `1px solid ${sel ? color : "transparent"}`,
+                      border: "none",
+                      outline: "none",
                       borderRadius: 999,
                       cursor: "pointer",
                       fontSize: 13,
-                      fontWeight: 600,
+                      fontWeight: sel ? 700 : 600,
                       fontFamily: "Pretendard, sans-serif",
                       lineHeight: 1,
-                      // 선택: 지정색으로 채움(흰 글자) / 비선택: 연한 배경 + 지정색 글자
-                      color: sel ? "#fff" : color,
-                      background: sel ? color : STATUS_BG[s],
+                      // 선택: 진한 색(ink) 채움 + 흰 글자 / 비선택: 연한 틴트 + 진한 글자.
+                      // 밝은 상태색(검토중 등)도 진↔연 명도 대비로 확실히 구분된다.
+                      color: sel ? "#fff" : statusInk(color),
+                      background: sel ? statusInk(color) : statusTint(color),
                     }}
                   >
                     {statusLabel(s)}
