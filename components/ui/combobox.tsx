@@ -156,8 +156,8 @@ export default function Combobox({
             borderRadius: 10,
             boxShadow: "0 10px 28px rgba(16,24,40,.14)",
             padding: 6,
-            // 항목 3개 높이(약 34px/개)만 노출하고 나머지는 스크롤
-            maxHeight: 118,
+            // 항목 5개 높이(약 34px/개)만 노출하고 나머지는 스크롤
+            maxHeight: 190,
             overflowY: "auto",
           }}
         >
