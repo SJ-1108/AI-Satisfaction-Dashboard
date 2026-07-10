@@ -33,6 +33,13 @@ import {
 import { isDateRangeInvalid, kstDatePart } from "@/lib/format-date";
 import { useChartPdfExport } from "@/lib/use-chart-pdf-export";
 import DateRangePicker from "@/components/ui/date-range-picker";
+import {
+  applyChartDefaults,
+  CHART_GRID,
+  CHART_TEXT_COLOR,
+  COMMON_LINE_PROPS,
+  COMMON_PIE_PROPS,
+} from "@/lib/chart-style";
 
 // Chart.js 모듈 등록 (한 번만)
 ChartJS.register(
@@ -49,7 +56,8 @@ ChartJS.register(
 // 차트 공통 기본값 (Pretendard, 디자인 톤)
 ChartJS.defaults.font.family =
   "'Pretendard Variable', Pretendard, -apple-system, sans-serif";
-ChartJS.defaults.color = "#8a909c";
+// 텍스트 색/크기/두께는 공통 스타일(applyChartDefaults, mount 후)로 통일한다.
+ChartJS.defaults.color = CHART_TEXT_COLOR;
 // 애니메이션 비활성화 — 인쇄(beforeprint) 시 resize()가 캔버스를 '동기적으로'
 // 다시 그리도록 하기 위함. 애니메이션이 켜져 있으면 그리기가 rAF로 지연되어
 // 인쇄 스냅샷에 리사이즈 결과가 반영되지 않는다. (프로토타입과 동일)
@@ -68,7 +76,7 @@ const DISSAT = "#e0635d"; // 불만족 (KPI/표 강조)
 const DONUT_RADIUS = 115; // 바깥 반지름(px)
 const DONUT_CUTOUT = 90; // 안쪽 반지름(px) → 링 두께 = 25px
 
-const GRID = { color: "#f0f2f5" } as const;
+const GRID = CHART_GRID;
 // 라인/도넛 범례 칩을 동일한 사각형(같은 크기)으로 통일
 const LEGEND_LABELS = {
   usePointStyle: true,
@@ -199,9 +207,8 @@ export default function DashboardClient({
   // Chart.js 는 브라우저 캔버스가 필요하므로, 클라이언트 mount 후에만 렌더한다.
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    // PDF(인쇄) 화질 확보 — 캔버스 차트는 화면 해상도로 래스터되어 인쇄 시 흐려지므로
-    // devicePixelRatio 를 올려 고해상도로 렌더한다. (design_handoff_pdf_export 명세)
-    ChartJS.defaults.devicePixelRatio = Math.max(3, window.devicePixelRatio || 1);
+    // 공통 차트 기본값(폰트·색·고해상도 래스터) 적용 — 화면/인쇄 모두 선명하게.
+    applyChartDefaults();
     setMounted(true);
   }, []);
 
@@ -263,10 +270,8 @@ export default function DashboardClient({
         borderColor: BLUE,
         backgroundColor: BLUE,
         pointBackgroundColor: BLUE,
-        tension: 0.4,
-        borderWidth: 2.5,
-        pointRadius: 3,
         fill: false,
+        ...COMMON_LINE_PROPS,
       },
       {
         label: "불만족 👎",
@@ -274,10 +279,8 @@ export default function DashboardClient({
         borderColor: RED,
         backgroundColor: RED,
         pointBackgroundColor: RED,
-        tension: 0.4,
-        borderWidth: 2.5,
-        pointRadius: 3,
         fill: false,
+        ...COMMON_LINE_PROPS,
       },
     ],
   };
@@ -311,10 +314,8 @@ export default function DashboardClient({
       {
         data: [kpis.up, kpis.down],
         backgroundColor: [BLUE, RED],
-        // 원인 분류 도넛과 링 두께를 맞추기 위해 흰 테두리 두께 통일(2)
-        borderWidth: 2,
-        borderColor: "#fff",
-        hoverOffset: 6,
+        // 원인 분류 도넛과 링 두께를 맞추기 위해 흰 테두리 공통(COMMON_PIE_PROPS)
+        ...COMMON_PIE_PROPS,
       },
     ],
   };
@@ -437,6 +438,7 @@ export default function DashboardClient({
     },
     scales: {
       x: { beginAtZero: true, grid: GRID, ticks: { precision: 0 as const } },
+      // 불만족 사유 라벨 — 크기는 기존(12), 선명도는 전역 색(#64748b)/두께로 확보
       y: { grid: { display: false }, ticks: { font: { size: 12 } } },
     },
   };
@@ -450,10 +452,8 @@ export default function DashboardClient({
         backgroundColor: causes.map(
           (c) => CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
         ),
-        // 작은 조각이 흰 테두리에 묻히지 않도록 얇게(2)
-        borderWidth: 2,
-        borderColor: "#fff",
-        hoverOffset: 6,
+        // 작은 조각도 경계가 또렷하도록 공통 도넛 속성 적용
+        ...COMMON_PIE_PROPS,
       },
     ],
   };
@@ -507,9 +507,7 @@ export default function DashboardClient({
       {
         data: departments.map((d) => d.count),
         backgroundColor: departments.map((_, i) => departmentColor(i)),
-        borderWidth: 2,
-        borderColor: "#fff",
-        hoverOffset: 6,
+        ...COMMON_PIE_PROPS,
       },
     ],
   };

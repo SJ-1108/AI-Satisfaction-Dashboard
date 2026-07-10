@@ -50,11 +50,17 @@ import {
 } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import { useChartPdfExport } from "@/lib/use-chart-pdf-export";
+import {
+  applyChartDefaults,
+  CHART_TEXT_COLOR,
+  COMMON_PIE_PROPS,
+} from "@/lib/chart-style";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 ChartJS.defaults.font.family =
   "'Pretendard Variable', Pretendard, -apple-system, sans-serif";
-ChartJS.defaults.color = "#8a909c";
+// 텍스트 색/크기/두께는 공통 스타일(applyChartDefaults, mount 후)로 통일한다.
+ChartJS.defaults.color = CHART_TEXT_COLOR;
 // 인쇄 스냅샷이 최종 상태를 담도록 애니메이션 비활성화. (devicePixelRatio 는 window 접근이라 mount 후 설정)
 ChartJS.defaults.animation = false;
 
@@ -165,8 +171,8 @@ export default function FeedbackClient({
   // Chart.js 는 브라우저 캔버스가 필요하므로 mount 후에만 렌더
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    // 인쇄(PDF) 화질 확보 — 캔버스를 고해상도로 래스터
-    ChartJS.defaults.devicePixelRatio = Math.max(3, window.devicePixelRatio || 1);
+    // 공통 차트 기본값(폰트·색·고해상도 래스터) 적용 — 화면/인쇄 모두 선명하게.
+    applyChartDefaults();
     setMounted(true);
   }, []);
 
@@ -206,9 +212,7 @@ export default function FeedbackClient({
         backgroundColor: causeCounts.map(
           (c) => CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
         ),
-        borderWidth: 2,
-        borderColor: "#fff",
-        hoverOffset: 6,
+        ...COMMON_PIE_PROPS,
       },
     ],
   };
