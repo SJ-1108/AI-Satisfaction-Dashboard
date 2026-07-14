@@ -13,12 +13,13 @@ import { Chart as ChartJS } from "chart.js";
  */
 
 /**
- * 축 tick·범례 텍스트 색 — slate-500.
- * 기존(#8a909c, 연함)과 1차 개선(#475569, 다소 진함)의 중간값.
- * 테이블 본문(#5a616e~#6b7280)보다 과하게 진하지 않게 맞춘다.
+ * 축 tick·범례 텍스트 색 — 테이블 보조 셀(원인분류 등, #5a616e)과 동일한 값.
+ * canvas 텍스트는 DOM 대비 옅은 색에서 획이 끊겨 보이므로("얇고 깨짐"),
+ * 테이블 텍스트 기준으로 진하게 맞춰 렌더링 격차를 없앤다.
+ * (변천: #8a909c(연함) → #64748b(중간, 여전히 옅음) → #3a4150(본문) → #5a616e(보조 셀 톤))
  * (선명도는 이 색 + weight 로만 확보하고 fontSize 는 각 차트의 기존 값을 유지)
  */
-export const CHART_TEXT_COLOR = "#64748b";
+export const CHART_TEXT_COLOR = "#5a616e";
 /** 공통 폰트 두께 — 기존 400 → 500(400~500 범위). fontSize 는 키우지 않는다. */
 export const CHART_FONT_WEIGHT = 500;
 /** grid 라인 색 — 기존 수준의 연한 회색(텍스트보다 옅게). */
@@ -62,9 +63,10 @@ export const COMMON_PIE_PROPS = {
  */
 export function applyChartDefaults() {
   ChartJS.defaults.color = CHART_TEXT_COLOR;
-  // fontSize 는 전역에서 강제하지 않는다(Chart.js 기본 12 유지) — 각 차트의
-  // 기존 크기(일부 11)를 그대로 두고, 선명도는 색/두께로만 확보.
   ChartJS.defaults.font.weight = CHART_FONT_WEIGHT;
-  // 캔버스를 고해상도로 래스터 → 100% 배율에서도 텍스트·선·조각 경계 선명.
-  ChartJS.defaults.devicePixelRatio = Math.max(3, window.devicePixelRatio || 1);
+  // 차트 텍스트(축 눈금 등)를 13px 로 통일. 개별 축의 font.size 도 13 으로 맞춘다.
+  ChartJS.defaults.font.size = 13;
+  // 렌더 해상도(devicePixelRatio)는 전역 기본값 경로로는 Chart.js 에 반영되지
+  // 않는다(실측 결과 window.devicePixelRatio 만 사용됨). 곡선 계단현상을 줄이는
+  // 슈퍼샘플링은 각 차트의 options.devicePixelRatio 에서 직접 지정한다.
 }

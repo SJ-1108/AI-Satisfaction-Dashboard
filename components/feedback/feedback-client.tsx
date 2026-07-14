@@ -66,9 +66,9 @@ ChartJS.defaults.animation = false;
 
 const PAGE_SIZE = 10;
 
-/** 원인 도넛 — 링 두께 25px 고정(반지름 130 − 안쪽 105). 대시보드보다 크게. */
-const DONUT_RADIUS = 130;
-const DONUT_CUTOUT = 105;
+/** 원인 도넛 — 대시보드 원인 도넛과 동일(반지름 115 − 안쪽 90, 링 두께 25px). */
+const DONUT_RADIUS = 115;
+const DONUT_CUTOUT = 90;
 
 // ── 공통 인라인 스타일 ──
 const card: React.CSSProperties = {
@@ -170,8 +170,14 @@ export default function FeedbackClient({
 
   // Chart.js 는 브라우저 캔버스가 필요하므로 mount 후에만 렌더
   const [mounted, setMounted] = useState(false);
+  // 캔버스 렌더 해상도 배율 — arc 곡선의 계단현상을 줄이려 실제 devicePixelRatio 의
+  // 2배로 슈퍼샘플링(정수 2:1 다운샘플). SSR 엔 window 가 없으므로 2 로 두고,
+  // 클라이언트 첫 렌더의 lazy initializer 에서 확정한다(차트는 mount 후에만 렌더).
+  const [superDpr] = useState(() =>
+    typeof window !== "undefined" ? 2 * (window.devicePixelRatio || 1) : 2,
+  );
   useEffect(() => {
-    // 공통 차트 기본값(폰트·색·고해상도 래스터) 적용 — 화면/인쇄 모두 선명하게.
+    // 공통 차트 기본값(폰트·색) 적용.
     applyChartDefaults();
     setMounted(true);
   }, []);
@@ -217,24 +223,16 @@ export default function FeedbackClient({
     ],
   };
   const causeChartOptions = {
+    devicePixelRatio: superDpr,
     responsive: true,
     maintainAspectRatio: false,
     radius: DONUT_RADIUS,
     cutout: DONUT_CUTOUT,
     plugins: {
-      // 범례를 도넛 우측에 세로로 배치
-      legend: {
-        position: "right" as const,
-        align: "center" as const,
-        labels: {
-          usePointStyle: true,
-          pointStyle: "rect" as const,
-          boxWidth: 10,
-          boxHeight: 10,
-          padding: 12,
-          font: { size: 11 },
-        },
-      },
+      // 범례는 canvas 대신 HTML로 그린다(아래 JSX). canvas 텍스트는 ClearType
+      // 서브픽셀 힌팅을 못 써 DOM 텍스트보다 물렁하게 보이므로, 범례를 HTML로
+      // 빼 일반 텍스트와 동일한 선명도로 맞춘다. 도넛 조각만 canvas 에 남는다.
+      legend: { display: false },
       tooltip: {
         callbacks: {
           // 기본 title(범례명 중복)을 비워 2줄로
@@ -410,7 +408,10 @@ export default function FeedbackClient({
   ];
 
   return (
-    <div className="pdf-report">
+    // 목록 표(11열)가 붕괴하지 않는 하한 폭을 페이지 전체에 건다 → 이보다 좁아지면
+    // 페이지가 통째로 가로 스크롤된다(각 카드가 함께 넓어져 표/버튼이 카드를 삐져나가지 않음).
+    // 인쇄 시에는 globals.css @media print 에서 min-width:0 으로 해제된다.
+    <div className="pdf-report" style={{ minWidth: 1300 }}>
       <div
         style={{
           display: "flex",
@@ -508,6 +509,7 @@ export default function FeedbackClient({
 
       {/* 원인 분류별 통계 / 처리 현황 */}
       <div
+        className="pdf-chart-row"
         style={{
           display: "grid",
           gridTemplateColumns: "2fr 3fr",
@@ -515,35 +517,87 @@ export default function FeedbackClient({
           marginBottom: 24,
         }}
       >
-        <div style={card}>
+        <div className="card-block" style={card}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, letterSpacing: "-0.3px" }}>
             원인 분류별 통계
           </div>
           {causeCounts.length === 0 ? (
             <p style={{ color: "#8a909c", fontSize: 13 }}>데이터가 없습니다.</p>
           ) : (
-            <div className="pdf-chart-box" style={{ height: 320, position: "relative" }}>
-              {mounted ? (
-                <Doughnut data={causeChartData} options={causeChartOptions} />
-              ) : (
-                <div
+            // 도넛(좌) + 범례 세로 일렬(우) 묶음을 카드 가운데 정렬한다.
+            <div
+              className="pdf-chart-box pdf-donut-row"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 100,
+                height: 300,
+              }}
+            >
+              <div style={{ position: "relative", width: 250, height: "100%", flexShrink: 0 }}>
+                {mounted ? (
+                  <Doughnut data={causeChartData} options={causeChartOptions} />
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "100%",
+                      color: "#8a909c",
+                      fontSize: 13,
+                    }}
+                  >
+                    차트 로딩 중…
+                  </div>
+                )}
+              </div>
+              {/* 범례 — 차트 우측 세로 일렬. HTML(DOM) 렌더로 일반 텍스트와 동일한 선명도 */}
+              {mounted && (
+                <ul
                   style={{
+                    listStyle: "none",
+                    margin: 0,
+                    padding: 0,
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: "100%",
-                    color: "#8a909c",
-                    fontSize: 13,
+                    flexDirection: "column",
+                    gap: 12,
+                    flexShrink: 0,
                   }}
                 >
-                  차트 로딩 중…
-                </div>
+                  {causeCounts.map((c) => (
+                    <li
+                      key={c.category}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: CHART_TEXT_COLOR,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 11,
+                          height: 11,
+                          borderRadius: 2,
+                          background:
+                            CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
+                          flexShrink: 0,
+                        }}
+                      />
+                      {c.category}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           )}
         </div>
 
-        <div style={card}>
+        <div className="card-block" style={card}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, letterSpacing: "-0.3px" }}>
             처리 현황
           </div>
@@ -577,7 +631,7 @@ export default function FeedbackClient({
               처리된 건이 없습니다.
             </p>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" }}>
               <colgroup>
                 <col style={{ width: "20%" }} />
                 <col style={{ width: "32%" }} />
@@ -585,9 +639,9 @@ export default function FeedbackClient({
               </colgroup>
               <thead>
                 <tr style={{ background: "#f7f8fa" }}>
-                  <th style={{ ...th, padding: "9px 12px" }}>상태</th>
-                  <th style={{ ...th, padding: "9px 12px" }}>원인 분류</th>
-                  <th style={{ ...th, padding: "9px 12px" }}>피드백 내용</th>
+                  <th style={{ ...th, padding: "9px 12px", color: "#5a616e", fontWeight: 500 }}>상태</th>
+                  <th style={{ ...th, padding: "9px 12px", color: "#5a616e", fontWeight: 500 }}>원인 분류</th>
+                  <th style={{ ...th, padding: "9px 12px", color: "#5a616e", fontWeight: 500 }}>피드백 내용</th>
                 </tr>
               </thead>
               <tbody>
@@ -597,21 +651,22 @@ export default function FeedbackClient({
                       style={{
                         ...td,
                         padding: "9px 12px",
-                        color: statusInk(STATUS_COLOR[r.status]),
-                        fontWeight: 600,
+                        color: "#5a616e",
+                        fontWeight: 500,
                         whiteSpace: "nowrap",
                       }}
                     >
                       {statusLabel(r.status)}
                     </td>
-                    <td style={{ ...td, padding: "9px 12px", color: "#5a616e" }}>
+                    <td style={{ ...td, padding: "9px 12px", color: "#5a616e", fontWeight: 500 }}>
                       {r.cause_category?.trim() || "미분류"}
                     </td>
                     <td
                       style={{
                         ...td,
                         padding: "9px 12px",
-                        color: "#3a4150",
+                        color: "#5a616e",
+                        fontWeight: 500,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
@@ -738,9 +793,11 @@ export default function FeedbackClient({
 
       {/* 목록 */}
       <div style={card}>
-        {/* overflow 를 두지 않는다: overflow-x:auto 는 overflow-y 도 auto 로 만들어
-            하단 행의 상태 드롭다운 팝오버를 세로로 잘라낸다. 표는 tableLayout:fixed +
-            퍼센트 컬럼(합계 100%)이라 가로 스크롤이 애초에 생기지 않는다. */}
+        {/* 표는 width:100% 로 카드 안을 꽉 채우기만 한다(카드 밖으로 넘치지 않음 → 우측
+            '피드백' 버튼이 카드를 삐져나가지 않는다). 좁은 화면에서 퍼센트 컬럼이 붕괴하지
+            않도록 하는 하한선은 페이지 루트(.pdf-report)의 min-width 로 걸어 두었고, 그 이하
+            에서는 페이지 전체가 가로 스크롤된다. (overflow-x:auto 를 쓰지 않는 이유: overflow-y
+            도 auto 가 되어 하단 행의 상태 드롭다운 팝오버가 세로로 잘리기 때문.) */}
         <div>
           <table
             className="fb-list-table"
@@ -811,7 +868,9 @@ export default function FeedbackClient({
                     >
                       {r.reason ? reasonLabel(r.reason) : "-"}
                     </td>
-                    <td style={td}>
+                    {/* 상태 셀은 좌우 패딩 0: 가운데 정렬된 셀렉트 버튼이 좁은 컬럼(7%)에서도
+                        텍스트만큼 폭을 확보하도록(td 기본 14px 패딩이 버튼 공간을 잠식) */}
+                    <td style={{ ...td, padding: "12px 0" }}>
                       <StatusSelect
                         value={r.status}
                         disabled={saving}
