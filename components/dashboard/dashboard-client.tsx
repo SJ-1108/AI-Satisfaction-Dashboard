@@ -756,7 +756,10 @@ export default function DashboardClient({
             <>
               {/* ① 전체 현황 — 추이(추세) + 만족/불만족 비중(개요) */}
               <div
+                className="pdf-subhead"
                 style={{
+                  display: "flex",
+                  alignItems: "center",
                   fontSize: 15,
                   fontWeight: 700,
                   color: "#3a4150",
@@ -764,7 +767,17 @@ export default function DashboardClient({
                   margin: "4px 0 14px",
                 }}
               >
-                ① 전체 현황
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "#3a4150",
+                    marginRight: 8,
+                  }}
+                />
+                전체 현황
               </div>
               <div
                 className="pdf-chart-row"
@@ -828,7 +841,10 @@ export default function DashboardClient({
 
               {/* ② 불만족 원인 분석 — 사유(무엇을) + 원인 분류(왜) */}
               <div
+                className="pdf-subhead"
                 style={{
+                  display: "flex",
+                  alignItems: "center",
                   fontSize: 15,
                   fontWeight: 700,
                   color: "#3a4150",
@@ -836,7 +852,17 @@ export default function DashboardClient({
                   margin: "4px 0 14px",
                 }}
               >
-                ② 불만족 원인 분석
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "#3a4150",
+                    marginRight: 8,
+                  }}
+                />
+                불만족 원인 분석
               </div>
               <div
                 className="pdf-chart-row"
@@ -901,7 +927,10 @@ export default function DashboardClient({
 
               {/* ③ 대응 현황 — 처리 현황(진행) + 유관 부서(협의 대상) */}
               <div
+                className="pdf-subhead"
                 style={{
+                  display: "flex",
+                  alignItems: "center",
                   fontSize: 15,
                   fontWeight: 700,
                   color: "#3a4150",
@@ -909,7 +938,17 @@ export default function DashboardClient({
                   margin: "4px 0 14px",
                 }}
               >
-                ③ 대응 현황
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "#3a4150",
+                    marginRight: 8,
+                  }}
+                />
+                대응 현황
               </div>
               <div
                 className="pdf-chart-row"
