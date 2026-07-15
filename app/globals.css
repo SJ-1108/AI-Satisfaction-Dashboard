@@ -1071,14 +1071,18 @@ details > summary.bad {
     height: auto !important;
   }
   img[data-pdf-snap] {
-    /* 세로가 긴 도넛 스냅샷이 1열 리플로우에서 페이지를 꽉 채우지 않도록 높이 상한.
-       비율 유지를 위해 width/height auto + max-width/height, 가운데 정렬한다. */
-    width: auto !important;
+    /* 넓은 차트(라인·가로/세로 막대)는 카드 폭을 꽉 채운다(비율대로 높이 자동). */
+    width: 100% !important;
     height: auto !important;
+    display: block;
+  }
+  /* 도넛만: 세로가 길어 '폭'이 아니라 '높이 상한'으로 제한 + 비율 유지 + 가운데 정렬.
+     (가로 막대에까지 이 높이 캡이 걸리면 폭이 줄어 작아 보이던 문제를 도넛으로 한정) */
+  .pdf-donut-wrap img[data-pdf-snap] {
+    width: auto !important;
     max-width: 100% !important;
     max-height: 320px !important;
     margin: 0 auto !important;
-    display: block;
   }
 
   /* 좁은 A4 에서 차트 행 다열 그리드를 1열로 접어 각 차트가 전체 폭을 쓰도록 한다.
