@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   buildFeedbackRows,
+  upsertFeedback,
   type FeedbackEdit,
   type FeedbackRow,
 } from "@/lib/data/feedback-view";
@@ -322,6 +323,17 @@ export default function FeedbackClient({
         setTimeout(() => setToast(null), 5000);
         return false;
       }
+      // 낙관적 반영: DB 저장 성공을 확인한 뒤 로컬 state 를 즉시 upsert 해 목록을 바로
+      // 갱신한다(체감 지연 제거). 표시용 파생값(수정일시·담당자명·신규 id)은 근사이며,
+      // 아래 router.refresh() 가 서버(정본) 값으로 덮어써 정합을 맞춘다. 저장 로직은 불변.
+      setFeedback((prev) =>
+        upsertFeedback(
+          prev,
+          edit,
+          currentUser.name || currentUser.empNo,
+          new Date().toISOString(),
+        ),
+      );
       router.refresh();
       setToast(successMsg);
       setTimeout(() => setToast(null), 4000);
@@ -605,7 +617,7 @@ export default function FeedbackClient({
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
+              justifyContent: "flex-end",
               gap: 12,
               marginBottom: 16,
             }}
@@ -651,7 +663,7 @@ export default function FeedbackClient({
                       style={{
                         ...td,
                         padding: "9px 12px",
-                        color: "#5a616e",
+                        color: statusInk(STATUS_COLOR[r.status]),
                         fontWeight: 500,
                         whiteSpace: "nowrap",
                       }}
