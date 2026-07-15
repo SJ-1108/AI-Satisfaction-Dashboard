@@ -47,7 +47,7 @@ export function isDummyMode(): boolean {
 
 // ── satisfaction ────────────────────────────────────────────
 const SATISFACTION_COLS =
-  "id, record_no, record_key, query, summary_text, rating, reason, comment, created_at, upload_batch_id, synced_at";
+  "id, record_no, record_key, query, summary_text, rating, reason, comment, device_type, guardrail_label, created_at, upload_batch_id, synced_at";
 
 const getCachedSatisfaction = unstable_cache(
   async (): Promise<Satisfaction[]> => {

@@ -54,6 +54,8 @@ export function accumulateSatisfaction(
         rating: inc.rating,
         reason: inc.reason,
         comment: inc.comment,
+        device_type: inc.device_type,
+        guardrail_label: inc.guardrail_label,
         created_at: inc.created_at,
         upload_batch_id: batchId,
       };
@@ -70,6 +72,8 @@ export function accumulateSatisfaction(
         rating: inc.rating,
         reason: inc.reason,
         comment: inc.comment,
+        device_type: inc.device_type,
+        guardrail_label: inc.guardrail_label,
         created_at: inc.created_at,
         upload_batch_id: batchId,
         synced_at: null,

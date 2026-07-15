@@ -18,6 +18,10 @@ export interface FeedbackRow {
   comment: string | null;
   created_at: string;
 
+  // 업로드 엑셀 추가 컬럼(선택) — 읽기 전용 표시용. 값 없으면 null → 모달에서 "-"
+  device_type: string | null; // 기기 종류
+  guardrail_label: string | null; // 가드레일
+
   // 피드백 (feedback) — 없으면 가상 기본값
   hasFeedback: boolean;
   status: FeedbackStatus;
@@ -54,6 +58,10 @@ export function buildFeedbackRows(
       reason: s.reason,
       comment: s.comment,
       created_at: s.created_at,
+
+      // 업로드 엑셀 추가 컬럼(아직 없으면 undefined → null)
+      device_type: s.device_type ?? null,
+      guardrail_label: s.guardrail_label ?? null,
 
       hasFeedback: Boolean(f),
       status: f?.status ?? "미확인",

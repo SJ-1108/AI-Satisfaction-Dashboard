@@ -149,6 +149,10 @@ export interface Satisfaction {
   created_at: string; // ISO timestamptz
   upload_batch_id: string | null;
   synced_at: string | null;
+  // 업로드 엑셀 추가 컬럼(선택) — 기기 종류/가드레일.
+  // DB 컬럼·업로드 파싱이 아직 없으면 undefined(화면에서 "-"로 표시).
+  device_type?: string | null; // Device Type → 기기 종류
+  guardrail_label?: string | null; // Guardrail Label → 가드레일
 }
 
 /**
@@ -163,6 +167,9 @@ export interface ParsedSatisfaction {
   reason: string | null;
   comment: string | null;
   created_at: string;
+  // 업로드 엑셀 추가 컬럼 — 없거나 비면 null.
+  device_type: string | null; // Device Type → 기기 종류
+  guardrail_label: string | null; // Guardrail Label → 가드레일
 }
 
 /** feedback: 불만족 관리 내부 피드백 (satisfaction_id 1:1) */

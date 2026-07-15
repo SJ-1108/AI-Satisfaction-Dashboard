@@ -145,6 +145,11 @@ export default function FeedbackDialog({
           </ReadField>
           <ReadField label="의견">{row.comment ?? "-"}</ReadField>
 
+          {/* 업로드 엑셀 추가 컬럼(읽기 전용) — 기존 원본 필드와 동일한 회색 박스 디자인.
+              데이터 key(device_type/guardrail_label)가 아직 없으면 "-" 표시 */}
+          <ReadField label="기기 종류">{row.device_type ?? "-"}</ReadField>
+          <ReadField label="가드레일">{row.guardrail_label ?? "-"}</ReadField>
+
           {/* 원인 분류 (칩) */}
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#3a4150", marginBottom: 8 }}>

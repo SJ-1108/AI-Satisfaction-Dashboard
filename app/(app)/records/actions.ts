@@ -68,6 +68,8 @@ export async function appendSatisfactionRows(
     rating: r.rating,
     reason: r.reason,
     comment: r.comment,
+    device_type: r.device_type,
+    guardrail_label: r.guardrail_label,
     created_at: r.created_at,
   }));
   for (let i = 0; i < rows.length; i += DB_CHUNK_SIZE) {

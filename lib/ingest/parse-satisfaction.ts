@@ -9,7 +9,7 @@ import { cleanText } from "@/lib/ingest/clean-text";
  *
  * search_event_id(개인정보)는 업로드 파일에 없다고 가정한다.
  * 필수 컬럼: query, summary_text, rating, created_at
- * 권장 컬럼: reason, comment (없으면 null)
+ * 권장 컬럼: reason, comment, device_type, guardrail_label (없으면 null)
  * 검증을 통과한 행은 record_key 를 부여해 반환한다 (적재 시 중복 판별 기준).
  */
 
@@ -20,6 +20,13 @@ const FIELD_ALIASES: Record<keyof RawFields, string[]> = {
   rating: ["rating", "평가", "평가값"],
   reason: ["reason", "사유", "사유코드", "평가사유"],
   comment: ["comment", "의견", "코멘트"],
+  device_type: ["device_type", "devicetype", "device type", "기기", "기기종류", "기기 종류"],
+  guardrail_label: [
+    "guardrail_label",
+    "guardraillabel",
+    "guardrail label",
+    "가드레일",
+  ],
   created_at: [
     "created_at",
     "createdat",
@@ -37,6 +44,8 @@ interface RawFields {
   rating: string;
   reason: string;
   comment: string;
+  device_type: string;
+  guardrail_label: string;
   created_at: string;
 }
 
@@ -231,6 +240,9 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
       rating: rating!,
       reason: get(row, "reason").trim() || null, // 코드값 — 정제 제외
       comment: cleanText(get(row, "comment")) || null,
+      // 카테고리성 라벨/코드값 — 정제 없이 trim 만(없으면 null). record_key 에는 미포함.
+      device_type: get(row, "device_type").trim() || null,
+      guardrail_label: get(row, "guardrail_label").trim() || null,
       created_at: created_at!,
       record_key: "",
     };
