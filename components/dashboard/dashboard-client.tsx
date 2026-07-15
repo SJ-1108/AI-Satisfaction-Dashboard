@@ -12,6 +12,8 @@ import {
   Tooltip,
   Legend,
   type TooltipItem,
+  type TooltipPositionerFunction,
+  type ChartType,
 } from "chart.js";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
 import type { Feedback, Satisfaction } from "@/lib/types";
@@ -52,6 +54,17 @@ ChartJS.register(
   Tooltip,
   Legend,
 );
+
+// 가로 막대 툴팁을 커서 위치에 고정 — 막대 길이에 따라 좌/우로 흔들리는 기본(막대 중심)
+// 앵커 동작 방지. (짧은 막대는 중심이 왼쪽이라 툴팁이 왼쪽에 뜨던 현상 해소)
+declare module "chart.js" {
+  interface TooltipPositionerMap {
+    cursor: TooltipPositionerFunction<ChartType>;
+  }
+}
+Tooltip.positioners.cursor = function (_items, eventPosition) {
+  return { x: eventPosition.x, y: eventPosition.y };
+};
 
 // 차트 공통 기본값 (Pretendard, 디자인 톤)
 ChartJS.defaults.font.family =
@@ -408,6 +421,7 @@ export default function DashboardClient({
     plugins: {
       legend: { display: false },
       tooltip: {
+        position: "cursor" as const,
         callbacks: {
           // 기본 title(범례명 중복) 제거 → 2줄
           title: () => "",
@@ -479,14 +493,17 @@ export default function DashboardClient({
     },
   };
 
-  // ── 유관 부서별 협의 필요 비중 (도넛) ──
+  // ── 유관 부서별 협의 필요 비중 (가로 막대, 건수 내림차순) ──
+  const deptRanked = [...departments].sort((a, b) => b.count - a.count);
   const deptData = {
-    labels: departments.map((d) => d.department),
+    labels: deptRanked.map((d) => d.department),
     datasets: [
       {
-        data: departments.map((d) => d.count),
-        backgroundColor: departments.map((_, i) => departmentColor(i)),
-        ...COMMON_PIE_PROPS,
+        label: "협의 필요 건수",
+        data: deptRanked.map((d) => d.count),
+        backgroundColor: deptRanked.map((_, i) => departmentColor(i)),
+        borderRadius: 4,
+        maxBarThickness: 44,
       },
     ],
   };
@@ -495,14 +512,14 @@ export default function DashboardClient({
     devicePixelRatio: superDpr,
     responsive: true,
     maintainAspectRatio: false,
-    radius: DONUT_RADIUS,
-    cutout: DONUT_CUTOUT,
+    indexAxis: "y" as const,
     plugins: {
       legend: { display: false },
       tooltip: {
+        position: "cursor" as const,
         callbacks: {
           title: () => "",
-          labelColor: (ctx: TooltipItem<"doughnut">) => {
+          labelColor: (ctx: TooltipItem<"bar">) => {
             const bg = (ctx.dataset.backgroundColor as string[])[ctx.dataIndex];
             return {
               borderColor: bg,
@@ -511,12 +528,16 @@ export default function DashboardClient({
               borderRadius: 3,
             };
           },
-          label: (ctx: TooltipItem<"doughnut">) => {
-            const v = ctx.parsed;
+          label: (ctx: TooltipItem<"bar">) => {
+            const v = ctx.parsed.x ?? 0;
             return [`${ctx.label}`, `${v.toLocaleString()}건 (${pct(v, deptTotal)})`];
           },
         },
       },
+    },
+    scales: {
+      x: { beginAtZero: true, grid: GRID, ticks: { precision: 0 as const } },
+      y: { grid: { display: false }, ticks: { font: { size: 13 } } },
     },
   };
 
@@ -545,10 +566,6 @@ export default function DashboardClient({
   const causeLegend = causes.map((c) => ({
     label: c.category,
     color: CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
-  }));
-  const deptLegend = departments.map((d, i) => ({
-    label: d.department,
-    color: departmentColor(i),
   }));
 
   const stats = [
@@ -951,24 +968,10 @@ export default function DashboardClient({
                 대응 현황
               </div>
               <div
-                className="pdf-chart-row"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
-                  gap: 16,
-                  alignItems: "start",
-                }}
+                className="card-block"
+                style={{ ...cardStyle, padding: "22px 24px", marginBottom: 24 }}
               >
-                <div
-                  className="card-block"
-                  style={{
-                    ...cardStyle,
-                    padding: "22px 24px",
-                    minWidth: 0,
-                    gridColumn: "span 3",
-                  }}
-                >
-                  <div style={chartTitle}>불만족 평가 처리 현황</div>
+                <div style={chartTitle}>불만족 평가 처리 현황</div>
                 {daily.length === 0 ? (
                   <p style={{ color: "#8a909c" }}>데이터가 없습니다.</p>
                 ) : (
@@ -1073,32 +1076,29 @@ export default function DashboardClient({
 
                 <div
                   className="card-block"
-                  style={{
-                    ...cardStyle,
-                    padding: "20px 22px",
-                    minWidth: 0,
-                    gridColumn: "span 1",
-                  }}
+                  style={{ ...cardStyle, padding: "22px 24px" }}
                 >
                   <div style={chartTitle}>유관 부서별 협의 필요 비중</div>
                   {departments.length === 0 ? (
                     <p style={{ color: "#8a909c" }}>협의가 필요한 부서가 없습니다.</p>
                   ) : (
-                    <div className="pdf-donut-wrap">
-                      <div className="pdf-chart-box" style={{ height: 300, position: "relative" }}>
-                        {mounted ? (
-                          <Doughnut data={deptData} options={deptOptions} />
-                        ) : (
-                          <ChartLoading />
-                        )}
-                      </div>
-                      {mounted && (
-                        <ChartLegend items={deptLegend} style={{ marginTop: 12 }} />
+                    <div
+                      className="pdf-chart-box"
+                      style={{
+                        // 전체 폭이라 가로:세로 비율이 넓어 인쇄에서 낮게 찌그러지므로,
+                        // 높이를 넉넉히(부서 수 비례) 잡아 인쇄 시에도 충분한 높이 확보.
+                        height: Math.max(300, departments.length * 60),
+                        position: "relative",
+                      }}
+                    >
+                      {mounted ? (
+                        <Bar data={deptData} options={deptOptions} />
+                      ) : (
+                        <ChartLoading />
                       )}
                     </div>
                   )}
                 </div>
-              </div>
             </>
           )}
           </div>
