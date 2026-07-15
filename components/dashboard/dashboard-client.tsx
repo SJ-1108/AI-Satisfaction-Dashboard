@@ -77,28 +77,9 @@ const DONUT_RADIUS = 115; // 바깥 반지름(px)
 const DONUT_CUTOUT = 90; // 안쪽 반지름(px) → 링 두께 = 25px
 
 const GRID = CHART_GRID;
-// 라인/도넛 범례 칩을 동일한 사각형(같은 크기)으로 통일
-const LEGEND_LABELS = {
-  usePointStyle: true,
-  pointStyle: "rect" as const,
-  boxWidth: 12,
-  boxHeight: 12,
-  padding: 14,
-  font: { size: 12 },
-};
-const LEGEND_TOP = {
-  display: true,
-  position: "top" as const,
-  align: "end" as const,
-  labels: LEGEND_LABELS,
-};
-// 비중(도넛) — 범례 중앙 하단
-const LEGEND_BOTTOM = {
-  display: true,
-  position: "bottom" as const,
-  align: "center" as const,
-  labels: LEGEND_LABELS,
-};
+// 범례는 모두 canvas 대신 HTML(ChartLegend)로 그린다 — canvas 텍스트는 ClearType
+// 서브픽셀 힌팅을 못 써 DOM 텍스트보다 물렁하게 보이므로, 범례를 HTML로 빼
+// 일반 텍스트와 동일한 선명도로 맞춘다. 각 차트 options 의 legend 는 display:false.
 
 /** N건 (xx.x%) 비율 문자열 */
 function pct(value: number, total: number): string {
@@ -206,8 +187,15 @@ export default function DashboardClient({
 
   // Chart.js 는 브라우저 캔버스가 필요하므로, 클라이언트 mount 후에만 렌더한다.
   const [mounted, setMounted] = useState(false);
+  // 캔버스 렌더 해상도 배율 — arc·라인 곡선의 계단현상(앨리어싱)을 줄이려 실제
+  // devicePixelRatio 의 2배로 슈퍼샘플링한다(정수 2:1 다운샘플 → 곡선 매끈 + 직선 선명).
+  // SSR 엔 window 가 없으므로 2 로 두고, 클라이언트 첫 렌더의 lazy initializer 에서
+  // 확정한다(차트는 mount 후에만 렌더 → 하이드레이션 불일치 없음).
+  const [superDpr] = useState(() =>
+    typeof window !== "undefined" ? 2 * (window.devicePixelRatio || 1) : 2,
+  );
   useEffect(() => {
-    // 공통 차트 기본값(폰트·색·고해상도 래스터) 적용 — 화면/인쇄 모두 선명하게.
+    // 공통 차트 기본값(폰트·색) 적용.
     applyChartDefaults();
     setMounted(true);
   }, []);
@@ -286,10 +274,11 @@ export default function DashboardClient({
   };
 
   const trendOptions = {
+    devicePixelRatio: superDpr,
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: LEGEND_TOP,
+      legend: { display: false },
       tooltip: {
         callbacks: {
           label: (ctx: TooltipItem<"line">) => {
@@ -303,7 +292,7 @@ export default function DashboardClient({
     },
     scales: {
       y: { beginAtZero: true, grid: GRID, ticks: { precision: 0 as const } },
-      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      x: { grid: { display: false }, ticks: { font: { size: 13 } } },
     },
   };
 
@@ -322,12 +311,13 @@ export default function DashboardClient({
 
   const ratingTotal = kpis.up + kpis.down;
   const ratingOptions = {
+    devicePixelRatio: superDpr,
     responsive: true,
     maintainAspectRatio: false,
     radius: DONUT_RADIUS,
     cutout: DONUT_CUTOUT,
     plugins: {
-      legend: LEGEND_BOTTOM,
+      legend: { display: false },
       tooltip: {
         callbacks: {
           // 기본 title(범례명 중복)을 비워 2줄로
@@ -365,10 +355,11 @@ export default function DashboardClient({
   };
 
   const dailyOptions = {
+    devicePixelRatio: superDpr,
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: LEGEND_TOP,
+      legend: { display: false },
       tooltip: {
         callbacks: {
           beforeBody: (items: TooltipItem<"bar">[]) => {
@@ -385,7 +376,7 @@ export default function DashboardClient({
       },
     },
     scales: {
-      x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+      x: { stacked: true, grid: { display: false }, ticks: { font: { size: 13 } } },
       y: {
         stacked: true,
         beginAtZero: true,
@@ -410,6 +401,7 @@ export default function DashboardClient({
   };
 
   const reasonOptions = {
+    devicePixelRatio: superDpr,
     responsive: true,
     maintainAspectRatio: false,
     indexAxis: "y" as const,
@@ -439,7 +431,7 @@ export default function DashboardClient({
     scales: {
       x: { beginAtZero: true, grid: GRID, ticks: { precision: 0 as const } },
       // 불만족 사유 라벨 — 크기는 기존(12), 선명도는 전역 색(#64748b)/두께로 확보
-      y: { grid: { display: false }, ticks: { font: { size: 12 } } },
+      y: { grid: { display: false }, ticks: { font: { size: 13 } } },
     },
   };
 
@@ -459,26 +451,13 @@ export default function DashboardClient({
   };
 
   const causeOptions = {
+    devicePixelRatio: superDpr,
     responsive: true,
     maintainAspectRatio: false,
     radius: DONUT_RADIUS,
     cutout: DONUT_CUTOUT,
     plugins: {
-      // 좁은 1/4 폭 카드 — 범례를 하단에 두어 도넛이 카드 폭을 온전히 쓰게 하고,
-      // 항목 간격(padding)을 넉넉히 주어 쪼개져 보이지 않게 한다.
-      legend: {
-        display: true,
-        position: "bottom" as const,
-        align: "center" as const,
-        labels: {
-          usePointStyle: true,
-          pointStyle: "rect" as const,
-          boxWidth: 10,
-          boxHeight: 10,
-          padding: 12,
-          font: { size: 11 },
-        },
-      },
+      legend: { display: false },
       tooltip: {
         callbacks: {
           title: () => "",
@@ -513,25 +492,13 @@ export default function DashboardClient({
   };
 
   const deptOptions = {
+    devicePixelRatio: superDpr,
     responsive: true,
     maintainAspectRatio: false,
     radius: DONUT_RADIUS,
     cutout: DONUT_CUTOUT,
     plugins: {
-      // 좁은 1/4 폭 카드 — 원인 분류 도넛과 동일하게 범례 하단 배치.
-      legend: {
-        display: true,
-        position: "bottom" as const,
-        align: "center" as const,
-        labels: {
-          usePointStyle: true,
-          pointStyle: "rect" as const,
-          boxWidth: 10,
-          boxHeight: 10,
-          padding: 12,
-          font: { size: 11 },
-        },
-      },
+      legend: { display: false },
       tooltip: {
         callbacks: {
           title: () => "",
@@ -565,6 +532,24 @@ export default function DashboardClient({
   function resetRange() {
     applyGranularity("day");
   }
+
+  // 차트 범례 항목 — HTML(ChartLegend)로 렌더. 색은 각 차트 dataset 색과 일치시킨다.
+  const ratingLegend = [
+    { label: "만족 👍", color: BLUE },
+    { label: "불만족 👎", color: RED },
+  ];
+  const statusLegend = FEEDBACK_STATUSES.map((s) => ({
+    label: statusLabel(s),
+    color: STATUS_COLOR[s],
+  }));
+  const causeLegend = causes.map((c) => ({
+    label: c.category,
+    color: CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
+  }));
+  const deptLegend = departments.map((d, i) => ({
+    label: d.department,
+    color: departmentColor(i),
+  }));
 
   const stats = [
     { label: "총 평가수", value: allKpis.total.toLocaleString(), color: "#1a1d23" },
@@ -769,14 +754,25 @@ export default function DashboardClient({
             </div>
           ) : (
             <>
-              {/* 추이 / 비중 — 상단 KPI 4열 그리드와 폭을 정렬
-                  (추이=총평가수+만족+불만족 3열, 비중=만족률 1열) */}
+              {/* ① 전체 현황 — 추이(추세) + 만족/불만족 비중(개요) */}
               <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "#3a4150",
+                  letterSpacing: "-0.3px",
+                  margin: "4px 0 14px",
+                }}
+              >
+                ① 전체 현황
+              </div>
+              <div
+                className="pdf-chart-row"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(4, 1fr)",
                   gap: 16,
-                  marginBottom: 24,
+                  marginBottom: 28,
                 }}
               >
                 <div
@@ -789,6 +785,13 @@ export default function DashboardClient({
                   }}
                 >
                   <div style={chartTitle}>만족도 평가 추이</div>
+                  {mounted && (
+                    <ChartLegend
+                      items={ratingLegend}
+                      align="end"
+                      style={{ marginBottom: 10 }}
+                    />
+                  )}
                   <div className="pdf-chart-box" style={{ height: 300, position: "relative" }}>
                     {mounted ? (
                       <Line data={trendData} options={trendOptions} />
@@ -808,24 +811,40 @@ export default function DashboardClient({
                   }}
                 >
                   <div style={chartTitle}>만족/불만족 비중</div>
-                  <div className="pdf-chart-box" style={{ height: 300, position: "relative" }}>
-                    {mounted ? (
-                      <Doughnut data={ratingData} options={ratingOptions} />
-                    ) : (
-                      <ChartLoading />
+                  <div className="pdf-donut-wrap">
+                    <div className="pdf-chart-box" style={{ height: 300, position: "relative" }}>
+                      {mounted ? (
+                        <Doughnut data={ratingData} options={ratingOptions} />
+                      ) : (
+                        <ChartLoading />
+                      )}
+                    </div>
+                    {mounted && (
+                      <ChartLegend items={ratingLegend} style={{ marginTop: 12 }} />
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* 4) 불만족 사유별 분포 + 원인 분류별 통계
-                  (상단 추이·비중 행과 동일하게 3:1 4열 그리드로 정렬) */}
+              {/* ② 불만족 원인 분석 — 사유(무엇을) + 원인 분류(왜) */}
               <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "#3a4150",
+                  letterSpacing: "-0.3px",
+                  margin: "4px 0 14px",
+                }}
+              >
+                ② 불만족 원인 분석
+              </div>
+              <div
+                className="pdf-chart-row"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(4, 1fr)",
                   gap: 16,
-                  marginBottom: 24,
+                  marginBottom: 28,
                 }}
               >
                 <div
@@ -855,7 +874,7 @@ export default function DashboardClient({
                   className="card-block"
                   style={{
                     ...cardStyle,
-                    padding: "22px 24px",
+                    padding: "20px 22px",
                     minWidth: 0,
                     gridColumn: "span 1",
                   }}
@@ -864,19 +883,36 @@ export default function DashboardClient({
                   {causes.length === 0 ? (
                     <p style={{ color: "#8a909c" }}>불만족 평가가 없습니다.</p>
                   ) : (
-                    <div className="pdf-chart-box" style={{ height: 360, position: "relative" }}>
-                      {mounted ? (
-                        <Doughnut data={causeData} options={causeOptions} />
-                      ) : (
-                        <ChartLoading />
+                    <div className="pdf-donut-wrap">
+                      <div className="pdf-chart-box" style={{ height: 300, position: "relative" }}>
+                        {mounted ? (
+                          <Doughnut data={causeData} options={causeOptions} />
+                        ) : (
+                          <ChartLoading />
+                        )}
+                      </div>
+                      {mounted && (
+                        <ChartLegend items={causeLegend} style={{ marginTop: 12 }} />
                       )}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* 5) 불만족 평가 처리 현황 + 유관 부서별 협의 필요 비중(우측 도넛) */}
+              {/* ③ 대응 현황 — 처리 현황(진행) + 유관 부서(협의 대상) */}
               <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "#3a4150",
+                  letterSpacing: "-0.3px",
+                  margin: "4px 0 14px",
+                }}
+              >
+                ③ 대응 현황
+              </div>
+              <div
+                className="pdf-chart-row"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(4, 1fr)",
@@ -885,6 +921,7 @@ export default function DashboardClient({
                 }}
               >
                 <div
+                  className="card-block"
                   style={{
                     ...cardStyle,
                     padding: "22px 24px",
@@ -892,24 +929,34 @@ export default function DashboardClient({
                     gridColumn: "span 3",
                   }}
                 >
-                <div style={chartTitle}>불만족 평가 처리 현황</div>
+                  <div style={chartTitle}>불만족 평가 처리 현황</div>
                 {daily.length === 0 ? (
                   <p style={{ color: "#8a909c" }}>데이터가 없습니다.</p>
                 ) : (
                   <>
-                    <div
-                      className="pdf-chart-box"
-                      style={{
-                        height: 300,
-                        position: "relative",
-                        marginBottom: 20,
-                      }}
-                    >
-                      {mounted ? (
-                        <Bar data={dailyData} options={dailyOptions} />
-                      ) : (
-                        <ChartLoading />
+                    {/* 범례+막대차트를 한 덩어리로 묶어 인쇄 시 페이지 중간에서 갈라지지 않게 */}
+                    <div style={{ breakInside: "avoid" }}>
+                      {mounted && (
+                        <ChartLegend
+                          items={statusLegend}
+                          align="end"
+                          style={{ marginBottom: 10 }}
+                        />
                       )}
+                      <div
+                        className="pdf-chart-box"
+                        style={{
+                          height: 300,
+                          position: "relative",
+                          marginBottom: 20,
+                        }}
+                      >
+                        {mounted ? (
+                          <Bar data={dailyData} options={dailyOptions} />
+                        ) : (
+                          <ChartLoading />
+                        )}
+                      </div>
                     </div>
                     <div style={{ overflowX: "auto" }}>
                       <table
@@ -985,12 +1032,11 @@ export default function DashboardClient({
                 )}
                 </div>
 
-                {/* 유관 부서별 협의 필요 비중 (처리 현황 카드 우측) */}
                 <div
                   className="card-block"
                   style={{
                     ...cardStyle,
-                    padding: "22px 24px",
+                    padding: "20px 22px",
                     minWidth: 0,
                     gridColumn: "span 1",
                   }}
@@ -999,14 +1045,16 @@ export default function DashboardClient({
                   {departments.length === 0 ? (
                     <p style={{ color: "#8a909c" }}>협의가 필요한 부서가 없습니다.</p>
                   ) : (
-                    <div
-                      className="pdf-chart-box"
-                      style={{ height: 360, position: "relative" }}
-                    >
-                      {mounted ? (
-                        <Doughnut data={deptData} options={deptOptions} />
-                      ) : (
-                        <ChartLoading />
+                    <div className="pdf-donut-wrap">
+                      <div className="pdf-chart-box" style={{ height: 300, position: "relative" }}>
+                        {mounted ? (
+                          <Doughnut data={deptData} options={deptOptions} />
+                        ) : (
+                          <ChartLoading />
+                        )}
+                      </div>
+                      {mounted && (
+                        <ChartLegend items={deptLegend} style={{ marginTop: 12 }} />
                       )}
                     </div>
                   )}
@@ -1018,6 +1066,63 @@ export default function DashboardClient({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * 차트 범례 — canvas 가 아닌 HTML(DOM)로 렌더한다. canvas 텍스트는 그레이스케일
+ * AA 만 적용돼 Windows ClearType 힌팅을 못 써 물렁하게 보이므로, 범례를 HTML로
+ * 빼 일반 텍스트와 동일한 선명도로 맞춘다. (색칩은 각 dataset 색과 일치)
+ */
+function ChartLegend({
+  items,
+  align = "center",
+  style,
+}: {
+  items: { label: string; color: string }[];
+  align?: "start" | "center" | "end";
+  style?: React.CSSProperties;
+}) {
+  const justify =
+    align === "end" ? "flex-end" : align === "start" ? "flex-start" : "center";
+  return (
+    <ul
+      style={{
+        listStyle: "none",
+        margin: 0,
+        padding: 0,
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "6px 16px",
+        justifyContent: justify,
+        ...style,
+      }}
+    >
+      {items.map((it) => (
+        <li
+          key={it.label}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            fontSize: 13,
+            fontWeight: 500,
+            color: CHART_TEXT_COLOR,
+          }}
+        >
+          <span
+            style={{
+              width: 11,
+              height: 11,
+              borderRadius: 2,
+              background: it.color,
+              flexShrink: 0,
+            }}
+          />
+          {it.label}
+        </li>
+      ))}
+    </ul>
   );
 }
 

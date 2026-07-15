@@ -1060,6 +1060,8 @@ details > summary.bad {
   .pdf-report {
     width: auto !important;
     max-width: 100% !important;
+    /* 화면용 가로 스크롤 하한(min-width)은 인쇄에선 해제 → A4 폭을 넘지 않게 */
+    min-width: 0 !important;
     margin: 0 !important;
   }
 
@@ -1069,9 +1071,36 @@ details > summary.bad {
     height: auto !important;
   }
   img[data-pdf-snap] {
-    width: 100% !important;
+    /* 세로가 긴 도넛 스냅샷이 1열 리플로우에서 페이지를 꽉 채우지 않도록 높이 상한.
+       비율 유지를 위해 width/height auto + max-width/height, 가운데 정렬한다. */
+    width: auto !important;
     height: auto !important;
+    max-width: 100% !important;
+    max-height: 320px !important;
+    margin: 0 auto !important;
     display: block;
+  }
+
+  /* 좁은 A4 에서 차트 행 다열 그리드를 1열로 접어 각 차트가 전체 폭을 쓰도록 한다.
+     (span-3 넓은 차트는 크게, span-1 도넛은 위 max-height 로 과대 확대 방지) */
+  .pdf-chart-row {
+    grid-template-columns: 1fr !important;
+  }
+  /* 불만족 원인 도넛(측면 범례 flex) — 인쇄에선 도넛↔범례 간격을 좁혀 정돈한다. */
+  .pdf-donut-row {
+    gap: 40px !important;
+  }
+  /* 대시보드 도넛 카드 — 화면에선 범례가 도넛 아래(세로)지만, 1열로 펴진 인쇄에선
+     도넛+범례를 좌우로 배치해 전체 폭을 채운다(작은 도넛이 덩그러니 뜨지 않게). */
+  .pdf-donut-wrap {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 32px !important;
+  }
+  .pdf-donut-wrap .pdf-chart-box {
+    width: 300px !important;
+    flex-shrink: 0 !important;
   }
 
   /* 표: 가로 스크롤용 min-width 해제 + 셀 여백·글자 축소로 모든 열이
@@ -1099,9 +1128,10 @@ details > summary.bad {
     max-width: 88px;
   }
 
-  /* 카드·표가 페이지 경계에서 잘리지 않도록 */
+  /* 카드·표·차트가 페이지 경계에서 잘리지 않도록 */
   .card-block,
-  table {
+  table,
+  .pdf-chart-box {
     break-inside: avoid;
   }
 }
