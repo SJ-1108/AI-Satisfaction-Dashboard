@@ -86,7 +86,9 @@ export default function UploadDialog({
         <p className="page-desc">
           필수 컬럼: <code>query</code>, <code>summary_text</code>,{" "}
           <code>rating</code>, <code>created_at</code> · 권장: <code>reason</code>,{" "}
-          <code>comment</code>. 같은 내용(record_key)은 갱신되어{" "}
+          <code>comment</code>, <code>Device Type</code>, <code>Guardrail Label</code>.
+          컬럼명은 대소문자·공백·<code>_</code>·<code>-</code> 차이를 무시하고 같은 의미로
+          인식합니다. 같은 내용(record_key)은 갱신되어{" "}
           <strong>중복 적재되지 않으며</strong>, 기존 데이터는 유지(누적)됩니다.
           {dbMode ? " (실제 DB 저장)" : " (더미 모드 — 세션 메모리)"}
         </p>

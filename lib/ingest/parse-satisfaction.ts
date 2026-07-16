@@ -13,30 +13,66 @@ import { cleanText } from "@/lib/ingest/clean-text";
  * 검증을 통과한 행은 record_key 를 부여해 반환한다 (적재 시 중복 판별 기준).
  */
 
-/** 각 DB 컬럼에 매칭될 수 있는 헤더 별칭 (소문자 비교) */
-const FIELD_ALIASES: Record<keyof RawFields, string[]> = {
+/** 표준 컬럼 key (DB 컬럼명 기준) — 파서/적재/record_key 가 공유하는 유일한 식별자 */
+type ColumnKey = keyof RawFields;
+
+/**
+ * 헤더 정규화 — 컬럼명 표기 차이를 흡수해 같은 의미의 헤더를 같은 토큰으로 만든다.
+ * 규칙: 대소문자 무시(소문자화) + 앞뒤 공백 제거 + 내부의 연속된
+ *       공백·underscore(_)·hyphen(-) 을 모두 제거(= 서로 같은 의미로 취급).
+ * 예) "Summary Text" · "summary_text" · "summary text" → "summarytext"
+ *     "Feedback Created At" · "feedback_created_at" · "feedback created at" → "feedbackcreatedat"
+ *     "Device Type" · "device_type" · "device type" → "devicetype"
+ */
+export function normalizeHeader(header: string): string {
+  return String(header ?? "")
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "")
+    .trim();
+}
+
+/**
+ * 표준 key 별 허용 헤더 별칭. 비교는 normalizeHeader 로 정규화한 값끼리 수행하므로,
+ * 여기 별칭은 대소문자·구분자(_,-,공백) 차이를 신경 쓸 필요가 없다.
+ * (예: "summary text" 하나로 Summary Text / summary_text / summary text 를 모두 커버)
+ */
+const COLUMN_ALIASES: Record<ColumnKey, string[]> = {
   query: ["query", "검색어", "질의", "질의어"],
-  summary_text: ["summary_text", "summary", "요약", "ai요약", "응답", "ai답변", "답변"],
+  summary_text: ["summary text", "summary", "요약", "ai 요약", "응답", "ai 답변", "답변"],
   rating: ["rating", "평가", "평가값"],
-  reason: ["reason", "사유", "사유코드", "평가사유"],
+  reason: ["reason", "사유", "사유 코드", "평가 사유"],
   comment: ["comment", "의견", "코멘트"],
-  device_type: ["device_type", "devicetype", "device type", "기기", "기기종류", "기기 종류"],
-  guardrail_label: [
-    "guardrail_label",
-    "guardraillabel",
-    "guardrail label",
-    "가드레일",
-  ],
+  device_type: ["device type", "기기", "기기 종류"],
+  guardrail_label: ["guardrail label", "가드레일"],
   created_at: [
-    "created_at",
-    "createdat",
-    "평가시각",
-    "평가일시",
-    "생성시각",
+    "created at",
+    "feedback created at",
+    "평가 시각",
+    "평가 일시",
+    "생성 시각",
     "일시",
     "날짜",
   ],
 };
+
+/** 정규화된 별칭 → 표준 key 역인덱스 (모듈 로드 시 1회 구축) */
+const ALIAS_TO_KEY: Map<string, ColumnKey> = (() => {
+  const m = new Map<string, ColumnKey>();
+  (Object.keys(COLUMN_ALIASES) as ColumnKey[]).forEach((key) => {
+    for (const alias of COLUMN_ALIASES[key]) {
+      m.set(normalizeHeader(alias), key);
+    }
+  });
+  return m;
+})();
+
+/**
+ * 정규화된 헤더 문자열 → 표준 컬럼 key. 매칭되는 별칭이 없으면 null.
+ * 열 순서와 무관하게 헤더명(정규화)만으로 컬럼을 해석하는 데 사용한다.
+ */
+export function resolveColumnKey(normalizedHeader: string): ColumnKey | null {
+  return ALIAS_TO_KEY.get(normalizedHeader) ?? null;
+}
 
 interface RawFields {
   query: string;
@@ -94,19 +130,23 @@ export async function readFileRows(
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
 }
 
-/** 원본 헤더들에서 각 DB 컬럼에 대응하는 헤더를 찾는다. */
+/**
+ * 원본 헤더 → DB 컬럼 매핑. 각 원본 헤더를 정규화(normalizeHeader)한 뒤
+ * resolveColumnKey 로 표준 key 를 찾는다. 열 순서와 무관하며, 같은 key 에
+ * 여러 헤더가 매칭되면 먼저 나온(왼쪽) 헤더를 사용한다.
+ */
 function buildMapping(
   headers: string[],
-): Record<keyof RawFields, string | null> {
-  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, "");
-  const normalizedHeaders = headers.map((h) => ({ raw: h, key: norm(h) }));
-
-  const mapping = {} as Record<keyof RawFields, string | null>;
-  (Object.keys(FIELD_ALIASES) as (keyof RawFields)[]).forEach((field) => {
-    const aliases = FIELD_ALIASES[field].map(norm);
-    const hit = normalizedHeaders.find((h) => aliases.includes(h.key));
-    mapping[field] = hit ? hit.raw : null;
+): Record<ColumnKey, string | null> {
+  const mapping = {} as Record<ColumnKey, string | null>;
+  (Object.keys(COLUMN_ALIASES) as ColumnKey[]).forEach((f) => {
+    mapping[f] = null;
   });
+
+  for (const raw of headers) {
+    const key = resolveColumnKey(normalizeHeader(raw));
+    if (key && mapping[key] == null) mapping[key] = raw;
+  }
   return mapping;
 }
 

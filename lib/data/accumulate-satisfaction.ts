@@ -4,10 +4,11 @@ import type { ParsedSatisfaction, Satisfaction } from "@/lib/types";
  * 더미/세션 모드용 누적 업서트 (순수 함수).
  *
  * record_key 기준으로:
- *   - 신규 key  → insert (record_no = 기존 max + 1 부터 순서대로)
- *   - 기존 key  → update (id/record_no 유지, 내용/배치만 갱신)
+ *   - 신규 key  → insert (record_no = 기존 max + 1 부터 순서대로, upload_batch_id = batchId)
+ *   - 기존 key  → update (id/record_no/upload_batch_id 유지, 내용만 갱신)
  *   - 파일 내 중복 key → 마지막 값만 반영(중복 카운트)
- * 기존 데이터는 삭제하지 않는다(누적). DB 모드는 서버 액션이 동일 규칙으로 처리.
+ * 기존 데이터는 삭제하지 않는다(누적). DB 모드는 서버 액션이 동일 규칙으로 처리한다
+ * (DB upsert 도 update 시 upload_batch_id 를 payload 에서 제외해 기존 값을 유지).
  */
 
 export interface AccumulateResult {
@@ -45,7 +46,7 @@ export function accumulateSatisfaction(
   for (const inc of uniqueByKey.values()) {
     const existIdx = indexByKey.get(inc.record_key);
     if (existIdx !== undefined) {
-      // 기존 → update (id/record_no 유지)
+      // 기존 → update (id/record_no/upload_batch_id 유지 — 신규 적재분만 batch 추적)
       const prev = merged[existIdx];
       merged[existIdx] = {
         ...prev,
@@ -57,7 +58,6 @@ export function accumulateSatisfaction(
         device_type: inc.device_type,
         guardrail_label: inc.guardrail_label,
         created_at: inc.created_at,
-        upload_batch_id: batchId,
       };
       updated++;
     } else {

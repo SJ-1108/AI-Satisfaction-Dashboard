@@ -16,18 +16,31 @@ import type { ParsedSatisfaction, UploadSummary } from "@/lib/types";
 /** 대용량 업로드 시 DB 요청을 나누는 청크 크기 (URL 길이·페이로드·타임아웃 한도 회피) */
 const DB_CHUNK_SIZE = 500;
 
+/** appendSatisfactionRows 반환 — 신규 insert / 기존 갱신 건수를 돌려준다. */
+export interface AppendResult {
+  ok: boolean;
+  /** 신규 insert 건수 */
+  inserted?: number;
+  /** record_key 일치로 갱신된 기존 건수 */
+  updated?: number;
+  error?: string;
+}
+
 /**
- * 업로드 청크 누적 (FR-1.2 / FR-1.3). 클라이언트가 검증 통과 행(valid)을 청크로 나눠 호출한다.
+ * 업로드 청크 누적 (FR-1.2 / FR-1.3) — record_key 기준 중복 판단으로 insert/upsert 한다.
+ * 클라이언트가 검증 통과 행(valid)을 청크로 나눠 호출한다(단일 페이로드 한도·타임아웃 회피).
  *
- * 큰 파일을 단일 서버 액션 페이로드로 보내면 전송이 막히므로(요청 본문 한도·타임아웃),
- * 클라이언트가 record_key 기준 중복을 제거한 뒤 청크 단위로 이 액션을 반복 호출한다.
- * 업로드 이력(batch) 기록은 모든 청크 적재가 끝난 뒤 finishUpload 에서 1회만 한다.
- * - record_key 기준 upsert: 신규 insert(record_no 트리거 자동 부여), 기존 update(id/record_no 유지).
+ * - record_key(created_at·query·summary_text·rating·reason·comment 정규화 해시) 기준 upsert:
+ *   신규 key → insert(record_no 트리거 자동 부여), 기존 key → update(id/record_no 유지).
+ * - 컬럼명 alias/정규화는 파싱 단계(mapAndValidate)에서 이미 적용되므로, 컬럼명이 달라도
+ *   같은 값이면 동일 record_key 로 중복 인식된다.
+ * - device_type/guardrail_label 은 함께 저장되되 record_key(중복 기준)에는 포함되지 않는다.
+ * - 업로드 이력(batch) 기록은 모든 청크 적재가 끝난 뒤 finishUpload 에서 1회만 한다.
  * - satisfaction 쓰기는 RLS 우회가 필요하므로 service-role 사용.
  */
 export async function appendSatisfactionRows(
   valid: ParsedSatisfaction[],
-): Promise<{ ok: boolean; inserted?: number; updated?: number; error?: string }> {
+): Promise<AppendResult> {
   // 더미(미리보기) 모드: 서버 인메모리 저장소에 누적
   if (!isSupabaseConfigured()) {
     const { inserted, updated } = appendDummyRows(valid);
@@ -60,7 +73,7 @@ export async function appendSatisfactionRows(
   const inserted = valid.filter((r) => !existingKeys.has(r.record_key)).length;
   const updated = valid.length - inserted;
 
-  // upsert (record_key 충돌 시 내용만 갱신, id/record_no 유지). 이력 연결은 finishUpload 후 별도 불필요.
+  // upsert (record_key 충돌 시 내용만 갱신, id/record_no 유지).
   const rows = valid.map((r) => ({
     record_key: r.record_key,
     query: r.query,

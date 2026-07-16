@@ -18,7 +18,6 @@ import type {
   ResetLog,
   Satisfaction,
   UploadBatch,
-  UploadSummary,
 } from "@/lib/types";
 import {
   appendSatisfactionRows,
@@ -231,13 +230,12 @@ export default function RecordsClient({
     exportRows(flat, `satisfaction_${new Date().toISOString().slice(0, 10)}`, format);
   }
 
-  function showSummaryToast(s: UploadSummary) {
-    setToast(
-      `적재 완료 — 신규 ${s.inserted_count} · 갱신 ${s.updated_count} · 파일 내 중복 ${s.duplicate_count} · 실패 ${s.failed_count}`,
-    );
-    setTimeout(() => setToast(null), 5000);
-  }
-
+  /**
+   * 업로드 — record_key 기준 중복 판단으로 신규 insert / 기존 갱신을 처리한다.
+   * 컬럼명 alias/정규화(mapAndValidate)는 파싱 단계에서 이미 적용되어, 컬럼명이 달라도
+   * 같은 의미의 값이면 동일 record_key 로 중복 인식된다. device_type/guardrail_label 은
+   * 함께 저장되되 record_key(중복 기준)에는 포함되지 않는다.
+   */
   async function onUploadConfirm(
     valid: ParsedSatisfaction[],
     meta: { fileName: string; totalRows: number; failedCount: number },
@@ -252,8 +250,8 @@ export default function RecordsClient({
       const duplicate = valid.length - unique.length;
 
       const CHUNK = 1000;
-      let inserted = 0;
-      let updated = 0;
+      let inserted = 0; // 신규 추가
+      let updated = 0; // record_key 일치 기존 갱신
       for (let i = 0; i < unique.length; i += CHUNK) {
         const res = await appendSatisfactionRows(unique.slice(i, i + CHUNK));
         if (!res.ok) {
@@ -274,7 +272,10 @@ export default function RecordsClient({
       }
       setShowUpload(false);
       setPage(1);
-      showSummaryToast(fin.summary);
+      setToast(
+        `적재 완료 — 신규 ${inserted} · 갱신 ${updated} · 파일 내 중복 ${duplicate} · 실패 ${meta.failedCount}`,
+      );
+      setTimeout(() => setToast(null), 5000);
       router.refresh();
     } catch (e) {
       setToast(`업로드 실패 — ${e instanceof Error ? e.message : "알 수 없는 오류"}`);
