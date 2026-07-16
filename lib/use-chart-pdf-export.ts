@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
+import { Chart } from "chart.js";
+import { valueLabelState } from "./chart-value-labels";
 
 /**
  * 차트가 있는 페이지의 PDF 내보내기(인쇄) 공용 훅.
@@ -27,6 +29,13 @@ function snapshotChartsToImages(): {
   const canvases = Array.from(
     document.querySelectorAll<HTMLCanvasElement>(".pdf-chart-box canvas"),
   );
+  // 값 라벨 ON → 각 차트를 동기 재렌더(animation=false)해 캔버스에 값을 그린 뒤 캡처.
+  // 이렇게 하면 호버 툴팁에만 있던 수치가 PDF 스냅샷에 함께 담긴다.
+  const charts = canvases
+    .map((c) => Chart.getChart(c))
+    .filter((ch): ch is Chart => Boolean(ch));
+  valueLabelState.show = true;
+  charts.forEach((ch) => ch.update());
   const imgs: HTMLImageElement[] = [];
   const hidden: HTMLCanvasElement[] = [];
   for (const c of canvases) {
@@ -56,6 +65,9 @@ function snapshotChartsToImages(): {
     hidden.forEach((c) => {
       c.style.display = "";
     });
+    // 값 라벨 OFF → 화면 차트를 원래(라벨 없는) 상태로 동기 재렌더.
+    valueLabelState.show = false;
+    charts.forEach((ch) => ch.update());
   };
   return { imgs, restore };
 }
