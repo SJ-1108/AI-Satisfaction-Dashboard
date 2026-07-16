@@ -34,6 +34,7 @@ import {
 } from "@/lib/data/dashboard-stats";
 import { isDateRangeInvalid, kstDatePart } from "@/lib/format-date";
 import { useChartPdfExport } from "@/lib/use-chart-pdf-export";
+import { valueLabelsPlugin } from "@/lib/chart-value-labels";
 import DateRangePicker from "@/components/ui/date-range-picker";
 import {
   applyChartDefaults,
@@ -53,6 +54,8 @@ ChartJS.register(
   ArcElement,
   Tooltip,
   Legend,
+  // PDF/인쇄 스냅샷에서만 막대·선차트 값을 그리는 플러그인(평소엔 비활성).
+  valueLabelsPlugin,
 );
 
 // 가로 막대 툴팁을 커서 위치에 고정 — 막대 길이에 따라 좌/우로 흔들리는 기본(막대 중심)
@@ -555,17 +558,26 @@ export default function DashboardClient({
   }
 
   // 차트 범례 항목 — HTML(ChartLegend)로 렌더. 색은 각 차트 dataset 색과 일치시킨다.
+  // 추이 선차트 범례(값 없음) — 시계열이라 단일 건수로 요약할 수 없다.
   const ratingLegend = [
     { label: "만족 👍", color: BLUE },
     { label: "불만족 👎", color: RED },
+  ];
+  // 비중 도넛 범례 — 각 조각 건수·비율을 함께 표기(도넛은 화면·PDF 모두 값 노출).
+  const ratingDonutLegend = [
+    { label: "만족 👍", color: BLUE, count: kpis.up, total: ratingTotal },
+    { label: "불만족 👎", color: RED, count: kpis.down, total: ratingTotal },
   ];
   const statusLegend = FEEDBACK_STATUSES.map((s) => ({
     label: statusLabel(s),
     color: STATUS_COLOR[s],
   }));
+  // 원인 분류 도넛 범례 — 각 분류 건수·비율을 함께 표기.
   const causeLegend = causes.map((c) => ({
     label: c.category,
     color: CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
+    count: c.count,
+    total: causeTotal,
   }));
 
   const stats = [
@@ -850,7 +862,7 @@ export default function DashboardClient({
                       )}
                     </div>
                     {mounted && (
-                      <ChartLegend items={ratingLegend} style={{ marginTop: 12 }} />
+                      <ChartLegend items={ratingDonutLegend} style={{ marginTop: 12 }} />
                     )}
                   </div>
                 </div>
@@ -1118,7 +1130,7 @@ function ChartLegend({
   align = "center",
   style,
 }: {
-  items: { label: string; color: string }[];
+  items: { label: string; color: string; count?: number; total?: number }[];
   align?: "start" | "center" | "end";
   style?: React.CSSProperties;
 }) {
@@ -1159,6 +1171,12 @@ function ChartLegend({
             }}
           />
           {it.label}
+          {it.count != null && (
+            <span style={{ marginLeft: 6, color: "#98a0ad", fontWeight: 500 }}>
+              {it.count.toLocaleString()}건
+              {it.total != null && `(${pct(it.count, it.total)})`}
+            </span>
+          )}
         </li>
       ))}
     </ul>
