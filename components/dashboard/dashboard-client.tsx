@@ -555,17 +555,25 @@ export default function DashboardClient({
   }
 
   // 차트 범례 항목 — HTML(ChartLegend)로 렌더. 색은 각 차트 dataset 색과 일치시킨다.
+  // 추이 선차트 범례(값 없음) — 시계열이라 단일 건수로 요약할 수 없다.
   const ratingLegend = [
     { label: "만족 👍", color: BLUE },
     { label: "불만족 👎", color: RED },
+  ];
+  // 비중 도넛 범례 — 각 조각 건수를 함께 표기(도넛은 화면·PDF 모두 값 노출).
+  const ratingDonutLegend = [
+    { label: "만족 👍", color: BLUE, count: kpis.up },
+    { label: "불만족 👎", color: RED, count: kpis.down },
   ];
   const statusLegend = FEEDBACK_STATUSES.map((s) => ({
     label: statusLabel(s),
     color: STATUS_COLOR[s],
   }));
+  // 원인 분류 도넛 범례 — 각 분류 건수를 함께 표기.
   const causeLegend = causes.map((c) => ({
     label: c.category,
     color: CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
+    count: c.count,
   }));
 
   const stats = [
@@ -850,7 +858,7 @@ export default function DashboardClient({
                       )}
                     </div>
                     {mounted && (
-                      <ChartLegend items={ratingLegend} style={{ marginTop: 12 }} />
+                      <ChartLegend items={ratingDonutLegend} style={{ marginTop: 12 }} />
                     )}
                   </div>
                 </div>
@@ -1118,7 +1126,7 @@ function ChartLegend({
   align = "center",
   style,
 }: {
-  items: { label: string; color: string }[];
+  items: { label: string; color: string; count?: number }[];
   align?: "start" | "center" | "end";
   style?: React.CSSProperties;
 }) {
@@ -1159,6 +1167,11 @@ function ChartLegend({
             }}
           />
           {it.label}
+          {it.count != null && (
+            <span style={{ marginLeft: 6, color: "#98a0ad", fontWeight: 500 }}>
+              {it.count.toLocaleString()}건
+            </span>
+          )}
         </li>
       ))}
     </ul>
