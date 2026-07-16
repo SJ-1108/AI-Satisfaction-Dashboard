@@ -34,6 +34,7 @@ import {
 } from "@/lib/data/dashboard-stats";
 import { isDateRangeInvalid, kstDatePart } from "@/lib/format-date";
 import { useChartPdfExport } from "@/lib/use-chart-pdf-export";
+import { valueLabelsPlugin } from "@/lib/chart-value-labels";
 import DateRangePicker from "@/components/ui/date-range-picker";
 import {
   applyChartDefaults,
@@ -53,6 +54,8 @@ ChartJS.register(
   ArcElement,
   Tooltip,
   Legend,
+  // PDF/인쇄 스냅샷에서만 막대·선차트 값을 그리는 플러그인(평소엔 비활성).
+  valueLabelsPlugin,
 );
 
 // 가로 막대 툴팁을 커서 위치에 고정 — 막대 길이에 따라 좌/우로 흔들리는 기본(막대 중심)
