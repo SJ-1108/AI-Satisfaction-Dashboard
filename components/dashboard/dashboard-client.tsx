@@ -563,20 +563,21 @@ export default function DashboardClient({
     { label: "만족 👍", color: BLUE },
     { label: "불만족 👎", color: RED },
   ];
-  // 비중 도넛 범례 — 각 조각 건수를 함께 표기(도넛은 화면·PDF 모두 값 노출).
+  // 비중 도넛 범례 — 각 조각 건수·비율을 함께 표기(도넛은 화면·PDF 모두 값 노출).
   const ratingDonutLegend = [
-    { label: "만족 👍", color: BLUE, count: kpis.up },
-    { label: "불만족 👎", color: RED, count: kpis.down },
+    { label: "만족 👍", color: BLUE, count: kpis.up, total: ratingTotal },
+    { label: "불만족 👎", color: RED, count: kpis.down, total: ratingTotal },
   ];
   const statusLegend = FEEDBACK_STATUSES.map((s) => ({
     label: statusLabel(s),
     color: STATUS_COLOR[s],
   }));
-  // 원인 분류 도넛 범례 — 각 분류 건수를 함께 표기.
+  // 원인 분류 도넛 범례 — 각 분류 건수·비율을 함께 표기.
   const causeLegend = causes.map((c) => ({
     label: c.category,
     color: CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
     count: c.count,
+    total: causeTotal,
   }));
 
   const stats = [
@@ -1129,7 +1130,7 @@ function ChartLegend({
   align = "center",
   style,
 }: {
-  items: { label: string; color: string; count?: number }[];
+  items: { label: string; color: string; count?: number; total?: number }[];
   align?: "start" | "center" | "end";
   style?: React.CSSProperties;
 }) {
@@ -1173,6 +1174,7 @@ function ChartLegend({
           {it.count != null && (
             <span style={{ marginLeft: 6, color: "#98a0ad", fontWeight: 500 }}>
               {it.count.toLocaleString()}건
+              {it.total != null && `(${pct(it.count, it.total)})`}
             </span>
           )}
         </li>
