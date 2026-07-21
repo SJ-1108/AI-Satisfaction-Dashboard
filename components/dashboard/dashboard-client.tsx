@@ -186,6 +186,14 @@ const td: React.CSSProperties = {
   textAlign: "center",
   color: "#6b7280",
 };
+/** 처리 현황 테이블 합계 행 셀 — 본문보다 진하고 굵게. */
+const tfootTd: React.CSSProperties = {
+  padding: "13px 14px",
+  textAlign: "center",
+  fontWeight: 700,
+  color: "#3a4150",
+  whiteSpace: "nowrap",
+};
 
 /** 메뉴 ① 대시보드 (FR-2) — 누적 데이터(DB 또는 더미) 기준. */
 export default function DashboardClient({
@@ -256,6 +264,33 @@ export default function DashboardClient({
     () => computeDailyFeedbackStatus(filtered, feedback, granularity),
     [filtered, feedback, granularity],
   );
+  // 처리 현황 테이블 최하단 합계 행 — 비율(불만족률·처리완료율)은 행별 비율의 합이
+  // 아니라 총계 건수로 다시 계산한다. 건수 컬럼은 단순 합.
+  const dailyTotals = useMemo(() => {
+    const t = {
+      total: 0,
+      down: 0,
+      미확인: 0,
+      검토중: 0,
+      조치완료: 0,
+      보류: 0,
+      "처리 불가": 0,
+    };
+    for (const d of daily) {
+      t.total += d.total;
+      t.down += d.down;
+      t.미확인 += d.status["미확인"];
+      t.검토중 += d.status["검토중"];
+      t.조치완료 += d.status["조치완료"];
+      t.보류 += d.status["보류"];
+      t["처리 불가"] += d.status["처리 불가"];
+    }
+    return {
+      ...t,
+      downRate: t.total === 0 ? 0 : (t.down / t.total) * 100,
+      handledRate: t.down === 0 ? null : (t.조치완료 / t.down) * 100,
+    };
+  }, [daily]);
   // 유관 부서별 협의 필요 비중 — 기간 필터 적용분(filtered) 기준 (처리 현황과 동일 기준).
   const departments = useMemo(
     () => computeDepartmentBreakdown(filtered, feedback),
@@ -573,20 +608,28 @@ export default function DashboardClient({
     { label: "만족 👍", color: BLUE },
     { label: "불만족 👎", color: RED },
   ];
-  // 비중 도넛 범례 — 각 조각 건수를 함께 표기(도넛은 화면·PDF 모두 값 노출).
+  // 비중 도넛 범례 — 건수(퍼센트) 표기. 조각이 얇으면 차트 위 라벨이 겹쳐 범례로 노출.
   const ratingDonutLegend = [
-    { label: "만족 👍", color: BLUE, count: kpis.up },
-    { label: "불만족 👎", color: RED, count: kpis.down },
+    {
+      label: "만족 👍",
+      color: BLUE,
+      value: `${kpis.up.toLocaleString()}건 (${pct(kpis.up, ratingTotal)})`,
+    },
+    {
+      label: "불만족 👎",
+      color: RED,
+      value: `${kpis.down.toLocaleString()}건 (${pct(kpis.down, ratingTotal)})`,
+    },
   ];
   const statusLegend = FEEDBACK_STATUSES.map((s) => ({
     label: statusLabel(s),
     color: STATUS_COLOR[s],
   }));
-  // 원인 분류 도넛 범례 — 각 분류 건수를 함께 표기.
+  // 원인 분류 도넛 범례 — 건수(퍼센트) 표기.
   const causeLegend = causes.map((c) => ({
     label: c.category,
     color: CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
-    count: c.count,
+    value: `${c.count.toLocaleString()}건 (${pct(c.count, causeTotal)})`,
   }));
 
   const stats = [
@@ -1089,6 +1132,45 @@ export default function DashboardClient({
                             </tr>
                           ))}
                         </tbody>
+                        <tfoot>
+                          <tr
+                            style={{
+                              borderTop: "2px solid #e5e8ec",
+                              background: "#f7f8fa",
+                            }}
+                          >
+                            <td style={tfootTd}>합계</td>
+                            <td style={{ ...tfootTd, color: "#3a4150" }}>
+                              {dailyTotals.total.toLocaleString()}
+                            </td>
+                            <td style={{ ...tfootTd, color: DISSAT }}>
+                              {dailyTotals.down.toLocaleString()}
+                            </td>
+                            <td style={tfootTd}>
+                              {dailyTotals.downRate.toFixed(1)}%
+                            </td>
+                            <td style={{ ...tfootTd, color: BLUE }}>
+                              {dailyTotals.미확인.toLocaleString()}
+                            </td>
+                            <td style={tfootTd}>
+                              {dailyTotals.검토중.toLocaleString()}
+                            </td>
+                            <td style={tfootTd}>
+                              {dailyTotals.조치완료.toLocaleString()}
+                            </td>
+                            <td style={tfootTd}>
+                              {dailyTotals.보류.toLocaleString()}
+                            </td>
+                            <td style={tfootTd}>
+                              {dailyTotals["처리 불가"].toLocaleString()}
+                            </td>
+                            <td style={tfootTd}>
+                              {dailyTotals.handledRate === null
+                                ? "-"
+                                : `${dailyTotals.handledRate.toFixed(1)}%`}
+                            </td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                   </>
@@ -1139,7 +1221,7 @@ function ChartLegend({
   align = "center",
   style,
 }: {
-  items: { label: string; color: string; count?: number }[];
+  items: { label: string; color: string; value?: string }[];
   align?: "start" | "center" | "end";
   style?: React.CSSProperties;
 }) {
@@ -1179,12 +1261,16 @@ function ChartLegend({
               flexShrink: 0,
             }}
           />
-          {it.label}
-          {it.count != null && (
-            <span style={{ marginLeft: 6, color: "#98a0ad", fontWeight: 500 }}>
-              {it.count.toLocaleString()}건
-            </span>
-          )}
+          {/* 이름+수치를 한 묶음으로 — flex gap(7px)은 색칩↔이름에만 적용되고,
+              이름↔수치 간격은 아래 marginLeft 로만 좁게 제어한다. */}
+          <span>
+            {it.label}
+            {it.value && (
+              <span style={{ marginLeft: 3, color: "#98a0ad", fontWeight: 500 }}>
+                {it.value}
+              </span>
+            )}
+          </span>
         </li>
       ))}
     </ul>
