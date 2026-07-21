@@ -18,6 +18,7 @@ import {
   CAUSE_CATEGORIES,
   CAUSE_CHART_COLORS,
   CAUSE_FALLBACK_COLOR,
+  causeDisplayShares,
 } from "@/lib/cause-categories";
 import { DEPARTMENTS, parseDepartments } from "@/lib/departments";
 import {
@@ -215,11 +216,15 @@ export default function FeedbackClient({
     labels: causeCounts.map((c) => c.category),
     datasets: [
       {
-        data: causeCounts.map((c) => c.count),
+        // arc 크기는 최소 각도가 보장된 표시 비율로 그린다(비중 작은 분류도 보이게).
+        // 실제 건수/비율은 아래 툴팁·HTML 범례에서 c.count 로 노출한다.
+        data: causeDisplayShares(causeCounts.map((c) => c.count)),
         backgroundColor: causeCounts.map(
           (c) => CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
         ),
         ...COMMON_PIE_PROPS,
+        // 최소 각도로 보장한 얇은 조각의 색이 흰 경계(2px)에 다시 묻히지 않도록 1px.
+        borderWidth: 1,
       },
     ],
   };
@@ -249,7 +254,9 @@ export default function FeedbackClient({
             };
           },
           label: (ctx: TooltipItem<"doughnut">) => {
-            const v = ctx.parsed;
+            // ctx.parsed 는 최소 각도가 섞인 "표시 비율"이므로 쓰지 않는다.
+            // 실제 건수/비율은 원본 causeCounts 에서 인덱스로 가져와 표기(왜곡 방지).
+            const v = causeCounts[ctx.dataIndex]?.count ?? 0;
             const rate = causeTotal
               ? `${(Math.round((v / causeTotal) * 1000) / 10).toFixed(1)}%`
               : "0.0%";
