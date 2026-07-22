@@ -383,20 +383,20 @@ export default function FeedbackClient({
 
   function onExport(format: ExportFormat) {
     const flat = filtered.map((r) => ({
-      "No.": r.record_no,
-      평가일시: kstDatePart(r.created_at),
-      질의어: r.query ?? "",
-      "AI 답변": r.summary_text ?? "",
-      "평가 사유": r.reason ? reasonLabel(r.reason) : "",
-      의견: r.comment ?? "",
-      "기기 종류": r.device_type ?? "",
-      가드레일: r.guardrail_label ?? "",
-      "원인 분류": r.cause_category ?? "",
-      "유관 부서": r.related_department ?? "",
-      "피드백 내용": r.action ?? "",
-      "처리 상태": statusLabel(r.status),
-      담당자명: r.updated_by ?? "",
-      수정일시: r.updated_at ? formatKstDateTime(r.updated_at) : "",
+      "No. (record_no)": r.record_no,
+      "평가일시 (created_at)": kstDatePart(r.created_at),
+      "질의어 (query)": r.query ?? "",
+      "AI 답변 (summary_text)": r.summary_text ?? "",
+      "평가 사유 (reason)": r.reason ? reasonLabel(r.reason) : "",
+      "의견 (comment)": r.comment ?? "",
+      "기기 종류 (device_type)": r.device_type ?? "",
+      "가드레일 (guardrail_label)": r.guardrail_label ?? "",
+      "원인 분류 (cause_category)": r.cause_category ?? "",
+      "유관 부서 (related_department)": r.related_department ?? "",
+      "피드백 내용 (action)": r.action ?? "",
+      "처리 상태 (status)": statusLabel(r.status),
+      "담당자명 (updated_by)": r.updated_by ?? "",
+      "수정일시 (updated_at)": r.updated_at ? formatKstDateTime(r.updated_at) : "",
     }));
     exportRows(flat, `feedback_${new Date().toISOString().slice(0, 10)}`, format);
   }
