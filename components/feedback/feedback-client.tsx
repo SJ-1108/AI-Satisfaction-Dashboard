@@ -389,10 +389,12 @@ export default function FeedbackClient({
       "AI 답변": r.summary_text ?? "",
       "평가 사유": r.reason ? reasonLabel(r.reason) : "",
       의견: r.comment ?? "",
-      "처리 상태": statusLabel(r.status),
+      "기기 종류": r.device_type ?? "",
+      가드레일: r.guardrail_label ?? "",
       "원인 분류": r.cause_category ?? "",
       "유관 부서": r.related_department ?? "",
       "피드백 내용": r.action ?? "",
+      "처리 상태": statusLabel(r.status),
       담당자명: r.updated_by ?? "",
       수정일시: r.updated_at ? formatKstDateTime(r.updated_at) : "",
     }));
