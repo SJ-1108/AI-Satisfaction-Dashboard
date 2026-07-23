@@ -432,7 +432,7 @@ export default function FeedbackClient({
     // 목록 표(11열)가 붕괴하지 않는 하한 폭을 페이지 전체에 건다 → 이보다 좁아지면
     // 페이지가 통째로 가로 스크롤된다(각 카드가 함께 넓어져 표/버튼이 카드를 삐져나가지 않음).
     // 인쇄 시에는 globals.css @media print 에서 min-width:0 으로 해제된다.
-    <div className="pdf-report" style={{ minWidth: 1300 }}>
+    <div className="pdf-report" style={{ minWidth: 1440 }}>
       <div
         style={{
           display: "flex",
@@ -832,15 +832,16 @@ export default function FeedbackClient({
             {/* 퍼센트 컬럼 (합계 100%) — 컨테이너 폭에 맞춰 가로 스크롤 없이 배분 */}
             <colgroup>
               <col style={{ width: "3%" }} />
-              <col style={{ width: "7%" }} />
+              {/* 평가일시: "YYYY-MM-DD HH:MM:SS"(19자, nowrap)가 옆 열과 겹치지 않도록 확보 */}
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
               <col style={{ width: "13%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "15%" }} />
+              <col style={{ width: "13%" }} />
               <col style={{ width: "7%" }} />
-              <col style={{ width: "11%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "8%" }} />
               <col style={{ width: "9%" }} />
-              <col style={{ width: "9%" }} />
-              <col style={{ width: "5%" }} />
+              <col style={{ width: "6%" }} />
               <col style={{ width: "7%" }} />
             </colgroup>
             <thead>
