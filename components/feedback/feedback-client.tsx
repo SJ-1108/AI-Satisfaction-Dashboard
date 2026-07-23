@@ -384,7 +384,7 @@ export default function FeedbackClient({
   function onExport(format: ExportFormat) {
     const flat = filtered.map((r) => ({
       "No. (record_no)": r.record_no,
-      "평가일시 (created_at)": kstDatePart(r.created_at),
+      "평가일시 (created_at)": formatKstDateTime(r.created_at),
       "질의어 (query)": r.query ?? "",
       "AI 답변 (summary_text)": r.summary_text ?? "",
       "평가 사유 (reason)": r.reason ? reasonLabel(r.reason) : "",
@@ -872,7 +872,7 @@ export default function FeedbackClient({
                       {r.record_no}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      {kstDatePart(r.created_at)}
+                      {formatKstDateTime(r.created_at)}
                     </td>
                     <td style={{ ...td, ...cellText }} title={r.query ?? undefined}>
                       {r.query ?? "-"}
