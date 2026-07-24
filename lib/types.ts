@@ -170,6 +170,47 @@ export interface ParsedSatisfaction {
   // 업로드 엑셀 추가 컬럼 — 없거나 비면 null.
   device_type: string | null; // Device Type → 기기 종류
   guardrail_label: string | null; // Guardrail Label → 가드레일
+  // ── 아래는 row별 로그(upload_batch_rows)용 부가정보. 클라이언트에서만 사용하고
+  //    satisfaction 적재 payload·record_key 계산에는 포함하지 않는다(서버 전송 전 제거). ──
+  /** 원본 파일 행 번호(헤더 제외 1-base) */
+  row_number?: number;
+  /** 원본 행 전체(raw) — 진단/로그용 */
+  raw_row?: Record<string, unknown> | null;
+}
+
+/** 업로드 row별 처리 결과 종류 — upload_batches 집계와 1:1 대응 */
+export type UploadRowAction = "insert" | "update" | "duplicate" | "failed";
+
+/**
+ * upload_batch_rows 저장 페이로드(앱 → DB).
+ * id / upload_batch_id / created_at 은 저장 시점에 서버가 부여하므로 여기엔 없다.
+ */
+export interface UploadRowLog {
+  row_number: number;
+  action: UploadRowAction;
+  record_key: string | null;
+  satisfaction_id: string | null;
+  query: string | null;
+  rating: string | null;
+  reason: string | null;
+  comment: string | null;
+  summary_text: string | null;
+  feedback_created_at: string | null;
+  device_type: string | null;
+  guardrail_label: string | null;
+  device_type_before: string | null;
+  device_type_after: string | null;
+  guardrail_label_before: string | null;
+  guardrail_label_after: string | null;
+  error_message: string | null;
+  raw_row: Record<string, unknown> | null;
+}
+
+/** upload_batch_rows: 업로드 row별 처리 결과 로그 (DB row 전체) */
+export interface UploadBatchRow extends UploadRowLog {
+  id: string;
+  upload_batch_id: string;
+  created_at: string;
 }
 
 /** feedback: 불만족 관리 내부 피드백 (satisfaction_id 1:1) */

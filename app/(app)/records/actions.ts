@@ -11,18 +11,38 @@ import {
   recordDummyBatch,
   resetDummyStore,
 } from "@/lib/data/dummy-store";
-import type { ParsedSatisfaction, UploadSummary } from "@/lib/types";
+import type {
+  ParsedSatisfaction,
+  UploadRowLog,
+  UploadSummary,
+} from "@/lib/types";
 
 /** 대용량 업로드 시 DB 요청을 나누는 청크 크기 (URL 길이·페이로드·타임아웃 한도 회피) */
 const DB_CHUNK_SIZE = 500;
 
-/** appendSatisfactionRows 반환 — 신규 insert / 기존 갱신 건수를 돌려준다. */
+/**
+ * appendSatisfactionRows 의 row별 처리 결과 (upload_batch_rows 로그 구성용).
+ * 클라이언트가 record_key 로 자신의 원본 행과 조인해 최종 로그를 만든다.
+ */
+export interface RowActionResult {
+  record_key: string;
+  action: "insert" | "update";
+  /** 적재된 satisfaction.id (신규/갱신 모두) */
+  satisfaction_id: string | null;
+  /** 갱신 시 기존 값(신규면 null) — before/after 비교용 */
+  device_type_before: string | null;
+  guardrail_label_before: string | null;
+}
+
+/** appendSatisfactionRows 반환 — 신규 insert / 기존 갱신 건수 + row별 결과. */
 export interface AppendResult {
   ok: boolean;
   /** 신규 insert 건수 */
   inserted?: number;
   /** record_key 일치로 갱신된 기존 건수 */
   updated?: number;
+  /** row별 처리 결과 (record_key 기준). 더미 모드에서는 비어 있을 수 있다. */
+  results?: RowActionResult[];
   error?: string;
 }
 
@@ -56,24 +76,36 @@ export async function appendSatisfactionRows(
 
   const admin = createAdminClient();
 
-  // 기존 record_key 조회 → insert/update 분류 (청크 내 키만 대상, .in() 한도 회피로 재분할)
+  // 기존 record_key 조회 → insert/update 분류 (청크 내 키만 대상, .in() 한도 회피로 재분할).
+  // 갱신 before/after 확인을 위해 device_type/guardrail_label 도 함께 조회한다
+  // (record_key 단독 조회 대비 컬럼 몇 개만 늘 뿐이라 속도 영향은 미미).
   const keys = valid.map((r) => r.record_key);
-  const existingKeys = new Set<string>();
+  const existingByKey = new Map<
+    string,
+    { id: string; device_type: string | null; guardrail_label: string | null }
+  >();
   for (let i = 0; i < keys.length; i += DB_CHUNK_SIZE) {
     const slice = keys.slice(i, i + DB_CHUNK_SIZE);
     const { data: existing, error: exErr } = await admin
       .from("satisfaction")
-      .select("record_key")
+      .select("id, record_key, device_type, guardrail_label")
       .in("record_key", slice);
     if (exErr) {
       return { ok: false, error: `기존 데이터 조회 실패: ${exErr.message}` };
     }
-    for (const e of existing ?? []) existingKeys.add(e.record_key as string);
+    for (const e of existing ?? []) {
+      existingByKey.set(e.record_key as string, {
+        id: e.id as string,
+        device_type: (e.device_type as string | null) ?? null,
+        guardrail_label: (e.guardrail_label as string | null) ?? null,
+      });
+    }
   }
-  const inserted = valid.filter((r) => !existingKeys.has(r.record_key)).length;
+  const inserted = valid.filter((r) => !existingByKey.has(r.record_key)).length;
   const updated = valid.length - inserted;
 
   // upsert (record_key 충돌 시 내용만 갱신, id/record_no 유지).
+  // .select 로 record_key→id 를 회수(신규 행의 id 확보 + 갱신 행 id 확인)한다.
   const rows = valid.map((r) => ({
     record_key: r.record_key,
     query: r.query,
@@ -85,17 +117,35 @@ export async function appendSatisfactionRows(
     guardrail_label: r.guardrail_label,
     created_at: r.created_at,
   }));
+  const idByKey = new Map<string, string>();
   for (let i = 0; i < rows.length; i += DB_CHUNK_SIZE) {
     const slice = rows.slice(i, i + DB_CHUNK_SIZE);
-    const { error: upErr } = await admin
+    const { data: upserted, error: upErr } = await admin
       .from("satisfaction")
-      .upsert(slice, { onConflict: "record_key" });
+      .upsert(slice, { onConflict: "record_key" })
+      .select("id, record_key");
     if (upErr) {
       return { ok: false, error: `적재 실패: ${upErr.message}` };
     }
+    for (const u of upserted ?? []) {
+      idByKey.set(u.record_key as string, u.id as string);
+    }
   }
 
-  return { ok: true, inserted, updated };
+  // row별 결과 — 클라이언트가 record_key 로 원본 행과 조인해 upload_batch_rows 를 만든다.
+  const results: RowActionResult[] = valid.map((r) => {
+    const ex = existingByKey.get(r.record_key);
+    const isUpdate = ex !== undefined;
+    return {
+      record_key: r.record_key,
+      action: isUpdate ? "update" : "insert",
+      satisfaction_id: idByKey.get(r.record_key) ?? ex?.id ?? null,
+      device_type_before: isUpdate ? ex!.device_type : null,
+      guardrail_label_before: isUpdate ? ex!.guardrail_label : null,
+    };
+  });
+
+  return { ok: true, inserted, updated, results };
 }
 
 /**
@@ -105,8 +155,10 @@ export async function appendSatisfactionRows(
 export async function finishUpload(
   meta: { fileName: string; totalRows: number; failedCount: number },
   totals: { inserted: number; updated: number; duplicate: number },
+  rowLogs: UploadRowLog[] = [],
 ): Promise<{ ok: boolean; summary?: UploadSummary; error?: string }> {
   if (!isSupabaseConfigured()) {
+    // 더미(미리보기) 모드는 DB 가 없어 row별 로그를 저장하지 않는다(집계만 기록).
     return { ok: true, summary: recordDummyBatch(meta, totals) };
   }
 
@@ -141,6 +193,24 @@ export async function finishUpload(
     .single();
   if (batchErr || !batch) {
     return { ok: false, error: `업로드 이력 생성 실패: ${batchErr?.message}` };
+  }
+
+  // row별 처리 로그 저장 (upload_batch_rows). 배치 id 를 붙여 청크로 일괄 insert.
+  // best-effort: 로그 저장이 실패해도 이미 적재된 satisfaction·배치 이력은 유지하고
+  // 업로드 자체는 성공 처리한다(로그 실패로 데이터 적재를 되돌리지 않는다).
+  if (rowLogs.length > 0) {
+    for (let i = 0; i < rowLogs.length; i += DB_CHUNK_SIZE) {
+      const slice = rowLogs
+        .slice(i, i + DB_CHUNK_SIZE)
+        .map((l) => ({ upload_batch_id: batch.id, ...l }));
+      const { error: logErr } = await admin
+        .from("upload_batch_rows")
+        .insert(slice);
+      if (logErr) {
+        console.error("upload_batch_rows 로그 저장 실패:", logErr.message);
+        break;
+      }
+    }
   }
 
   // 누적 데이터·업로드 이력 캐시 무효화 → 모든 메뉴에 즉시 반영

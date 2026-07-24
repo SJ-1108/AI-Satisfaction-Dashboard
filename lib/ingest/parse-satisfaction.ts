@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { ParsedSatisfaction, Rating } from "@/lib/types";
+import type { ParsedSatisfaction, Rating, UploadRowLog } from "@/lib/types";
 import { makeRecordKey } from "@/lib/ingest/record-key";
 import { cleanText } from "@/lib/ingest/clean-text";
 
@@ -108,6 +108,8 @@ export interface ParseResult {
   errors: RowError[];
   /** 검증 실패한 총 행 수 (errors 는 일부만 보관하므로 정확한 카운트는 이 값 사용) */
   failedCount: number;
+  /** 실패 행의 row별 로그 (upload_batch_rows 저장용, action='failed'). failedCount 와 개수 일치 */
+  failedRows: UploadRowLog[];
   /** 컬럼 자동 매핑 결과 (DB컬럼 → 원본헤더). 매칭 실패 시 null */
   mapping: Record<keyof RawFields, string | null>;
   /** 매칭되지 않은 필수 컬럼 (있으면 업로드 차단) */
@@ -239,6 +241,7 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
       valid: [],
       errors: [],
       failedCount: 0,
+      failedRows: [],
       mapping,
       requiredMissing,
       totalRows: rows.length,
@@ -251,6 +254,9 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
   // 대용량 파일에서 오류 객체를 전부 보관하면 브라우저 메모리가 폭증한다.
   // 총 실패 수는 failedCount 로 세고, 표시용 메시지는 상한까지만 보관한다.
   let failedCount = 0;
+  // 실패 행 로그(upload_batch_rows 저장용) — raw_row 는 이미 valid 행에도 보관하므로
+  // 실패 행 전체 보관도 동일 수준의 메모리 비용이다.
+  const failedRows: UploadRowLog[] = [];
 
   rows.forEach((row, i) => {
     const rowNum = i + 1;
@@ -267,9 +273,31 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
 
     if (rowErrors.length > 0) {
       failedCount++;
+      const message = rowErrors.join(", ");
       if (errors.length < MAX_ERROR_SAMPLES) {
-        errors.push({ row: rowNum, message: rowErrors.join(", ") });
+        errors.push({ row: rowNum, message });
       }
+      // 실패 행은 파싱이 안 됐을 수 있으므로 최소 정보 + 원본(raw_row)만 남긴다.
+      failedRows.push({
+        row_number: rowNum,
+        action: "failed",
+        record_key: null,
+        satisfaction_id: null,
+        query: cleanText(get(row, "query")) || null,
+        rating: ratingRaw || null, // 원본 rating 문자열(정규화 실패값일 수 있음)
+        reason: get(row, "reason").trim() || null,
+        comment: cleanText(get(row, "comment")) || null,
+        summary_text: cleanText(get(row, "summary_text")) || null,
+        feedback_created_at: created_at ?? null, // 파싱 실패 시 null
+        device_type: get(row, "device_type").trim() || null,
+        guardrail_label: get(row, "guardrail_label").trim() || null,
+        device_type_before: null,
+        device_type_after: null,
+        guardrail_label_before: null,
+        guardrail_label_after: null,
+        error_message: message,
+        raw_row: row,
+      });
       return;
     }
 
@@ -285,6 +313,9 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
       guardrail_label: get(row, "guardrail_label").trim() || null,
       created_at: created_at!,
       record_key: "",
+      // row별 로그용(서버 전송 전 제거됨) — 원본 행 번호/원본 행 보관.
+      row_number: rowNum,
+      raw_row: row,
     };
     record.record_key = makeRecordKey(record);
 
@@ -298,6 +329,7 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
     valid,
     errors,
     failedCount,
+    failedRows,
     mapping,
     requiredMissing,
     totalRows: rows.length,

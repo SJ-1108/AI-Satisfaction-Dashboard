@@ -8,7 +8,7 @@ import {
 } from "@/lib/ingest/parse-satisfaction";
 import { reasonLabel } from "@/lib/reasons";
 import { formatKstDateTime } from "@/lib/format-date";
-import type { ParsedSatisfaction } from "@/lib/types";
+import type { ParsedSatisfaction, UploadRowLog } from "@/lib/types";
 import CloseButton from "@/components/ui/close-button";
 
 /**
@@ -28,6 +28,7 @@ export default function UploadDialog({
   onConfirm: (
     valid: ParsedSatisfaction[],
     meta: { fileName: string; totalRows: number; failedCount: number },
+    failedRows: UploadRowLog[],
   ) => void;
   onClose: () => void;
 }) {
@@ -67,11 +68,15 @@ export default function UploadDialog({
 
   function confirm() {
     if (!result) return;
-    onConfirm(result.valid, {
-      fileName: fileName || "upload",
-      totalRows: result.totalRows,
-      failedCount: result.failedCount,
-    });
+    onConfirm(
+      result.valid,
+      {
+        fileName: fileName || "upload",
+        totalRows: result.totalRows,
+        failedCount: result.failedCount,
+      },
+      result.failedRows,
+    );
   }
 
   return (

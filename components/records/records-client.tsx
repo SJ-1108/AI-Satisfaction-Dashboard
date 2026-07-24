@@ -18,6 +18,7 @@ import type {
   ResetLog,
   Satisfaction,
   UploadBatch,
+  UploadRowLog,
 } from "@/lib/types";
 import {
   appendSatisfactionRows,
@@ -121,6 +122,33 @@ const stickyTh: React.CSSProperties = {
   background: "#f7f8fa",
   zIndex: 1,
 };
+
+/**
+ * 파일 내 중복(밀려난 이전 행)을 upload_batch_rows 로그로 변환.
+ * satisfaction_id 는 서버 결과 회수 후 별도로 보강한다(같은 record_key 최종 행의 id).
+ */
+function makeDuplicateLog(p: ParsedSatisfaction): UploadRowLog {
+  return {
+    row_number: p.row_number ?? 0,
+    action: "duplicate",
+    record_key: p.record_key,
+    satisfaction_id: null,
+    query: p.query,
+    rating: p.rating,
+    reason: p.reason,
+    comment: p.comment,
+    summary_text: p.summary_text,
+    feedback_created_at: p.created_at,
+    device_type: p.device_type,
+    guardrail_label: p.guardrail_label,
+    device_type_before: null,
+    device_type_after: null,
+    guardrail_label_before: null,
+    guardrail_label_after: null,
+    error_message: null,
+    raw_row: p.raw_row ?? null,
+  };
+}
 
 /**
  * 메뉴 ② 데이터 조회 (FR-3) — 누적 데이터 기준.
@@ -235,25 +263,48 @@ export default function RecordsClient({
    * 컬럼명 alias/정규화(mapAndValidate)는 파싱 단계에서 이미 적용되어, 컬럼명이 달라도
    * 같은 의미의 값이면 동일 record_key 로 중복 인식된다. device_type/guardrail_label 은
    * 함께 저장되되 record_key(중복 기준)에는 포함되지 않는다.
+   *
+   * 부수적으로 row별 처리 결과(신규/갱신/파일 내 중복/실패)를 모아 finishUpload 에
+   * 전달 → upload_batch_rows 에 일괄 저장한다(사후 SQL 확인용). 화면/집계는 기존과 동일.
    */
   async function onUploadConfirm(
     valid: ParsedSatisfaction[],
     meta: { fileName: string; totalRows: number; failedCount: number },
+    failedRows: UploadRowLog[],
   ) {
     setUploading(true);
     try {
-      // record_key 기준 파일 내 중복 제거 후, 청크로 나눠 순차 전송한다.
-      // (대용량 valid 를 단일 서버 액션 페이로드로 보내면 전송이 막히므로 분할)
+      // record_key 기준 파일 내 중복 제거(마지막 값 우선). 밀려난 이전 행 = 파일 내 중복.
       const byKey = new Map<string, ParsedSatisfaction>();
-      for (const r of valid) byKey.set(r.record_key, r);
+      const duplicateRows: UploadRowLog[] = [];
+      for (const r of valid) {
+        const prev = byKey.get(r.record_key);
+        if (prev) duplicateRows.push(makeDuplicateLog(prev));
+        byKey.set(r.record_key, r);
+      }
       const unique = Array.from(byKey.values());
-      const duplicate = valid.length - unique.length;
+      const duplicate = valid.length - unique.length; // = duplicateRows.length
 
+      // 청크로 나눠 순차 전송(대용량 단일 페이로드 회피). raw_row/row_number 는
+      // 적재/판단에 불필요하므로 서버 전송 payload 에서 제거(전송량 절감).
       const CHUNK = 1000;
       let inserted = 0; // 신규 추가
       let updated = 0; // record_key 일치 기존 갱신
+      const resultByKey = new Map<
+        string,
+        {
+          action: "insert" | "update";
+          satisfaction_id: string | null;
+          device_type_before: string | null;
+          guardrail_label_before: string | null;
+        }
+      >();
       for (let i = 0; i < unique.length; i += CHUNK) {
-        const res = await appendSatisfactionRows(unique.slice(i, i + CHUNK));
+        const payload = unique
+          .slice(i, i + CHUNK)
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          .map(({ raw_row, row_number, ...rest }) => rest);
+        const res = await appendSatisfactionRows(payload);
         if (!res.ok) {
           setToast(`업로드 실패 — ${res.error ?? "알 수 없는 오류"}`);
           setTimeout(() => setToast(null), 6000);
@@ -261,10 +312,58 @@ export default function RecordsClient({
         }
         inserted += res.inserted ?? 0;
         updated += res.updated ?? 0;
+        for (const rr of res.results ?? []) {
+          resultByKey.set(rr.record_key, {
+            action: rr.action,
+            satisfaction_id: rr.satisfaction_id,
+            device_type_before: rr.device_type_before,
+            guardrail_label_before: rr.guardrail_label_before,
+          });
+        }
         setToast(`업로드 중… ${Math.min(i + CHUNK, unique.length)}/${unique.length}`);
       }
 
-      const fin = await finishUpload(meta, { inserted, updated, duplicate });
+      // 신규/갱신 row 로그 — 서버 결과(record_key 기준)를 원본 행과 조인해 구성.
+      const insertUpdateRows: UploadRowLog[] = unique.map((r) => {
+        const res = resultByKey.get(r.record_key);
+        const action = res?.action ?? "insert";
+        return {
+          row_number: r.row_number ?? 0,
+          action,
+          record_key: r.record_key,
+          satisfaction_id: res?.satisfaction_id ?? null,
+          query: r.query,
+          rating: r.rating,
+          reason: r.reason,
+          comment: r.comment,
+          summary_text: r.summary_text,
+          feedback_created_at: r.created_at,
+          device_type: r.device_type,
+          guardrail_label: r.guardrail_label,
+          device_type_before: action === "update" ? res?.device_type_before ?? null : null,
+          device_type_after: action === "update" ? r.device_type : null,
+          guardrail_label_before:
+            action === "update" ? res?.guardrail_label_before ?? null : null,
+          guardrail_label_after: action === "update" ? r.guardrail_label : null,
+          error_message: null,
+          raw_row: r.raw_row ?? null,
+        };
+      });
+
+      // 파일 내 중복 row 의 satisfaction_id 는 최종 반영된 동일 key 행의 id 로 보강.
+      for (const d of duplicateRows) {
+        if (d.record_key) {
+          d.satisfaction_id = resultByKey.get(d.record_key)?.satisfaction_id ?? null;
+        }
+      }
+
+      const rowLogs: UploadRowLog[] = [
+        ...insertUpdateRows,
+        ...duplicateRows,
+        ...failedRows,
+      ];
+
+      const fin = await finishUpload(meta, { inserted, updated, duplicate }, rowLogs);
       if (!fin.ok || !fin.summary) {
         setToast(`업로드 실패 — ${fin.error ?? "알 수 없는 오류"}`);
         setTimeout(() => setToast(null), 6000);
