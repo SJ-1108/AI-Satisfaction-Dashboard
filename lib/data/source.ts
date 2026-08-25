@@ -40,6 +40,53 @@ export const CACHE_TAGS = {
 /** 외부(메타베이스 동기화) 쓰기 대비 안전 TTL(초). 태그 무효화가 1차, TTL이 2차. */
 const CACHE_TTL = 60;
 
+// ── 전체 행 조회 (PostgREST max-rows 회피) ──────────────────
+/**
+ * PostgREST 는 한 요청이 돌려주는 행 수를 max-rows(Supabase 기본 1000)로 제한한다.
+ * `.range()` 없이 select 하면 초과분이 **에러 없이 조용히 잘려서** 돌아오므로,
+ * 누적 데이터가 1000행을 넘는 순간 최근 업로드분이 화면에서 사라진다.
+ * → 아래 헬퍼로 페이지를 이어 읽어 항상 전체 행을 가져온다.
+ *
+ * 전제: fetchPage 의 정렬은 반드시 유일값(id)으로 tie-break 되어야 한다.
+ *       정렬이 불안정하면 페이지 경계에서 행이 중복되거나 누락된다.
+ */
+const FETCH_PAGE_SIZE = 1000;
+
+/** 무한 루프 방지 상한 (1000행 × 200페이지 = 20만 행) */
+const FETCH_MAX_PAGES = 200;
+
+interface PageResponse {
+  data: unknown[] | null;
+  error: { message: string } | null;
+}
+
+/**
+ * from~to 범위를 받아 한 페이지를 조회하는 함수를 넘기면, 빈 페이지가 나올 때까지
+ * 이어 읽어 전체 행을 반환한다. 조회 실패 시 빈 배열(기존 동작 유지 — 잘린 데이터를
+ * 정상 데이터처럼 보여주지 않는다).
+ */
+async function fetchAllRows(
+  label: string,
+  fetchPage: (from: number, to: number) => PromiseLike<PageResponse>,
+): Promise<unknown[]> {
+  const all: unknown[] = [];
+  for (let page = 0; page < FETCH_MAX_PAGES; page++) {
+    const from = all.length;
+    const { data, error } = await fetchPage(from, from + FETCH_PAGE_SIZE - 1);
+    if (error) {
+      console.error(`${label} 실패:`, error.message);
+      return [];
+    }
+    const batch = data ?? [];
+    all.push(...batch);
+    // 빈 페이지 = 끝. (max-rows 가 FETCH_PAGE_SIZE 보다 작게 설정돼 있어도
+    //  실제로 받은 만큼만 전진하므로 안전하다.)
+    if (batch.length === 0) return all;
+  }
+  console.error(`${label}: 페이지 상한(${FETCH_MAX_PAGES}) 초과 — 일부만 반환됨`);
+  return all;
+}
+
 /** 현재 더미 모드 여부 (클라이언트 분기용으로 페이지에서 전달) */
 export function isDummyMode(): boolean {
   return !isSupabaseConfigured();
@@ -52,15 +99,17 @@ const SATISFACTION_COLS =
 const getCachedSatisfaction = unstable_cache(
   async (): Promise<Satisfaction[]> => {
     const admin = createAdminClient();
-    const { data, error } = await admin
-      .from("satisfaction")
-      .select(SATISFACTION_COLS)
-      .order("record_no", { ascending: true });
-    if (error) {
-      console.error("loadSatisfaction 실패:", error.message);
-      return [];
-    }
-    return (data ?? []) as Satisfaction[];
+    // record_no 는 트리거(max+1)로 부여되어 유일성이 보장되지 않는다(동시/대량 적재 시
+    // 같은 값이 나올 수 있음). 페이지 경계가 흔들리지 않도록 id 로 tie-break 한다.
+    const rows = await fetchAllRows("loadSatisfaction", (from, to) =>
+      admin
+        .from("satisfaction")
+        .select(SATISFACTION_COLS)
+        .order("record_no", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+    return rows as Satisfaction[];
   },
   ["satisfaction-all"],
   { tags: [CACHE_TAGS.satisfaction], revalidate: CACHE_TTL },
@@ -109,21 +158,22 @@ async function loadEmpNoToNameMap(
 const getCachedFeedback = unstable_cache(
   async (): Promise<Feedback[]> => {
     const admin = createAdminClient();
-    const [{ data, error }, actorMap] = await Promise.all([
-      admin
-        .from("feedback")
-        .select(
-          "id, satisfaction_id, status, detail_reason, cause_category, related_department, action, memo, created_by, updated_by, created_at, updated_at",
-        ),
+    // satisfaction 과 동일하게 max-rows(기본 1000) 초과분이 잘리지 않도록 이어 읽는다.
+    // 페이지 경계 안정성을 위해 유일값(id)으로 정렬한다.
+    const [rows, actorMap] = await Promise.all([
+      fetchAllRows("loadFeedback", (from, to) =>
+        admin
+          .from("feedback")
+          .select(
+            "id, satisfaction_id, status, detail_reason, cause_category, related_department, action, memo, created_by, updated_by, created_at, updated_at",
+          )
+          .order("id", { ascending: true })
+          .range(from, to),
+      ),
       loadActorNameMap(admin),
     ]);
 
-    if (error) {
-      console.error("loadFeedback 실패:", error.message);
-      return [];
-    }
-
-    return (data ?? []).map((f) => ({
+    return (rows as Record<string, unknown>[]).map((f) => ({
       id: f.id as string,
       satisfaction_id: f.satisfaction_id as string,
       // 저장값으로 정규화: 과거 표기 '처리완료'가 남아 있어도 '조치완료'로 흡수
