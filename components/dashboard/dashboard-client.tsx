@@ -16,7 +16,7 @@ import {
   type ChartType,
 } from "chart.js";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
-import type { Feedback, Satisfaction } from "@/lib/types";
+import type { Feedback, SatisfactionStat } from "@/lib/types";
 import { FEEDBACK_STATUSES, STATUS_COLOR, statusLabel } from "@/lib/types";
 import {
   CAUSE_CHART_COLORS,
@@ -200,7 +200,8 @@ export default function DashboardClient({
   records,
   feedback,
 }: {
-  records: Satisfaction[];
+  /** 집계 전용 경량 행 — 이 화면은 summary_text 등 본문 컬럼을 쓰지 않는다. */
+  records: SatisfactionStat[];
   feedback: Feedback[];
 }) {
   const range = useMemo(() => dataDateRange(records), [records]);

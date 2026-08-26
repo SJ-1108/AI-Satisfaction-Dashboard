@@ -156,6 +156,21 @@ export interface Satisfaction {
 }
 
 /**
+ * 집계 전용 경량 행 — 대시보드 통계에 실제로 필요한 컬럼만 담는다.
+ *
+ * satisfaction 한 행은 summary_text(한글 기준 평균 3KB 안팎)가 대부분을 차지한다.
+ * 대시보드는 그 본문을 전혀 쓰지 않으므로, 집계 화면에서는 이 좁은 형태만 조회해
+ * 페이로드를 행당 ~3KB → ~90B 수준으로 줄인다(누적 데이터가 늘어도 안전).
+ * Satisfaction 은 이 필드를 모두 포함하므로 그대로 대입할 수 있다(더미 모드 호환).
+ */
+export interface SatisfactionStat {
+  id: string;
+  rating: Rating;
+  reason: string | null;
+  created_at: string; // ISO timestamptz
+}
+
+/**
  * 업로드 파싱·검증을 통과한 행 (적재 전).
  * id/record_no/upload_batch_id 는 적재 시점(DB 트리거 또는 앱)에서 부여된다.
  */

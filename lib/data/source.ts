@@ -13,6 +13,7 @@ import type {
   Feedback,
   ResetLog,
   Satisfaction,
+  SatisfactionStat,
   UploadBatch,
 } from "@/lib/types";
 import { normalizeStatus } from "@/lib/types";
@@ -192,6 +193,105 @@ const getCachedSatisfactionCount = unstable_cache(
 export async function loadSatisfactionCount(): Promise<number | null> {
   if (isDummyMode()) return getDummySatisfaction().length;
   return getCachedSatisfactionCount();
+}
+
+// ── 집계 전용 경량 조회 (대시보드) ──────────────────────────
+/**
+ * 대시보드 집계에 실제로 쓰이는 컬럼만 조회한다.
+ * summary_text(행당 3KB 안팎)를 빼면 페이로드가 ~97% 줄어, 누적 데이터가
+ * 수만 행이 돼도 서버→브라우저 전송량이 문제되지 않는다.
+ * 집계 함수(dashboard-stats)는 이 좁은 형태만 요구하므로 로직 변경이 없다.
+ */
+const SATISFACTION_STAT_COLS = "id, rating, reason, created_at";
+
+async function readSatisfactionStats(): Promise<SatisfactionStat[]> {
+  const admin = createAdminClient();
+  try {
+    return (await fetchPagedRows("loadSatisfactionStats", (from, to) =>
+      admin
+        .from("satisfaction")
+        .select(SATISFACTION_STAT_COLS)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    )) as SatisfactionStat[];
+  } catch (e) {
+    console.error(`${errText(e)} — 단일 조회로 폴백`);
+    return (await fetchSingleRows("loadSatisfactionStats", () =>
+      admin.from("satisfaction").select(SATISFACTION_STAT_COLS),
+    )) as SatisfactionStat[];
+  }
+}
+
+const getCachedSatisfactionStats = unstable_cache(
+  readSatisfactionStats,
+  ["satisfaction-stats"],
+  { tags: [CACHE_TAGS.satisfaction], revalidate: CACHE_TTL },
+);
+
+/** 집계용 경량 satisfaction 로드 (대시보드 전용). */
+export async function loadSatisfactionStats(): Promise<SatisfactionStat[]> {
+  if (isDummyMode()) return getDummySatisfaction();
+  try {
+    return await getCachedSatisfactionStats();
+  } catch (e) {
+    console.error("loadSatisfactionStats 실패:", errText(e));
+    try {
+      return await readSatisfactionStats();
+    } catch (e2) {
+      console.error("loadSatisfactionStats 재시도 실패:", errText(e2));
+      return [];
+    }
+  }
+}
+
+// ── 불만족(down) 전용 조회 (불만족 평가 관리) ────────────────
+/**
+ * 불만족 관리 화면은 rating='down' 행만 쓴다. 전체를 받아 앱에서 거르는 대신
+ * DB 에서 걸러 가져와, 만족(up) 행의 summary_text 를 통째로 실어 나르지 않는다.
+ */
+async function readDownSatisfaction(): Promise<Satisfaction[]> {
+  const admin = createAdminClient();
+  try {
+    return (await fetchPagedRows("loadDownSatisfaction", (from, to) =>
+      admin
+        .from("satisfaction")
+        .select(SATISFACTION_COLS)
+        .eq("rating", "down")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    )) as Satisfaction[];
+  } catch (e) {
+    console.error(`${errText(e)} — 단일 조회로 폴백`);
+    return (await fetchSingleRows("loadDownSatisfaction", () =>
+      admin.from("satisfaction").select(SATISFACTION_COLS).eq("rating", "down"),
+    )) as Satisfaction[];
+  }
+}
+
+const getCachedDownSatisfaction = unstable_cache(
+  readDownSatisfaction,
+  ["satisfaction-down"],
+  { tags: [CACHE_TAGS.satisfaction], revalidate: CACHE_TTL },
+);
+
+/** 불만족(down) satisfaction 로드 (불만족 관리 화면 전용). */
+export async function loadDownSatisfaction(): Promise<Satisfaction[]> {
+  if (isDummyMode()) {
+    return getDummySatisfaction().filter((s) => s.rating === "down");
+  }
+  try {
+    return await getCachedDownSatisfaction();
+  } catch (e) {
+    console.error("loadDownSatisfaction 실패:", errText(e));
+    try {
+      return await readDownSatisfaction();
+    } catch (e2) {
+      console.error("loadDownSatisfaction 재시도 실패:", errText(e2));
+      return [];
+    }
+  }
 }
 
 // ── profiles 이름 매핑 ───────────────────────────────────────

@@ -1,4 +1,4 @@
-import type { Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
+import type { Feedback, FeedbackStatus, SatisfactionStat } from "@/lib/types";
 import { FEEDBACK_STATUSES } from "@/lib/types";
 import {
   reasonLabel,
@@ -21,10 +21,10 @@ function datePart(iso: string): string {
 
 /** 기간(시작~종료, YYYY-MM-DD) 필터 — created_at 기준 */
 export function filterByDate(
-  records: Satisfaction[],
+  records: SatisfactionStat[],
   from?: string,
   to?: string,
-): Satisfaction[] {
+): SatisfactionStat[] {
   return records.filter((r) => {
     const d = datePart(r.created_at);
     if (from && d < from) return false;
@@ -35,7 +35,7 @@ export function filterByDate(
 
 /** 데이터에 존재하는 날짜 범위 (날짜 필터 min/max 용). 비어있으면 null */
 export function dataDateRange(
-  records: Satisfaction[],
+  records: SatisfactionStat[],
 ): { min: string; max: string } | null {
   if (records.length === 0) return null;
   let min = datePart(records[0].created_at);
@@ -57,7 +57,7 @@ export interface Kpis {
   rate: number;
 }
 
-export function computeKpis(records: Satisfaction[]): Kpis {
+export function computeKpis(records: SatisfactionStat[]): Kpis {
   let up = 0;
   let down = 0;
   for (const r of records) {
@@ -110,7 +110,7 @@ export function formatBucketLabel(key: string, g: Granularity): string {
 }
 
 export function computeTrend(
-  records: Satisfaction[],
+  records: SatisfactionStat[],
   granularity: Granularity,
 ): TrendBucket[] {
   const map = new Map<string, TrendBucket>();
@@ -135,7 +135,7 @@ export interface ReasonCount {
 
 /** 불만족(down) 건의 reason별 집계, 내림차순 */
 export function computeReasonBreakdown(
-  records: Satisfaction[],
+  records: SatisfactionStat[],
 ): ReasonCount[] {
   const UNSET = "__unset__";
   const map = new Map<string, number>();
@@ -166,7 +166,7 @@ export interface CauseCount {
  * 기간 필터는 호출 측에서 records 를 미리 거른 뒤 전달한다.
  */
 export function computeCauseBreakdown(
-  records: Satisfaction[],
+  records: SatisfactionStat[],
   feedback: Feedback[],
 ): CauseCount[] {
   const causeById = new Map<string, string | null>();
@@ -195,7 +195,7 @@ export interface DepartmentCount {
  * 부서 미지정(협의 불필요) 건은 제외한다. 기간 필터는 호출 측에서 records 를 미리 거른다.
  */
 export function computeDepartmentBreakdown(
-  records: Satisfaction[],
+  records: SatisfactionStat[],
   feedback: Feedback[],
 ): DepartmentCount[] {
   const deptById = new Map<string, string | null>();
@@ -236,7 +236,7 @@ function emptyStatusCounts(): Record<FeedbackStatus, number> {
  * 버킷 키 오름차순 정렬. 기간 필터는 호출 측에서 records 를 미리 거른 뒤 전달한다.
  */
 export function computeDailyFeedbackStatus(
-  records: Satisfaction[],
+  records: SatisfactionStat[],
   feedback: Feedback[],
   granularity: Granularity = "day",
 ): DailyFeedbackStatusRow[] {

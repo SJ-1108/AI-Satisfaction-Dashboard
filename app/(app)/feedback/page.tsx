@@ -1,7 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { emailToEmpNo } from "@/lib/empno";
-import { isDummyMode, loadFeedback, loadSatisfaction } from "@/lib/data/source";
+import {
+  isDummyMode,
+  loadDownSatisfaction,
+  loadFeedback,
+} from "@/lib/data/source";
 import FeedbackClient from "@/components/feedback/feedback-client";
 
 /**
@@ -31,8 +35,10 @@ export default async function FeedbackPage() {
     }
   }
 
+  // 이 화면은 rating='down' 행만 쓴다 — DB 에서 걸러 가져와 만족(up) 행의
+  // summary_text 를 통째로 실어 나르지 않는다.
   const [satisfaction, feedback] = await Promise.all([
-    loadSatisfaction(),
+    loadDownSatisfaction(),
     loadFeedback(),
   ]);
 
