@@ -40,6 +40,72 @@ export const CACHE_TAGS = {
 /** 외부(메타베이스 동기화) 쓰기 대비 안전 TTL(초). 태그 무효화가 1차, TTL이 2차. */
 const CACHE_TTL = 60;
 
+// ── 전체 행 조회 (PostgREST max-rows 회피) ──────────────────
+/**
+ * PostgREST 는 한 요청이 돌려주는 행 수를 max-rows(Supabase 기본 1000)로 제한한다.
+ * `.range()` 없이 select 하면 초과분이 **에러 없이 조용히 잘려서** 돌아오므로,
+ * 누적 데이터가 1000행을 넘는 순간 최근 적재분이 화면에서 사라진다.
+ *
+ * 실패 처리 원칙(장애 재발 방지):
+ *   조회 실패를 빈 배열로 바꿔 반환하면 그 빈 값이 unstable_cache 에 저장되어
+ *   화면이 통째로 비는 사고가 난다. 그래서 이 계층은 **실패하면 throw** 하고,
+ *   폴백 여부는 호출 측이 정한다. (throw 된 값은 캐시에 저장되지 않는다)
+ */
+const FETCH_PAGE_SIZE = 1000;
+
+/** 무한 루프 방지 상한 (1000행 × 200페이지 = 20만 행) */
+const FETCH_MAX_PAGES = 200;
+
+interface PageResponse {
+  data: unknown[] | null;
+  error: { message: string } | null;
+}
+
+/**
+ * from~to 범위를 받아 한 페이지를 조회하는 함수를 넘기면, 빈 페이지가 나올 때까지
+ * 이어 읽어 전체 행을 반환한다. 실패 시 throw.
+ *
+ * 전제: fetchPage 의 정렬은 반드시 유일값(id)으로 tie-break 되어야 한다.
+ *       정렬이 불안정하면 페이지 경계에서 행이 중복되거나 누락된다.
+ */
+async function fetchPagedRows(
+  label: string,
+  fetchPage: (from: number, to: number) => PromiseLike<PageResponse>,
+): Promise<unknown[]> {
+  const all: unknown[] = [];
+  for (let page = 0; page < FETCH_MAX_PAGES; page++) {
+    const from = all.length;
+    const { data, error } = await fetchPage(from, from + FETCH_PAGE_SIZE - 1);
+    if (error) {
+      throw new Error(`${label} 페이지 조회 실패(offset=${from}): ${error.message}`);
+    }
+    const batch = data ?? [];
+    all.push(...batch);
+    // 빈 페이지 = 끝. (max-rows 가 FETCH_PAGE_SIZE 보다 작게 설정돼 있어도
+    //  실제로 받은 만큼만 전진하므로 안전하다.)
+    if (batch.length === 0) return all;
+  }
+  throw new Error(`${label}: 페이지 상한(${FETCH_MAX_PAGES}) 초과`);
+}
+
+/**
+ * 폴백용 단일 조회(기존 방식) — max-rows 상한까지만 돌아올 수 있다.
+ * 페이지 조회가 실패해도 최소한 기존 동작만큼은 보장하기 위한 안전망. 실패 시 throw.
+ */
+async function fetchSingleRows(
+  label: string,
+  fetchOnce: () => PromiseLike<PageResponse>,
+): Promise<unknown[]> {
+  const { data, error } = await fetchOnce();
+  if (error) throw new Error(`${label} 단일 조회 실패: ${error.message}`);
+  return data ?? [];
+}
+
+/** 에러 메시지 문자열화 (로그용) */
+function errText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
 /** 현재 더미 모드 여부 (클라이언트 분기용으로 페이지에서 전달) */
 export function isDummyMode(): boolean {
   return !isSupabaseConfigured();
@@ -49,27 +115,83 @@ export function isDummyMode(): boolean {
 const SATISFACTION_COLS =
   "id, record_no, record_key, query, summary_text, rating, reason, comment, device_type, guardrail_label, created_at, upload_batch_id, synced_at";
 
-const getCachedSatisfaction = unstable_cache(
-  async (): Promise<Satisfaction[]> => {
-    const admin = createAdminClient();
-    const { data, error } = await admin
-      .from("satisfaction")
-      .select(SATISFACTION_COLS)
-      .order("record_no", { ascending: true });
-    if (error) {
-      console.error("loadSatisfaction 실패:", error.message);
-      return [];
-    }
-    return (data ?? []) as Satisfaction[];
-  },
-  ["satisfaction-all"],
-  { tags: [CACHE_TAGS.satisfaction], revalidate: CACHE_TTL },
-);
+/**
+ * satisfaction 전체 행 조회.
+ * 1순위: 페이지 이어읽기(전체 행 보장).
+ * 2순위: 실패 시 기존 단일 조회로 폴백 — max-rows 로 잘릴 수 있지만
+ *        "아무것도 안 보이는" 상태보다는 낫다. 둘 다 실패하면 throw.
+ */
+async function readSatisfaction(): Promise<Satisfaction[]> {
+  const admin = createAdminClient();
+  try {
+    // record_no 는 트리거(max+1)로 부여되어 유일성이 보장되지 않는다(대량/동시 적재 시
+    // 같은 값이 나올 수 있음). 페이지 경계가 흔들리지 않도록 id 로 tie-break 한다.
+    return (await fetchPagedRows("loadSatisfaction", (from, to) =>
+      admin
+        .from("satisfaction")
+        .select(SATISFACTION_COLS)
+        .order("record_no", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    )) as Satisfaction[];
+  } catch (e) {
+    console.error(`${errText(e)} — 단일 조회로 폴백`);
+    return (await fetchSingleRows("loadSatisfaction", () =>
+      admin
+        .from("satisfaction")
+        .select(SATISFACTION_COLS)
+        .order("record_no", { ascending: true }),
+    )) as Satisfaction[];
+  }
+}
+
+const getCachedSatisfaction = unstable_cache(readSatisfaction, ["satisfaction-all"], {
+  tags: [CACHE_TAGS.satisfaction],
+  revalidate: CACHE_TTL,
+});
 
 /** satisfaction 누적 데이터 로드 (record_no 오름차순) */
 export async function loadSatisfaction(): Promise<Satisfaction[]> {
   if (isDummyMode()) return getDummySatisfaction();
-  return getCachedSatisfaction();
+  try {
+    return await getCachedSatisfaction();
+  } catch (e) {
+    // 실패는 캐시에 저장되지 않는다(throw). 캐시를 건너뛰고 한 번 더 시도한다.
+    console.error("loadSatisfaction 실패:", errText(e));
+    try {
+      return await readSatisfaction();
+    } catch (e2) {
+      console.error("loadSatisfaction 재시도 실패:", errText(e2));
+      return [];
+    }
+  }
+}
+
+/**
+ * satisfaction 실제 총 건수(진단용). head:true 라 행 데이터를 받지 않아 매우 가볍다.
+ * 화면에 로드된 건수와 비교해, 조회가 잘렸는지를 즉시 드러내는 데 쓴다.
+ * (실패해도 화면을 막지 않도록 null 반환 — 이 값은 표시용일 뿐 데이터가 아니다)
+ */
+const getCachedSatisfactionCount = unstable_cache(
+  async (): Promise<number | null> => {
+    const admin = createAdminClient();
+    const { count, error } = await admin
+      .from("satisfaction")
+      .select("id", { count: "exact", head: true });
+    if (error) {
+      console.error("loadSatisfactionCount 실패:", error.message);
+      return null;
+    }
+    return count ?? null;
+  },
+  ["satisfaction-count"],
+  { tags: [CACHE_TAGS.satisfaction], revalidate: CACHE_TTL },
+);
+
+/** DB 기준 satisfaction 총 건수 (조회 누락 감지용). 알 수 없으면 null. */
+export async function loadSatisfactionCount(): Promise<number | null> {
+  if (isDummyMode()) return getDummySatisfaction().length;
+  return getCachedSatisfactionCount();
 }
 
 // ── profiles 이름 매핑 ───────────────────────────────────────
@@ -106,52 +228,76 @@ async function loadEmpNoToNameMap(
 }
 
 // ── feedback ────────────────────────────────────────────────
-const getCachedFeedback = unstable_cache(
-  async (): Promise<Feedback[]> => {
-    const admin = createAdminClient();
-    const [{ data, error }, actorMap] = await Promise.all([
+const FEEDBACK_COLS =
+  "id, satisfaction_id, status, detail_reason, cause_category, related_department, action, memo, created_by, updated_by, created_at, updated_at";
+
+/** feedback 전체 행 조회. satisfaction 과 동일한 폴백 전략. 실패 시 throw. */
+async function readFeedbackRows(admin: SupabaseClient): Promise<unknown[]> {
+  try {
+    // 페이지 경계 안정성을 위해 유일값(id)으로 정렬한다(기존에는 정렬이 없었다).
+    return await fetchPagedRows("loadFeedback", (from, to) =>
       admin
         .from("feedback")
-        .select(
-          "id, satisfaction_id, status, detail_reason, cause_category, related_department, action, memo, created_by, updated_by, created_at, updated_at",
-        ),
-      loadActorNameMap(admin),
-    ]);
+        .select(FEEDBACK_COLS)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+  } catch (e) {
+    console.error(`${errText(e)} — 단일 조회로 폴백`);
+    return await fetchSingleRows("loadFeedback", () =>
+      admin.from("feedback").select(FEEDBACK_COLS),
+    );
+  }
+}
 
-    if (error) {
-      console.error("loadFeedback 실패:", error.message);
-      return [];
-    }
+async function readFeedback(): Promise<Feedback[]> {
+  const admin = createAdminClient();
+  const [rows, actorMap] = await Promise.all([
+    readFeedbackRows(admin),
+    loadActorNameMap(admin),
+  ]);
 
-    return (data ?? []).map((f) => ({
-      id: f.id as string,
-      satisfaction_id: f.satisfaction_id as string,
-      // 저장값으로 정규화: 과거 표기 '처리완료'가 남아 있어도 '조치완료'로 흡수
-      status: normalizeStatus(f.status as string | null),
-      detail_reason: (f.detail_reason as string | null) ?? null,
-      cause_category: (f.cause_category as string | null) ?? null,
-      related_department: (f.related_department as string | null) ?? null,
-      action: (f.action as string | null) ?? null,
-      memo: (f.memo as string | null) ?? null,
-      created_by: f.created_by
-        ? (actorMap.get(f.created_by as string) ?? (f.created_by as string))
-        : null,
-      updated_by: f.updated_by
-        ? (actorMap.get(f.updated_by as string) ?? (f.updated_by as string))
-        : null,
-      created_at: f.created_at as string,
-      updated_at: f.updated_at as string,
-    }));
-  },
-  ["feedback-all"],
+  return (rows as Record<string, unknown>[]).map((f) => ({
+    id: f.id as string,
+    satisfaction_id: f.satisfaction_id as string,
+    // 저장값으로 정규화: 과거 표기 '처리완료'가 남아 있어도 '조치완료'로 흡수
+    status: normalizeStatus(f.status as string | null),
+    detail_reason: (f.detail_reason as string | null) ?? null,
+    cause_category: (f.cause_category as string | null) ?? null,
+    related_department: (f.related_department as string | null) ?? null,
+    action: (f.action as string | null) ?? null,
+    memo: (f.memo as string | null) ?? null,
+    created_by: f.created_by
+      ? (actorMap.get(f.created_by as string) ?? (f.created_by as string))
+      : null,
+    updated_by: f.updated_by
+      ? (actorMap.get(f.updated_by as string) ?? (f.updated_by as string))
+      : null,
+    created_at: f.created_at as string,
+    updated_at: f.updated_at as string,
+  }));
+}
+
+const getCachedFeedback = unstable_cache(readFeedback, ["feedback-all"], {
   // 작성자명은 profiles 에 의존하므로 feedback 무효화 시 함께 갱신
-  { tags: [CACHE_TAGS.feedback], revalidate: CACHE_TTL },
-);
+  tags: [CACHE_TAGS.feedback],
+  revalidate: CACHE_TTL,
+});
 
 /** feedback 로드. created_by/updated_by(uuid)를 표시용 이름(없으면 사번)으로 변환 */
 export async function loadFeedback(): Promise<Feedback[]> {
   if (isDummyMode()) return getDummyFeedback();
-  return getCachedFeedback();
+  try {
+    return await getCachedFeedback();
+  } catch (e) {
+    console.error("loadFeedback 실패:", errText(e));
+    try {
+      return await readFeedback();
+    } catch (e2) {
+      console.error("loadFeedback 재시도 실패:", errText(e2));
+      return [];
+    }
+  }
 }
 
 // ── upload_batches ──────────────────────────────────────────

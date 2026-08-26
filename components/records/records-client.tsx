@@ -158,11 +158,14 @@ export default function RecordsClient({
   initialRecords,
   initialBatches,
   initialResetLogs,
+  dbCount,
   dbMode,
 }: {
   initialRecords: Satisfaction[];
   initialBatches: UploadBatch[];
   initialResetLogs: ResetLog[];
+  /** DB 실제 총 건수(진단용). 로드 건수와 다르면 조회가 잘린 것 — 경고 표시. */
+  dbCount: number | null;
   dbMode: boolean;
 }) {
   const router = useRouter();
@@ -508,6 +511,33 @@ export default function RecordsClient({
       </div>
 
       {toast && <div className="toast">{toast}</div>}
+
+      {/* 조회 누락 경고 — DB 실제 건수와 화면에 로드된 건수가 다르면 즉시 알린다.
+          (조회가 조용히 잘려 데이터가 없어진 것처럼 보이는 사고를 막기 위한 안전장치) */}
+      {dbCount !== null && dbCount !== records.length && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "12px 16px",
+            marginBottom: 16,
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#a13d38",
+            background: "#fdecea",
+            border: "1px solid #f0c4c1",
+            borderRadius: 10,
+          }}
+        >
+          <span aria-hidden="true">⚠️</span>
+          <span>
+            조회 누락 — DB에는 {dbCount.toLocaleString()}건이 있는데 화면에는{" "}
+            {records.length.toLocaleString()}건만 불러왔습니다. 새로고침해도 같으면
+            담당자에게 알려주세요.
+          </span>
+        </div>
+      )}
 
       {/* 최근 업로드 이력 */}
       <div style={{ ...card, marginBottom: 20 }}>
