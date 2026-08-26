@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  querySatisfaction,
-  type QueryParams,
-  type SortDir,
-  type SortKey,
+import type {
+  QueryParams,
+  SortDir,
+  SortKey,
 } from "@/lib/data/satisfaction-query";
-import { computeDisplayNo } from "@/lib/data/display-no";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { reasonLabel, REASON_OPTIONS } from "@/lib/reasons";
 import { formatKstDateTime, isDateRangeInvalid } from "@/lib/format-date";
@@ -22,8 +20,11 @@ import type {
 } from "@/lib/types";
 import {
   appendSatisfactionRows,
+  exportRecordsChunk,
   finishUpload,
+  queryRecordsPage,
   resetData,
+  type RecordsPage,
 } from "@/app/(app)/records/actions";
 import UploadDialog from "./upload-dialog";
 import RecordDetailDialog from "./record-detail-dialog";
@@ -78,7 +79,7 @@ const outlineBtn: React.CSSProperties = {
   borderRadius: 10,
   cursor: "pointer",
 };
-const searchInput: React.CSSProperties = {
+const searchInputStyle: React.CSSProperties = {
   flex: 1,
   minWidth: 200,
   height: 42,
@@ -155,28 +156,34 @@ function makeDuplicateLog(p: ParsedSatisfaction): UploadRowLog {
  * 검색/필터/정렬/페이징/내보내기 + 수동 업로드(FR-1.2) 누적 적재.
  */
 export default function RecordsClient({
-  initialRecords,
+  initialPage,
   initialBatches,
   initialResetLogs,
   dbCount,
   dbMode,
 }: {
-  initialRecords: Satisfaction[];
+  /** 서버에서 렌더한 첫 페이지 (기본 필터·정렬 기준) */
+  initialPage: RecordsPage;
   initialBatches: UploadBatch[];
   initialResetLogs: ResetLog[];
-  /** DB 실제 총 건수(진단용). 로드 건수와 다르면 조회가 잘린 것 — 경고 표시. */
+  /** DB 실제 총 건수(진단용). 인덱스 건수와 다르면 조회가 잘린 것 — 경고 표시. */
   dbCount: number | null;
   dbMode: boolean;
 }) {
   const router = useRouter();
-  const [records, setRecords] = useState<Satisfaction[]>(initialRecords);
+  // 목록은 서버에서 필터·정렬·페이징을 끝낸 "현재 페이지"만 받는다.
+  // (전체 행을 브라우저로 나르던 구조가 조회 상한·페이로드 문제의 원인이었다)
+  const [pageData, setPageData] = useState<RecordsPage>(initialPage);
+  const [listLoading, setListLoading] = useState(false);
   const [batches, setBatches] = useState<UploadBatch[]>(initialBatches);
   const [resetLogs, setResetLogs] = useState<ResetLog[]>(initialResetLogs);
 
-  useEffect(() => setRecords(initialRecords), [initialRecords]);
+  useEffect(() => setPageData(initialPage), [initialPage]);
   useEffect(() => setBatches(initialBatches), [initialBatches]);
   useEffect(() => setResetLogs(initialResetLogs), [initialResetLogs]);
 
+  // 검색어는 입력 즉시가 아니라 잠깐 멈춘 뒤 조회한다(타이핑마다 서버 왕복 방지).
+  const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [rating, setRating] = useState<Rating | "all">("all");
   const [reason, setReason] = useState<string>("all");
@@ -188,6 +195,7 @@ export default function RecordsClient({
   const [pageSize, setPageSize] = useState(10);
 
   const [histOpen, setHistOpen] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -196,26 +204,59 @@ export default function RecordsClient({
   const [showResetHistory, setShowResetHistory] = useState(false);
   const [resetting, setResetting] = useState(false);
 
-  const displayNo = useMemo(() => computeDisplayNo(records), [records]);
   const dateRangeInvalid = isDateRangeInvalid(dateFrom, dateTo);
 
-  const params: QueryParams = {
-    search,
-    rating,
-    reason,
-    dateFrom: dateRangeInvalid ? undefined : dateFrom || undefined,
-    dateTo: dateRangeInvalid ? undefined : dateTo || undefined,
-    sortKey,
-    sortDir,
-    page,
-    pageSize,
-  };
-
-  const result = useMemo(
-    () => querySatisfaction(records, params),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [records, search, rating, reason, dateFrom, dateTo, sortKey, sortDir, page, pageSize],
+  const params: QueryParams = useMemo(
+    () => ({
+      search,
+      rating,
+      reason,
+      dateFrom: dateRangeInvalid ? undefined : dateFrom || undefined,
+      dateTo: dateRangeInvalid ? undefined : dateTo || undefined,
+      sortKey,
+      sortDir,
+      page,
+      pageSize,
+    }),
+    [search, rating, reason, dateFrom, dateTo, dateRangeInvalid, sortKey, sortDir, page, pageSize],
   );
+
+  // 검색어 디바운스 — 입력이 멈춘 뒤에만 조회 조건에 반영한다.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchDraft !== search) {
+        setSearch(searchDraft);
+        setPage(1);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchDraft, search]);
+
+  /** 현재 조건으로 서버에서 페이지를 다시 가져온다. */
+  const fetchPage = useCallback(async (p: QueryParams) => {
+    setListLoading(true);
+    try {
+      setPageData(await queryRecordsPage(p));
+    } catch (e) {
+      console.error("목록 조회 실패:", e);
+    } finally {
+      setListLoading(false);
+    }
+  }, []);
+
+  // 조건이 바뀌면 해당 페이지만 서버에서 받아온다.
+  // 첫 렌더는 서버가 준 initialPage 를 그대로 쓰므로 건너뛴다(중복 조회 방지).
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    void fetchPage(params);
+  }, [params, fetchPage]);
+
+  const displayNo = pageData.displayNo;
+  const result = pageData;
 
   function resetPage<T>(setter: (v: T) => void) {
     return (v: T) => {
@@ -242,23 +283,43 @@ export default function RecordsClient({
     };
   }
 
-  function onExport(format: ExportFormat) {
-    const all = querySatisfaction(records, {
-      ...params,
-      page: 1,
-      pageSize: result.total || 1,
-    });
-    const flat = all.rows.map((r) => ({
-      no: displayNo.get(r.id) ?? r.record_no,
-      rating: r.rating,
-      reason: r.reason ?? "",
-      reason_label: reasonLabel(r.reason),
-      query: r.query ?? "",
-      summary_text: r.summary_text ?? "",
-      comment: r.comment ?? "",
-      created_at: r.created_at,
-    }));
-    exportRows(flat, `satisfaction_${new Date().toISOString().slice(0, 10)}`, format);
+  /**
+   * 내보내기 — 필터 결과 **전체**를 서버에서 청크로 이어 받아 파일로 만든다.
+   * 한 번에 다 받으면 응답 크기 한도에 걸릴 수 있어 나눠 받는다.
+   */
+  async function onExport(format: ExportFormat) {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const flat: Record<string, unknown>[] = [];
+      let offset = 0;
+      for (;;) {
+        const chunk = await exportRecordsChunk(params, offset);
+        for (const r of chunk.rows) {
+          flat.push({
+            no: chunk.displayNo[r.id] ?? r.record_no,
+            rating: r.rating,
+            reason: r.reason ?? "",
+            reason_label: reasonLabel(r.reason),
+            query: r.query ?? "",
+            summary_text: r.summary_text ?? "",
+            comment: r.comment ?? "",
+            created_at: r.created_at,
+          });
+        }
+        offset += chunk.rows.length;
+        // 빈 청크이거나 전체를 다 받았으면 종료 (무한 루프 방지)
+        if (chunk.rows.length === 0 || offset >= chunk.total) break;
+        setToast(`내보내기 준비 중… ${offset}/${chunk.total}`);
+      }
+      setToast(null);
+      exportRows(flat, `satisfaction_${new Date().toISOString().slice(0, 10)}`, format);
+    } catch (e) {
+      setToast(`내보내기 실패 — ${e instanceof Error ? e.message : "알 수 없는 오류"}`);
+      setTimeout(() => setToast(null), 6000);
+    } finally {
+      setExporting(false);
+    }
   }
 
   /**
@@ -378,6 +439,8 @@ export default function RecordsClient({
         `적재 완료 — 신규 ${inserted} · 갱신 ${updated} · 파일 내 중복 ${duplicate} · 실패 ${meta.failedCount}`,
       );
       setTimeout(() => setToast(null), 5000);
+      // 목록은 서버에서 다시 받아 즉시 갱신하고, 업로드 이력 등 나머지는 refresh 로 동기화한다.
+      await fetchPage({ ...params, page: 1 });
       router.refresh();
     } catch (e) {
       setToast(`업로드 실패 — ${e instanceof Error ? e.message : "알 수 없는 오류"}`);
@@ -388,6 +451,7 @@ export default function RecordsClient({
   }
 
   function resetFilters() {
+    setSearchDraft("");
     setSearch("");
     setRating("all");
     setReason("all");
@@ -409,7 +473,14 @@ export default function RecordsClient({
       setPage(1);
       // 서버 재조회(router.refresh)를 기다리지 않고 화면 상태를 즉시 비운다.
       // → 평가 표·"최근 업로드 이력"(upload_batches) 영역이 곧바로 0건/빈 상태로 보인다.
-      setRecords([]);
+      setPageData({
+        rows: [],
+        displayNo: {},
+        total: 0,
+        totalPages: 1,
+        page: 1,
+        indexCount: 0,
+      });
       setBatches([]);
       setToast("모든 데이터를 초기화했습니다.");
       setTimeout(() => setToast(null), 4000);
@@ -512,9 +583,9 @@ export default function RecordsClient({
 
       {toast && <div className="toast">{toast}</div>}
 
-      {/* 조회 누락 경고 — DB 실제 건수와 화면에 로드된 건수가 다르면 즉시 알린다.
+      {/* 조회 누락 경고 — DB 실제 건수와 서버가 읽어온 인덱스 건수가 다르면 즉시 알린다.
           (조회가 조용히 잘려 데이터가 없어진 것처럼 보이는 사고를 막기 위한 안전장치) */}
-      {dbCount !== null && dbCount !== records.length && (
+      {dbCount !== null && dbCount !== pageData.indexCount && (
         <div
           style={{
             display: "flex",
@@ -532,8 +603,8 @@ export default function RecordsClient({
         >
           <span aria-hidden="true">⚠️</span>
           <span>
-            조회 누락 — DB에는 {dbCount.toLocaleString()}건이 있는데 화면에는{" "}
-            {records.length.toLocaleString()}건만 불러왔습니다. 새로고침해도 같으면
+            조회 누락 — DB에는 {dbCount.toLocaleString()}건이 있는데 조회된 건{" "}
+            {pageData.indexCount.toLocaleString()}건뿐입니다. 새로고침해도 같으면
             담당자에게 알려주세요.
           </span>
         </div>
@@ -648,11 +719,11 @@ export default function RecordsClient({
           flexWrap: "wrap",
         }}
       >
-        <button style={exportBtn} onClick={() => onExport("csv")}>
-          CSV 내보내기
+        <button style={exportBtn} onClick={() => onExport("csv")} disabled={exporting}>
+          {exporting ? "내보내는 중…" : "CSV 내보내기"}
         </button>
-        <button style={exportBtn} onClick={() => onExport("xlsx")}>
-          XLSX 내보내기
+        <button style={exportBtn} onClick={() => onExport("xlsx")} disabled={exporting}>
+          {exporting ? "내보내는 중…" : "XLSX 내보내기"}
         </button>
         <button style={primaryBtn} onClick={() => setShowUpload(true)}>
           업로드
@@ -694,9 +765,9 @@ export default function RecordsClient({
           </div>
           <input
             placeholder="질의어 입력"
-            style={searchInput}
-            value={search}
-            onChange={(e) => resetPage(setSearch)(e.target.value)}
+            style={searchInputStyle}
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
           />
           <button style={outlineBtn} onClick={resetFilters}>
             필터 초기화
@@ -752,8 +823,15 @@ export default function RecordsClient({
                 <th style={th}>의견</th>
               </tr>
             </thead>
-            <tbody>
-              {result.rows.length === 0 ? (
+            {/* 조회 중에는 표를 살짝 흐리게 — 이전 페이지가 남아 깜빡임이 없다 */}
+            <tbody style={{ opacity: listLoading ? 0.55 : 1, transition: "opacity .15s" }}>
+              {listLoading && result.rows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                    불러오는 중…
+                  </td>
+                </tr>
+              ) : result.rows.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
                     조건에 맞는 데이터가 없습니다.
@@ -767,7 +845,7 @@ export default function RecordsClient({
                     style={{ borderBottom: "1px solid #f1f3f5", cursor: "pointer" }}
                   >
                     <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
-                      {displayNo.get(r.id) ?? r.record_no}
+                      {displayNo[r.id] ?? r.record_no}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {formatKstDateTime(r.created_at)}
@@ -841,7 +919,7 @@ export default function RecordsClient({
       {detail && (
         <RecordDetailDialog
           row={detail}
-          no={displayNo.get(detail.id) ?? detail.record_no}
+          no={displayNo[detail.id] ?? detail.record_no}
           onClose={() => setDetail(null)}
         />
       )}

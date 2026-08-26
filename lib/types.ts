@@ -171,6 +171,19 @@ export interface SatisfactionStat {
 }
 
 /**
+ * 데이터 조회 목록의 검색·필터·정렬·순번 계산에 필요한 컬럼만 담은 경량 인덱스.
+ *
+ * SatisfactionStat 에 목록 검색 대상인 query 와 record_no 를 더한 형태.
+ * 본문(summary_text/comment)은 빠져 있어 행당 ~200B 수준이고, 서버 안에서만
+ * 쓰인다(브라우저로는 현재 페이지 행만 나간다).
+ * Satisfaction 이 이 필드를 모두 포함하므로 그대로 대입할 수 있다(더미 모드 호환).
+ */
+export interface SatisfactionIndex extends SatisfactionStat {
+  record_no: number;
+  query: string | null;
+}
+
+/**
  * 업로드 파싱·검증을 통과한 행 (적재 전).
  * id/record_no/upload_batch_id 는 적재 시점(DB 트리거 또는 앱)에서 부여된다.
  */

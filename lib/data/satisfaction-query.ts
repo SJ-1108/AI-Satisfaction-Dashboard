@@ -1,4 +1,4 @@
-import type { Rating, Satisfaction } from "@/lib/types";
+import type { Rating, SatisfactionIndex } from "@/lib/types";
 import { kstDatePart } from "@/lib/format-date";
 
 /**
@@ -23,7 +23,7 @@ export interface QueryParams {
 }
 
 export interface QueryResult {
-  rows: Satisfaction[];
+  rows: SatisfactionIndex[];
   total: number; // 필터 적용 후 전체 건수
   totalPages: number;
   page: number;
@@ -39,7 +39,7 @@ const DEFAULTS: Required<
 };
 
 export function querySatisfaction(
-  records: Satisfaction[],
+  records: SatisfactionIndex[],
   params: QueryParams = {},
 ): QueryResult {
   const sortKey = params.sortKey ?? DEFAULTS.sortKey;
@@ -93,7 +93,7 @@ export function querySatisfaction(
 }
 
 /** 필터 드롭다운용: 데이터에 존재하는 reason 코드 목록 (정렬, null 제외) */
-export function distinctReasons(records: Satisfaction[]): string[] {
+export function distinctReasons(records: SatisfactionIndex[]): string[] {
   const set = new Set<string>();
   for (const r of records) {
     if (r.reason) set.add(r.reason);

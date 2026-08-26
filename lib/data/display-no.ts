@@ -1,4 +1,4 @@
-import type { Satisfaction } from "@/lib/types";
+import type { SatisfactionIndex } from "@/lib/types";
 
 /**
  * 화면 표시용 누적 번호(display No.) 계산.
@@ -11,7 +11,7 @@ import type { Satisfaction } from "@/lib/types";
  *
  * 반환: satisfaction.id → display No. 매핑
  */
-export function computeDisplayNo(records: Satisfaction[]): Map<string, number> {
+export function computeDisplayNo(records: SatisfactionIndex[]): Map<string, number> {
   const sorted = records.slice().sort((a, b) => {
     const ta = Date.parse(a.created_at);
     const tb = Date.parse(b.created_at);

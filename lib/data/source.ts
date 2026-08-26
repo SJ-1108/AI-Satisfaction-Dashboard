@@ -13,6 +13,7 @@ import type {
   Feedback,
   ResetLog,
   Satisfaction,
+  SatisfactionIndex,
   SatisfactionStat,
   UploadBatch,
 } from "@/lib/types";
@@ -243,6 +244,94 @@ export async function loadSatisfactionStats(): Promise<SatisfactionStat[]> {
       return [];
     }
   }
+}
+
+// ── 목록 인덱스 조회 (데이터 조회 서버 페이징) ──────────────
+/**
+ * 데이터 조회 목록의 검색·필터·정렬·순번 계산에 필요한 컬럼만 조회한다.
+ * 본문(summary_text/comment)이 빠져 행당 ~200B. 이 배열은 **서버 안에서만** 쓰이고,
+ * 브라우저로는 현재 페이지 행(전체 컬럼)만 나간다.
+ */
+const SATISFACTION_INDEX_COLS = "id, record_no, query, rating, reason, created_at";
+
+async function readSatisfactionIndex(): Promise<SatisfactionIndex[]> {
+  const admin = createAdminClient();
+  try {
+    return (await fetchPagedRows("loadSatisfactionIndex", (from, to) =>
+      admin
+        .from("satisfaction")
+        .select(SATISFACTION_INDEX_COLS)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    )) as SatisfactionIndex[];
+  } catch (e) {
+    console.error(`${errText(e)} — 단일 조회로 폴백`);
+    return (await fetchSingleRows("loadSatisfactionIndex", () =>
+      admin.from("satisfaction").select(SATISFACTION_INDEX_COLS),
+    )) as SatisfactionIndex[];
+  }
+}
+
+const getCachedSatisfactionIndex = unstable_cache(
+  readSatisfactionIndex,
+  ["satisfaction-index"],
+  { tags: [CACHE_TAGS.satisfaction], revalidate: CACHE_TTL },
+);
+
+/** 목록 인덱스 로드 (서버 전용). */
+export async function loadSatisfactionIndex(): Promise<SatisfactionIndex[]> {
+  if (isDummyMode()) return getDummySatisfaction();
+  try {
+    return await getCachedSatisfactionIndex();
+  } catch (e) {
+    console.error("loadSatisfactionIndex 실패:", errText(e));
+    try {
+      return await readSatisfactionIndex();
+    } catch (e2) {
+      console.error("loadSatisfactionIndex 재시도 실패:", errText(e2));
+      return [];
+    }
+  }
+}
+
+/**
+ * id 목록으로 전체 컬럼 행을 조회한다(현재 페이지 행 채우기용).
+ * 반환 순서는 입력 ids 순서를 그대로 따른다(.in 은 순서를 보장하지 않는다).
+ * .in 의 URL 길이 한도를 피하려고 청크로 나눠 요청한다.
+ */
+const HYDRATE_CHUNK = 200;
+
+export async function loadSatisfactionByIds(
+  ids: string[],
+): Promise<Satisfaction[]> {
+  if (ids.length === 0) return [];
+
+  let found: Satisfaction[];
+  if (isDummyMode()) {
+    found = getDummySatisfaction();
+  } else {
+    const admin = createAdminClient();
+    const collected: Satisfaction[] = [];
+    for (let i = 0; i < ids.length; i += HYDRATE_CHUNK) {
+      const slice = ids.slice(i, i + HYDRATE_CHUNK);
+      const { data, error } = await admin
+        .from("satisfaction")
+        .select(SATISFACTION_COLS)
+        .in("id", slice);
+      if (error) {
+        console.error("loadSatisfactionByIds 실패:", error.message);
+        return [];
+      }
+      collected.push(...((data ?? []) as Satisfaction[]));
+    }
+    found = collected;
+  }
+
+  const byId = new Map(found.map((r) => [r.id, r]));
+  return ids
+    .map((id) => byId.get(id))
+    .filter((r): r is Satisfaction => r !== undefined);
 }
 
 // ── 불만족(down) 전용 조회 (불만족 평가 관리) ────────────────

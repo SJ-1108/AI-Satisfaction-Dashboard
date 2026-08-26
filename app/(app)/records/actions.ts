@@ -5,7 +5,17 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { emailToEmpNo } from "@/lib/empno";
-import { CACHE_TAGS } from "@/lib/data/source";
+import {
+  CACHE_TAGS,
+  loadSatisfactionByIds,
+  loadSatisfactionIndex,
+} from "@/lib/data/source";
+import { computeDisplayNo } from "@/lib/data/display-no";
+import {
+  querySatisfaction,
+  type QueryParams,
+} from "@/lib/data/satisfaction-query";
+import type { Satisfaction } from "@/lib/types";
 import {
   appendDummyRows,
   recordDummyBatch,
@@ -19,6 +29,103 @@ import type {
 
 /** 대용량 업로드 시 DB 요청을 나누는 청크 크기 (URL 길이·페이로드·타임아웃 한도 회피) */
 const DB_CHUNK_SIZE = 500;
+
+/**
+ * 데이터 조회 목록 1페이지 (FR-3.2) — 서버에서 검색·필터·정렬·페이징을 끝내고
+ * **현재 페이지 행만** 돌려준다.
+ *
+ * 전체 행을 브라우저로 보내던 기존 구조는 누적이 늘수록 페이로드가 선형으로 커져
+ * (행당 summary_text 3KB 안팎) 조회 상한·캐시 한도에 부딪혔다. 이제 서버는
+ * 경량 인덱스(행당 ~200B, 캐시됨)로 필터·정렬·순번을 계산하고, 확정된 페이지의
+ * id 로만 전체 컬럼을 채운다 → 브라우저 전송량이 페이지 크기에 비례한다.
+ *
+ * 필터·정렬·순번 계산은 기존 순수 함수(querySatisfaction/computeDisplayNo)를
+ * 그대로 재사용하므로 화면 동작이 이전과 동일하다.
+ */
+export interface RecordsPage {
+  /** 현재 페이지 행 (전체 컬럼) */
+  rows: Satisfaction[];
+  /** 행 id → 화면 표시 No. (전체 데이터 기준, 필터와 무관하게 고정) */
+  displayNo: Record<string, number>;
+  /** 필터 적용 후 건수 */
+  total: number;
+  totalPages: number;
+  /** 실제로 반환한 페이지 번호 (범위를 벗어나면 보정됨) */
+  page: number;
+  /** 필터 이전 전체 건수 (조회 누락 진단용) */
+  indexCount: number;
+}
+
+/**
+ * 로그인 확인. 서버 액션은 페이지와 별개로 호출 가능한 엔드포인트이므로,
+ * 미들웨어 보호에 더해 여기서도 막는다(이중 방어). 더미 모드는 인증이 없어 통과.
+ */
+async function assertSession(): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("세션이 만료되었습니다. 다시 로그인하세요.");
+}
+
+export async function queryRecordsPage(
+  params: QueryParams,
+): Promise<RecordsPage> {
+  await assertSession();
+  const index = await loadSatisfactionIndex();
+  const displayNoMap = computeDisplayNo(index);
+  const result = querySatisfaction(index, params);
+
+  const ids = result.rows.map((r) => r.id);
+  const rows = await loadSatisfactionByIds(ids);
+
+  const displayNo: Record<string, number> = {};
+  for (const r of rows) {
+    const no = displayNoMap.get(r.id);
+    if (no !== undefined) displayNo[r.id] = no;
+  }
+
+  return {
+    rows,
+    displayNo,
+    total: result.total,
+    totalPages: result.totalPages,
+    page: result.page,
+    indexCount: index.length,
+  };
+}
+
+/**
+ * 내보내기용 — 필터 결과 전체를 페이지 단위로 이어서 받아간다.
+ * 한 번에 다 돌려주면 응답 크기 한도(Vercel 4.5MB)에 걸릴 수 있어,
+ * 클라이언트가 offset 을 올려가며 여러 번 호출한다.
+ */
+const EXPORT_CHUNK_SIZE = 500;
+
+export async function exportRecordsChunk(
+  params: QueryParams,
+  offset: number,
+): Promise<{ rows: Satisfaction[]; displayNo: Record<string, number>; total: number }> {
+  await assertSession();
+  const index = await loadSatisfactionIndex();
+  const displayNoMap = computeDisplayNo(index);
+  // 필터·정렬만 적용한 전체 결과에서 offset 구간을 잘라낸다.
+  const all = querySatisfaction(index, {
+    ...params,
+    page: 1,
+    pageSize: Number.MAX_SAFE_INTEGER,
+  });
+  const slice = all.rows.slice(offset, offset + EXPORT_CHUNK_SIZE);
+  const rows = await loadSatisfactionByIds(slice.map((r) => r.id));
+
+  const displayNo: Record<string, number> = {};
+  for (const r of rows) {
+    const no = displayNoMap.get(r.id);
+    if (no !== undefined) displayNo[r.id] = no;
+  }
+  return { rows, displayNo, total: all.total };
+}
 
 /**
  * appendSatisfactionRows 의 row별 처리 결과 (upload_batch_rows 로그 구성용).
