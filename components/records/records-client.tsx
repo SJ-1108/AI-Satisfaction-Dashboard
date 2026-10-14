@@ -20,10 +20,13 @@ import type {
 } from "@/lib/types";
 import {
   appendSatisfactionRows,
+  deleteRecordsInRange,
   exportRecordsChunk,
   finishUpload,
+  previewDeleteRange,
   queryRecordsPage,
   resetData,
+  type DeleteRangePreview,
   type RecordsPage,
 } from "@/app/(app)/records/actions";
 import UploadDialog from "./upload-dialog";
@@ -66,6 +69,20 @@ const primaryBtn: React.CSSProperties = {
   border: "none",
   borderRadius: 10,
   cursor: "pointer",
+};
+/** 파괴적 동작 버튼 (기간 삭제) — 업로드 버튼과 같은 줄에 서므로 높이 40 으로 맞춘다. */
+const dangerBtn: React.CSSProperties = {
+  height: 40,
+  padding: "0 16px",
+  fontSize: 13,
+  fontWeight: 600,
+  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
+  color: "#e0635d",
+  background: "#fff",
+  border: "1px solid #f0c4c1",
+  borderRadius: 10,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
 };
 const outlineBtn: React.CSSProperties = {
   height: 42,
@@ -201,6 +218,13 @@ export default function RecordsClient({
   const [uploading, setUploading] = useState(false);
   const [detail, setDetail] = useState<Satisfaction | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  // 기간 삭제 — 달력에서 고른 구간(KST 날짜)과 삭제 전 건수 미리보기
+  const [showDateDelete, setShowDateDelete] = useState(false);
+  const [delFrom, setDelFrom] = useState("");
+  const [delTo, setDelTo] = useState("");
+  const [delPreview, setDelPreview] = useState<DeleteRangePreview | null>(null);
+  const [delCounting, setDelCounting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showResetHistory, setShowResetHistory] = useState(false);
   const [resetting, setResetting] = useState(false);
 
@@ -458,6 +482,66 @@ export default function RecordsClient({
     setDateFrom("");
     setDateTo("");
     setPage(1);
+  }
+
+  // ── 기간 삭제 ──
+  /** 달력에서 구간을 고르면 삭제 전 건수를 서버에서 받아 확인 창에 보여준다. */
+  async function refreshDelPreview(f: string, t: string) {
+    if (!f || !t) {
+      setDelPreview(null);
+      return;
+    }
+    setDelCounting(true);
+    try {
+      const res = await previewDeleteRange(f, t);
+      setDelPreview(res.ok && res.preview ? res.preview : null);
+      if (!res.ok) {
+        setToast(`삭제 대상 확인 실패 — ${res.error ?? "알 수 없는 오류"}`);
+        setTimeout(() => setToast(null), 5000);
+      }
+    } finally {
+      setDelCounting(false);
+    }
+  }
+
+  function openDateDelete() {
+    // 기간은 **비워서** 시작한다. 목록 필터를 기본값으로 끌어오면 넓은 구간이 이미
+    // 선택된 상태로 열려, 확인 없이 누른 클릭 한 번이 대량 삭제가 될 수 있다.
+    // 되돌릴 수 없는 작업이므로 매번 직접 고르게 한다.
+    setDelFrom("");
+    setDelTo("");
+    setDelPreview(null);
+    setShowDateDelete(true);
+  }
+
+  async function onDeleteRange() {
+    if (!delFrom || !delTo) return;
+    setDeleting(true);
+    try {
+      const res = await deleteRecordsInRange(delFrom, delTo);
+      if (!res.ok) {
+        setToast(`삭제 실패 — ${res.error ?? "알 수 없는 오류"}`);
+        setTimeout(() => setToast(null), 6000);
+        return;
+      }
+      setShowDateDelete(false);
+      const fb = res.deletedFeedback ?? 0;
+      setToast(
+        `${delFrom === delTo ? delFrom : `${delFrom} ~ ${delTo}`} 평가 ` +
+          `${(res.deleted ?? 0).toLocaleString()}건을 삭제했습니다.` +
+          (fb > 0 ? ` (피드백 ${fb.toLocaleString()}건 포함)` : ""),
+      );
+      setTimeout(() => setToast(null), 5000);
+      // 목록은 즉시 다시 받아 반영하고, 대시보드·불만족 관리 등은 refresh 로 동기화한다.
+      setPage(1);
+      await fetchPage({ ...params, page: 1 });
+      router.refresh();
+    } catch (e) {
+      setToast(`삭제 실패 — ${e instanceof Error ? e.message : "알 수 없는 오류"}`);
+      setTimeout(() => setToast(null), 6000);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function onResetData() {
@@ -728,6 +812,9 @@ export default function RecordsClient({
         <button style={primaryBtn} onClick={() => setShowUpload(true)}>
           업로드
         </button>
+        <button style={dangerBtn} onClick={openDateDelete}>
+          기간 삭제
+        </button>
       </div>
 
       {/* 필터 */}
@@ -993,6 +1080,177 @@ export default function RecordsClient({
                 }}
               >
                 {resetting ? "삭제 중…" : "삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 기간 삭제 — 달력으로 구간을 고르고, 지워질 건수를 확인한 뒤 삭제한다. */}
+      {showDateDelete && (
+        <div
+          onClick={() => !deleting && setShowDateDelete(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(16,24,40,.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 460,
+              background: "#fff",
+              borderRadius: 16,
+              boxShadow: "0 20px 60px rgba(16,24,40,.3)",
+              padding: 28,
+            }}
+          >
+            <h2
+              style={{
+                margin: "0 0 8px",
+                fontSize: 18,
+                fontWeight: 700,
+                letterSpacing: "-0.3px",
+              }}
+            >
+              기간 삭제
+            </h2>
+            <p
+              style={{
+                margin: "0 0 18px",
+                fontSize: 14,
+                lineHeight: 1.6,
+                color: "#5a616e",
+              }}
+            >
+              선택한 기간의 평가 데이터를 삭제합니다. 기준은 <strong>평가 시각</strong>
+              (업로드 시각이 아닙니다)이며 시작일·종료일 모두 포함합니다.
+            </p>
+
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ ...filterLabel, marginBottom: 8 }}>삭제할 기간</div>
+              <DateRangePicker
+                from={delFrom}
+                to={delTo}
+                onChange={(f, t) => {
+                  setDelFrom(f);
+                  setDelTo(t);
+                  void refreshDelPreview(f, t);
+                }}
+              />
+            </div>
+
+            {/* 삭제 대상 건수 — 0건이면 삭제 버튼을 막는다(헛클릭 방지) */}
+            <div
+              style={{
+                padding: "12px 14px",
+                marginBottom: 18,
+                fontSize: 13,
+                lineHeight: 1.7,
+                color: "#3a4150",
+                background: "#f7f8fa",
+                border: "1px solid #eceef1",
+                borderRadius: 10,
+              }}
+            >
+              {!delFrom || !delTo ? (
+                <span style={{ color: "#6b7280" }}>기간을 선택하세요.</span>
+              ) : delCounting ? (
+                <span style={{ color: "#6b7280" }}>삭제 대상 확인 중…</span>
+              ) : delPreview === null ? (
+                <span style={{ color: "#6b7280" }}>건수를 확인할 수 없습니다.</span>
+              ) : delPreview.records === 0 ? (
+                <span style={{ color: "#6b7280" }}>
+                  선택한 기간에 데이터가 없습니다.
+                </span>
+              ) : (
+                <>
+                  <div>
+                    평가 <strong>{delPreview.records.toLocaleString()}건</strong>
+                  </div>
+                  {delPreview.feedback > 0 && (
+                    <div style={{ color: "#a13d38" }}>
+                      불만족 관리 입력{" "}
+                      <strong>{delPreview.feedback.toLocaleString()}건</strong>도 함께
+                      삭제됩니다 (사유·원인·조치·메모)
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <p
+              style={{
+                margin: "0 0 22px",
+                fontSize: 13,
+                lineHeight: 1.6,
+                color: "#a13d38",
+              }}
+            >
+              이 작업은 <strong>되돌릴 수 없습니다.</strong> 평가 데이터는 파일을 다시
+              업로드하면 복구되지만, 불만족 관리에 입력한 내용은 복구되지 않습니다.
+            </p>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                onClick={() => setShowDateDelete(false)}
+                disabled={deleting}
+                style={{
+                  height: 42,
+                  padding: "0 18px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
+                  color: "#5a616e",
+                  background: "#fff",
+                  border: "1px solid #e2e5ea",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={onDeleteRange}
+                disabled={
+                  deleting ||
+                  delCounting ||
+                  !delFrom ||
+                  !delTo ||
+                  (delPreview?.records ?? 0) === 0
+                }
+                style={{
+                  height: 42,
+                  padding: "0 22px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
+                  color: "#fff",
+                  background: "#e0635d",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor:
+                    deleting || (delPreview?.records ?? 0) === 0
+                      ? "not-allowed"
+                      : "pointer",
+                  opacity:
+                    deleting ||
+                    delCounting ||
+                    !delFrom ||
+                    !delTo ||
+                    (delPreview?.records ?? 0) === 0
+                      ? 0.55
+                      : 1,
+                }}
+              >
+                {deleting ? "삭제 중…" : "삭제"}
               </button>
             </div>
           </div>
