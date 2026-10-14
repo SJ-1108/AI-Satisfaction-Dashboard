@@ -3,6 +3,7 @@ import { DUMMY_SATISFACTION } from "@/lib/data/dummy-satisfaction";
 import { DUMMY_FEEDBACK } from "@/lib/data/dummy-feedback";
 import { accumulateSatisfaction } from "@/lib/data/accumulate-satisfaction";
 import { upsertFeedback, type FeedbackEdit } from "@/lib/data/feedback-view";
+import { kstDatePart } from "@/lib/format-date";
 import type {
   Feedback,
   ParsedSatisfaction,
@@ -110,6 +111,32 @@ export function recordDummyBatch(
     failed_count: meta.failedCount,
     duplicate_count: totals.duplicate,
   };
+}
+
+/**
+ * 기간(KST 날짜) 삭제 — 구간에 속한 평가와 그에 달린 피드백을 함께 비운다.
+ * 실제 DB 의 feedback on delete cascade 와 동작을 맞춘 것이다.
+ * 업로드 이력(batches)은 건드리지 않는다(어떤 파일을 올렸는지는 남겨야 하므로).
+ */
+export function deleteDummyByDateRange(
+  from: string,
+  to: string,
+): { deleted: number; deletedFeedback: number } {
+  const s = store();
+  const victims = new Set(
+    s.satisfaction
+      .filter((r) => {
+        const d = kstDatePart(r.created_at);
+        return d >= from && d <= to;
+      })
+      .map((r) => r.id),
+  );
+  const deletedFeedback = s.feedback.filter((f) =>
+    victims.has(f.satisfaction_id),
+  ).length;
+  s.satisfaction = s.satisfaction.filter((r) => !victims.has(r.id));
+  s.feedback = s.feedback.filter((f) => !victims.has(f.satisfaction_id));
+  return { deleted: victims.size, deletedFeedback };
 }
 
 /** 피드백 저장 (satisfaction_id 기준 upsert, 순수 함수 재사용) */
