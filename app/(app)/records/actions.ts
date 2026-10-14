@@ -7,10 +7,12 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { emailToEmpNo } from "@/lib/empno";
 import {
   CACHE_TAGS,
+  loadFeedback,
   loadSatisfactionByIds,
   loadSatisfactionIndex,
 } from "@/lib/data/source";
 import { computeDisplayNo } from "@/lib/data/display-no";
+import { kstDatePart } from "@/lib/format-date";
 import {
   querySatisfaction,
   type QueryParams,
@@ -18,6 +20,7 @@ import {
 import type { Satisfaction } from "@/lib/types";
 import {
   appendDummyRows,
+  deleteDummyByDateRange,
   recordDummyBatch,
   resetDummyStore,
 } from "@/lib/data/dummy-store";
@@ -336,6 +339,144 @@ export async function finishUpload(
       duplicate_count: totals.duplicate,
     },
   };
+}
+
+// ── 기간 삭제 (FR-3 보조) ───────────────────────────────────
+/** YYYY-MM-DD 형식 검증 (달력에서 오지 않은 값도 서버에서 한 번 더 막는다) */
+function isYmd(v: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+/**
+ * KST 날짜 구간(YYYY-MM-DD, 양끝 포함) → created_at(timestamptz) 비교 경계.
+ * 상한은 종료일 **다음날 00:00(미포함)** 으로 잡아 종료일 23:59:59.999 까지 포함한다.
+ * (UTC 날짜로 자르면 하루 어긋나므로 반드시 +09:00 오프셋 기준으로 계산한다.)
+ */
+function kstDayBounds(from: string, to: string): { gte: string; lt: string } {
+  const next = new Date(`${to}T00:00:00+09:00`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return { gte: `${from}T00:00:00+09:00`, lt: next.toISOString() };
+}
+
+/** 기간 삭제 미리보기 — 삭제 버튼을 누르기 전 "몇 건이 지워지는지" 확인용. */
+export interface DeleteRangePreview {
+  /** 구간에 속한 평가 건수 */
+  records: number;
+  /** 함께 삭제되는 피드백(불만족 관리 입력) 건수 */
+  feedback: number;
+}
+
+/**
+ * 구간에 속한 평가/피드백 건수 집계 (삭제하지 않음).
+ *
+ * 목록 화면과 **같은 캐시된 인덱스**로 세므로, 확인 창의 건수가 기간 필터를 걸었을 때
+ * 보이는 건수와 일치한다. 피드백은 삭제될 평가 id 와 교차해 센다(cascade 예고).
+ */
+async function countInRange(from: string, to: string): Promise<DeleteRangePreview> {
+  const index = await loadSatisfactionIndex();
+  const victims = new Set(
+    index
+      .filter((r) => {
+        const d = kstDatePart(r.created_at);
+        return d >= from && d <= to;
+      })
+      .map((r) => r.id),
+  );
+  if (victims.size === 0) return { records: 0, feedback: 0 };
+  const feedback = await loadFeedback();
+  return {
+    records: victims.size,
+    feedback: feedback.filter((f) => victims.has(f.satisfaction_id)).length,
+  };
+}
+
+export async function previewDeleteRange(
+  from: string,
+  to: string,
+): Promise<{ ok: boolean; preview?: DeleteRangePreview; error?: string }> {
+  await assertSession();
+  if (!isYmd(from) || !isYmd(to)) {
+    return { ok: false, error: "날짜 형식이 올바르지 않습니다." };
+  }
+  if (from > to) return { ok: false, error: "시작일이 종료일보다 늦습니다." };
+  return { ok: true, preview: await countInRange(from, to) };
+}
+
+/** deleteRecordsInRange 결과 — 실제로 지워진 건수. */
+export interface DeleteRangeResult {
+  ok: boolean;
+  /** 삭제된 평가 건수 */
+  deleted?: number;
+  /** cascade 로 함께 삭제된 피드백 건수 */
+  deletedFeedback?: number;
+  error?: string;
+}
+
+/**
+ * 기간 삭제 (되돌릴 수 없음) — KST 날짜 구간(양끝 포함)의 평가를 지운다.
+ *
+ * - 범위는 created_at(평가 시각) 기준. 업로드 시각이 아니다.
+ * - feedback 은 FK on delete cascade 로 함께 사라진다 → 팀이 입력한 불만족 관리
+ *   내용(사유/원인/조치/메모)도 지워지므로 확인 창에서 건수를 먼저 보여준다.
+ * - upload_batches(업로드 이력)와 upload_batch_rows(행 로그)는 남긴다.
+ *   "어떤 파일을 언제 올렸는지"는 삭제와 무관한 기록이고, 행 로그의
+ *   satisfaction_id 는 on delete set null 로 끊어진다.
+ * - 삭제는 RLS 우회가 필요하므로 service-role 사용.
+ */
+export async function deleteRecordsInRange(
+  from: string,
+  to: string,
+): Promise<DeleteRangeResult> {
+  if (!isYmd(from) || !isYmd(to)) {
+    return { ok: false, error: "날짜 형식이 올바르지 않습니다." };
+  }
+  if (from > to) return { ok: false, error: "시작일이 종료일보다 늦습니다." };
+
+  // 더미(미리보기) 모드: 인메모리 저장소에서 제거
+  if (!isSupabaseConfigured()) {
+    const { deleted, deletedFeedback } = deleteDummyByDateRange(from, to);
+    return { ok: true, deleted, deletedFeedback };
+  }
+
+  // 쓰기 권한 확인 (세션)
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "세션이 만료되었습니다. 다시 로그인하세요." };
+
+  const admin = createAdminClient();
+  const { gte, lt } = kstDayBounds(from, to);
+
+  // 삭제 전 건수 — 평가는 DB 에 직접 물어 정확한 값을 쓴다(head:true 로 데이터 없이 count 만).
+  // 피드백은 캐시된 로더로 교차 집계한다(확인 창에 보여준 값과 같은 기준).
+  const { count, error: cntErr } = await admin
+    .from("satisfaction")
+    .select("*", { count: "exact", head: true })
+    .gte("created_at", gte)
+    .lt("created_at", lt);
+  if (cntErr) {
+    return { ok: false, error: `삭제 대상 조회 실패: ${cntErr.message}` };
+  }
+  const deleted = count ?? 0;
+  if (deleted === 0) return { ok: true, deleted: 0, deletedFeedback: 0 };
+
+  const { feedback: deletedFeedback } = await countInRange(from, to);
+
+  const del = await admin
+    .from("satisfaction")
+    .delete()
+    .gte("created_at", gte)
+    .lt("created_at", lt);
+  if (del.error) {
+    return { ok: false, error: `삭제 실패: ${del.error.message}` };
+  }
+
+  // 평가·피드백 캐시 무효화 → 대시보드·불만족 관리에도 즉시 반영
+  revalidateTag(CACHE_TAGS.satisfaction);
+  revalidateTag(CACHE_TAGS.feedback);
+
+  return { ok: true, deleted, deletedFeedback };
 }
 
 /**
