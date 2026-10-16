@@ -308,7 +308,7 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
         rating: ratingRaw || null, // 원본 rating 문자열(정규화 실패값일 수 있음)
         reason: normalizeReason(get(row, "reason")),
         comment: cleanText(get(row, "comment")) || null,
-        summary_text: cleanText(get(row, "summary_text")) || null,
+        summary_text: cleanText(get(row, "summary_text"), { plusAsSpace: true }) || null,
         feedback_created_at: created_at ?? null, // 파싱 실패 시 null
         device_type: get(row, "device_type").trim() || null,
         guardrail_label: get(row, "guardrail_label").trim() || null,
@@ -325,7 +325,7 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
     const record: ParsedSatisfaction = {
       // 텍스트 필드는 전처리(+→공백, 태그/엔티티/마커 제거)
       query: cleanText(get(row, "query")) || null,
-      summary_text: cleanText(get(row, "summary_text")) || null,
+      summary_text: cleanText(get(row, "summary_text"), { plusAsSpace: true }) || null,
       rating: rating!,
       reason: normalizeReason(get(row, "reason")), // 코드값(한글 라벨은 코드로 변환) — 정제 제외
       comment: cleanText(get(row, "comment")) || null,
