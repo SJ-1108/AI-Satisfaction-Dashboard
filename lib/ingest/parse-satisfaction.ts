@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import type { ParsedSatisfaction, Rating, UploadRowLog } from "@/lib/types";
 import { makeRecordKey } from "@/lib/ingest/record-key";
 import { cleanText } from "@/lib/ingest/clean-text";
+import { REASON_LABELS } from "@/lib/reasons";
 
 /**
  * 수동 업로드 파싱·자동매핑·검증 (FR-1.2).
@@ -10,6 +11,7 @@ import { cleanText } from "@/lib/ingest/clean-text";
  * search_event_id(개인정보)는 업로드 파일에 없다고 가정한다.
  * 필수 컬럼: query, summary_text, rating, created_at
  * 권장 컬럼: reason, comment, device_type, guardrail_label (없으면 null)
+ *   reason 은 코드값(intent_mismatch 등) 또는 한글 라벨(reason_label) 모두 허용 — 라벨은 코드로 변환해 저장.
  * 검증을 통과한 행은 record_key 를 부여해 반환한다 (적재 시 중복 판별 기준).
  */
 
@@ -40,7 +42,7 @@ const COLUMN_ALIASES: Record<ColumnKey, string[]> = {
   query: ["query", "검색어", "질의", "질의어"],
   summary_text: ["summary text", "summary", "요약", "ai 요약", "응답", "ai 답변", "답변"],
   rating: ["rating", "평가", "평가값"],
-  reason: ["reason", "사유", "사유 코드", "평가 사유"],
+  reason: ["reason", "reason label", "사유", "사유 코드", "평가 사유"],
   comment: ["comment", "의견", "코멘트"],
   device_type: ["device type", "기기", "기기 종류"],
   guardrail_label: ["guardrail label", "가드레일"],
@@ -158,6 +160,25 @@ function normalizeRating(value: string): Rating | null {
   if (["up", "👍", "good", "1", "true", "만족"].includes(v)) return "up";
   if (["down", "👎", "bad", "0", "false", "불만족"].includes(v)) return "down";
   return null;
+}
+
+/** 공백 차이를 무시한 한글 라벨 → reason 코드 역인덱스 (모듈 로드 시 1회 구축) */
+const REASON_LABEL_TO_CODE: Map<string, string> = new Map(
+  Object.entries(REASON_LABELS).map(([code, label]) => [
+    label.replace(/\s+/g, ""),
+    code,
+  ]),
+);
+
+/**
+ * reason 정규화: 원본이 한글 라벨(예: "질문 의도와 다른 정보를 답변함")이면
+ * 코드값(intent_mismatch)으로 바꾼다. 코드값·미매핑 값은 그대로, 빈 값은 null.
+ * (record_key 는 변환된 코드값 기준으로 만들어진다)
+ */
+function normalizeReason(value: string): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  return REASON_LABEL_TO_CODE.get(v.replace(/\s+/g, "")) ?? v;
 }
 
 /**
@@ -285,7 +306,7 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
         satisfaction_id: null,
         query: cleanText(get(row, "query")) || null,
         rating: ratingRaw || null, // 원본 rating 문자열(정규화 실패값일 수 있음)
-        reason: get(row, "reason").trim() || null,
+        reason: normalizeReason(get(row, "reason")),
         comment: cleanText(get(row, "comment")) || null,
         summary_text: cleanText(get(row, "summary_text")) || null,
         feedback_created_at: created_at ?? null, // 파싱 실패 시 null
@@ -306,7 +327,7 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
       query: cleanText(get(row, "query")) || null,
       summary_text: cleanText(get(row, "summary_text")) || null,
       rating: rating!,
-      reason: get(row, "reason").trim() || null, // 코드값 — 정제 제외
+      reason: normalizeReason(get(row, "reason")), // 코드값(한글 라벨은 코드로 변환) — 정제 제외
       comment: cleanText(get(row, "comment")) || null,
       // 카테고리성 라벨/코드값 — 정제 없이 trim 만(없으면 null). record_key 에는 미포함.
       device_type: get(row, "device_type").trim() || null,
