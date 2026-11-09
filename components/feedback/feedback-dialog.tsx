@@ -60,7 +60,13 @@ export default function FeedbackDialog({
     new Set([...CAUSE_CATEGORIES, ...(row.cause_category ? [row.cause_category] : [])]),
   );
 
-  const author = row.hasFeedback ? row.updated_by ?? currentUserName : currentUserName;
+  // 자동 판정 건(확인 전)은 작성자를 'AI 분류'로 표시. 저장하면 현재 사용자명으로 바뀐다
+  const author =
+    row.needs_review || row.auto_tier === "1단"
+      ? "AI 분류"
+      : row.hasFeedback
+        ? (row.updated_by ?? currentUserName)
+        : currentUserName;
   const savedAt = row.updated_at ? formatKstDateTime(row.updated_at) : null;
 
   function submit() {

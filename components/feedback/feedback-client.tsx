@@ -403,7 +403,8 @@ export default function FeedbackClient({
       "유관 부서 (related_department)": r.related_department ?? "",
       "피드백 내용 (action)": r.action ?? "",
       "처리 상태 (status)": statusLabel(r.status),
-      "담당자명 (updated_by)": r.updated_by ?? "",
+      "담당자명 (updated_by)":
+        r.needs_review || r.auto_tier === "1단" ? "AI 분류" : (r.updated_by ?? ""),
       "수정일시 (updated_at)": r.updated_at ? formatKstDateTime(r.updated_at) : "",
       "판정 (auto_tier)": r.auto_tier
         ? `${r.auto_tier}${r.needs_review ? " 확인 필요" : ""}`
@@ -432,9 +433,9 @@ export default function FeedbackClient({
   const autoOptions = [
     { label: "전체", value: "all" },
     { label: "확인 필요", value: "review" },
-    { label: "자동 확정(1단)", value: "tier1" },
-    { label: "자동 판정 전체", value: "auto" },
-    { label: "수동 작성", value: "manual" },
+    { label: "AI 분류 확정(1단)", value: "tier1" },
+    { label: "AI 분류 전체", value: "auto" },
+    { label: "담당자 작성", value: "manual" },
   ];
   const reviewCount = allRows.filter((r) => r.auto_tier === "2단" && r.needs_review).length;
 
@@ -975,23 +976,28 @@ export default function FeedbackClient({
                           : (r.updated_by ?? undefined)
                       }
                     >
-                      {/* 확인 전 2단 = '확인 필요', 자동 확정 1단 = '자동 1단',
-                          담당자가 확인·저장한 2단 = 담당자명(일반 행과 동일) */}
+                      {/* 자동 판정 건(확인 전 2단·자동 확정 1단)은 담당자명 대신 'AI 분류'.
+                          2단은 옆에 '확인 필요' 표시. 담당자가 확인·저장하면 담당자명으로 전환 */}
                       {r.needs_review || r.auto_tier === "1단" ? (
-                        <span
-                          style={{
-                            display: "inline-block",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            lineHeight: "18px",
-                            padding: "0 7px",
-                            borderRadius: 999,
-                            whiteSpace: "nowrap",
-                            color: r.needs_review ? "#8a4a33" : "#2f6bff",
-                            background: r.needs_review ? "#fbe9e3" : "#eef3ff",
-                          }}
-                        >
-                          {r.needs_review ? "확인 필요" : "자동 1단"}
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ color: "#2f6bff", fontWeight: 600 }}>AI 분류</span>
+                          {r.needs_review && (
+                            <span
+                              style={{
+                                display: "inline-block",
+                                fontSize: 11,
+                                fontWeight: 700,
+                                lineHeight: "18px",
+                                padding: "0 7px",
+                                borderRadius: 999,
+                                whiteSpace: "nowrap",
+                                color: "#8a4a33",
+                                background: "#fbe9e3",
+                              }}
+                            >
+                              확인 필요
+                            </span>
+                          )}
                         </span>
                       ) : (
                         (r.updated_by ?? "-")
