@@ -6,6 +6,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { CACHE_TAGS } from "@/lib/data/source";
 import { upsertDummyFeedback } from "@/lib/data/dummy-store";
 import type { FeedbackEdit } from "@/lib/data/feedback-view";
+import { markReviewed } from "@/lib/auto-judgement";
 
 /**
  * 불만족 피드백 저장 (DB 모드, FR-4.2/4.3).
@@ -29,7 +30,8 @@ export async function saveFeedback(
 
   const fields = {
     status: edit.status,
-    detail_reason: edit.detail_reason,
+    // 담당자가 직접 저장 → 자동 판정 표식의 '확인필요'를 해제(단계·확신도는 이력으로 남긴다)
+    detail_reason: markReviewed(edit.detail_reason),
     cause_category: edit.cause_category,
     related_department: edit.related_department,
     action: edit.action,

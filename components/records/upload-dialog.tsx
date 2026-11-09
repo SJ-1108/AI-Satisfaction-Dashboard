@@ -94,7 +94,10 @@ export default function UploadDialog({
           <code>comment</code>, <code>Device Type</code>, <code>Guardrail Label</code>.
           컬럼명은 대소문자·공백·<code>_</code>·<code>-</code> 차이를 무시하고 같은 의미로
           인식합니다. 같은 내용(record_key)은 갱신되어{" "}
-          <strong>중복 적재되지 않으며</strong>, 기존 데이터는 유지(누적)됩니다.
+          <strong>중복 적재되지 않으며</strong>, 기존 데이터는 유지(누적)됩니다. 자동 판정
+          컬럼(<code>원인 분류</code>·<code>유관 부서</code>·<code>처리 상태</code>·
+          <code>피드백 내용</code>·<code>메모</code>·<code>단계</code>·<code>확신도</code>)이
+          있으면 불만족 행의 피드백도 함께 저장됩니다(이미 피드백이 있는 건은 건너뜀).
           {dbMode ? " (실제 DB 저장)" : " (더미 모드 — 세션 메모리)"}
         </p>
 
@@ -118,6 +121,11 @@ export default function UploadDialog({
               <span className="ok">유효 {result.valid.length}</span>
               <span className="bad">오류 {result.failedCount}</span>
               <span>파일 내 중복 {result.duplicateInFile}</span>
+              {result.feedbackCount > 0 && (
+                <span className="ok" title="원인 분류·피드백 내용 등 판정 컬럼이 있는 불만족 행. 적재 시 피드백도 함께 저장됩니다.">
+                  피드백 포함 {result.feedbackCount}
+                </span>
+              )}
             </div>
 
             {/* 컬럼 자동 매핑 결과 */}

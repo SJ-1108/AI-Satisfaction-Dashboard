@@ -9,6 +9,7 @@ import {
   getDummyResetLogs,
   getDummySatisfaction,
 } from "@/lib/data/dummy-store";
+import { decodeAutoMark } from "@/lib/auto-judgement";
 import type {
   Feedback,
   ResetLog,
@@ -446,7 +447,10 @@ async function readFeedback(): Promise<Feedback[]> {
     loadActorNameMap(admin),
   ]);
 
-  return (rows as Record<string, unknown>[]).map((f) => ({
+  return (rows as Record<string, unknown>[]).map((f) => {
+    // 자동 판정 표식은 detail_reason 문자열에서 해석한다(스키마 변경 없음)
+    const mark = decodeAutoMark(f.detail_reason as string | null);
+    return {
     id: f.id as string,
     satisfaction_id: f.satisfaction_id as string,
     // 저장값으로 정규화: 과거 표기 '처리완료'가 남아 있어도 '조치완료'로 흡수
@@ -464,7 +468,11 @@ async function readFeedback(): Promise<Feedback[]> {
       : null,
     created_at: f.created_at as string,
     updated_at: f.updated_at as string,
-  }));
+    auto_tier: mark?.tier ?? null,
+    auto_confidence: mark?.confidence ?? null,
+    needs_review: mark?.needsReview ?? false,
+    };
+  });
 }
 
 const getCachedFeedback = unstable_cache(readFeedback, ["feedback-all"], {

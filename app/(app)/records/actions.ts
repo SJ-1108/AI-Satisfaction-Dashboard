@@ -12,6 +12,7 @@ import {
   loadSatisfactionIndex,
 } from "@/lib/data/source";
 import { computeDisplayNo } from "@/lib/data/display-no";
+import { decodeAutoMark, encodeAutoMark } from "@/lib/auto-judgement";
 import { kstDatePart } from "@/lib/format-date";
 import {
   querySatisfaction,
@@ -153,6 +154,10 @@ export interface AppendResult {
   updated?: number;
   /** row별 처리 결과 (record_key 기준). 더미 모드에서는 비어 있을 수 있다. */
   results?: RowActionResult[];
+  /** 업로드 파일의 피드백 컬럼(자동 판정)으로 새로 만든 feedback 행 수 */
+  feedbackWritten?: number;
+  /** 피드백 컬럼이 있었지만 기존 피드백이 있어 건너뛴 행 수(사람 기록 보존) */
+  feedbackSkipped?: number;
   error?: string;
 }
 
@@ -173,8 +178,8 @@ export async function appendSatisfactionRows(
 ): Promise<AppendResult> {
   // 더미(미리보기) 모드: 서버 인메모리 저장소에 누적
   if (!isSupabaseConfigured()) {
-    const { inserted, updated } = appendDummyRows(valid);
-    return { ok: true, inserted, updated };
+    const { inserted, updated, feedbackWritten, feedbackSkipped } = appendDummyRows(valid);
+    return { ok: true, inserted, updated, feedbackWritten, feedbackSkipped };
   }
 
   // 쓰기 권한 확인 (세션)
@@ -242,6 +247,83 @@ export async function appendSatisfactionRows(
     }
   }
 
+  // 피드백 컬럼(자동 판정 결과)이 붙은 down 행 → feedback 행 생성.
+  // 이미 feedback 이 있는 건은 건너뛴다(사람 기록·이전 자동 판정 모두 보존). 단, 아무 값도
+  // 없는 빈 행(미확인·원인/내용 없음·자동 표시 없음)만 자동 판정으로 채운다.
+  let feedbackWritten = 0;
+  let feedbackSkipped = 0;
+  const withFeedback = valid.filter((r) => r.feedback && idByKey.has(r.record_key));
+  if (withFeedback.length > 0) {
+    const sids = withFeedback.map((r) => idByKey.get(r.record_key)!);
+    const existingFb = new Map<
+      string,
+      { status: string; cause_category: string | null; action: string | null; detail_reason: string | null }
+    >();
+    for (let i = 0; i < sids.length; i += DB_CHUNK_SIZE) {
+      const slice = sids.slice(i, i + DB_CHUNK_SIZE);
+      const { data, error: fbErr } = await admin
+        .from("feedback")
+        .select("satisfaction_id, status, cause_category, action, detail_reason")
+        .in("satisfaction_id", slice);
+      if (fbErr) {
+        return { ok: false, error: `기존 피드백 조회 실패: ${fbErr.message}` };
+      }
+      for (const f of data ?? []) {
+        existingFb.set(f.satisfaction_id as string, {
+          status: f.status as string,
+          cause_category: (f.cause_category as string | null) ?? null,
+          action: (f.action as string | null) ?? null,
+          detail_reason: (f.detail_reason as string | null) ?? null,
+        });
+      }
+    }
+
+    const toWrite: Record<string, unknown>[] = [];
+    for (const r of withFeedback) {
+      const sid = idByKey.get(r.record_key)!;
+      const ex = existingFb.get(sid);
+      const isEmpty =
+        !ex ||
+        (ex.status === "미확인" &&
+          !ex.cause_category &&
+          !ex.action &&
+          !decodeAutoMark(ex.detail_reason));
+      if (!isEmpty) {
+        feedbackSkipped++;
+        continue;
+      }
+      const fb = r.feedback!;
+      toWrite.push({
+        satisfaction_id: sid,
+        status: fb.status,
+        // 자동 판정 표식(단계·확신도·확인 필요)은 detail_reason 에 문자열로 보관 — 스키마 변경 없음
+        detail_reason: fb.auto_tier
+          ? encodeAutoMark({
+              tier: fb.auto_tier,
+              confidence: fb.auto_confidence,
+              needsReview: fb.auto_tier === "2단",
+            })
+          : (ex?.detail_reason ?? null),
+        cause_category: fb.cause_category,
+        related_department: fb.related_department,
+        action: fb.action,
+        memo: fb.memo,
+        created_by: user.id,
+        updated_by: user.id,
+      });
+    }
+    for (let i = 0; i < toWrite.length; i += DB_CHUNK_SIZE) {
+      const slice = toWrite.slice(i, i + DB_CHUNK_SIZE);
+      const { error: wErr } = await admin
+        .from("feedback")
+        .upsert(slice, { onConflict: "satisfaction_id" });
+      if (wErr) {
+        return { ok: false, error: `피드백 적재 실패: ${wErr.message}` };
+      }
+      feedbackWritten += slice.length;
+    }
+  }
+
   // row별 결과 — 클라이언트가 record_key 로 원본 행과 조인해 upload_batch_rows 를 만든다.
   const results: RowActionResult[] = valid.map((r) => {
     const ex = existingByKey.get(r.record_key);
@@ -255,7 +337,7 @@ export async function appendSatisfactionRows(
     };
   });
 
-  return { ok: true, inserted, updated, results };
+  return { ok: true, inserted, updated, results, feedbackWritten, feedbackSkipped };
 }
 
 /**
@@ -323,9 +405,11 @@ export async function finishUpload(
     }
   }
 
-  // 누적 데이터·업로드 이력 캐시 무효화 → 모든 메뉴에 즉시 반영
+  // 누적 데이터·업로드 이력 캐시 무효화 → 모든 메뉴에 즉시 반영.
+  // 업로드 파일에 피드백 컬럼이 있으면 feedback 도 함께 적재되므로 피드백 캐시도 비운다.
   revalidateTag(CACHE_TAGS.satisfaction);
   revalidateTag(CACHE_TAGS.batches);
+  revalidateTag(CACHE_TAGS.feedback);
 
   return {
     ok: true,

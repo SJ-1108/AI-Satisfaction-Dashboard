@@ -3,6 +3,7 @@ import { DUMMY_SATISFACTION } from "@/lib/data/dummy-satisfaction";
 import { DUMMY_FEEDBACK } from "@/lib/data/dummy-feedback";
 import { accumulateSatisfaction } from "@/lib/data/accumulate-satisfaction";
 import { upsertFeedback, type FeedbackEdit } from "@/lib/data/feedback-view";
+import { encodeAutoMark } from "@/lib/auto-judgement";
 import { kstDatePart } from "@/lib/format-date";
 import type {
   Feedback,
@@ -67,6 +68,8 @@ export function getDummyResetLogs(): ResetLog[] {
 export function appendDummyRows(valid: ParsedSatisfaction[]): {
   inserted: number;
   updated: number;
+  feedbackWritten: number;
+  feedbackSkipped: number;
 } {
   const s = store();
   const { merged, inserted, updated } = accumulateSatisfaction(
@@ -75,7 +78,55 @@ export function appendDummyRows(valid: ParsedSatisfaction[]): {
     null,
   );
   s.satisfaction = merged;
-  return { inserted, updated };
+
+  // 피드백 컬럼(자동 판정)이 붙은 down 행 → feedback 생성. DB 모드와 같은 규칙:
+  // 기존 피드백이 있으면 건너뛰고(사람 기록 보존), 빈 행만 자동 판정으로 채운다.
+  const idByKey = new Map(merged.map((r) => [r.record_key, r.id]));
+  const fbBySid = new Map(s.feedback.map((f) => [f.satisfaction_id, f]));
+  const now = new Date().toISOString();
+  let feedbackWritten = 0;
+  let feedbackSkipped = 0;
+  for (const r of valid) {
+    if (!r.feedback) continue;
+    const sid = idByKey.get(r.record_key);
+    if (!sid) continue;
+    const ex = fbBySid.get(sid);
+    const isEmpty =
+      !ex ||
+      (ex.status === "미확인" && !ex.cause_category && !ex.action && !ex.auto_tier);
+    if (!isEmpty) {
+      feedbackSkipped++;
+      continue;
+    }
+    const fb: Feedback = {
+      id: ex?.id ?? `fb-${sid}`,
+      satisfaction_id: sid,
+      status: r.feedback.status,
+      // DB 모드와 같은 방식으로 detail_reason 에 자동 판정 표식을 남긴다
+      detail_reason: r.feedback.auto_tier
+        ? encodeAutoMark({
+            tier: r.feedback.auto_tier,
+            confidence: r.feedback.auto_confidence,
+            needsReview: r.feedback.auto_tier === "2단",
+          })
+        : (ex?.detail_reason ?? null),
+      cause_category: r.feedback.cause_category,
+      related_department: r.feedback.related_department,
+      action: r.feedback.action,
+      memo: r.feedback.memo,
+      created_by: ex?.created_by ?? "자동판정",
+      updated_by: "자동판정",
+      created_at: ex?.created_at ?? now,
+      updated_at: now,
+      auto_tier: r.feedback.auto_tier,
+      auto_confidence: r.feedback.auto_confidence,
+      needs_review: r.feedback.auto_tier === "2단",
+    };
+    fbBySid.set(sid, fb);
+    feedbackWritten++;
+  }
+  if (feedbackWritten > 0) s.feedback = Array.from(fbBySid.values());
+  return { inserted, updated, feedbackWritten, feedbackSkipped };
 }
 
 /** 업로드 1건 이력(batch) 기록 — 청크 누적이 끝난 뒤 1회 호출. */

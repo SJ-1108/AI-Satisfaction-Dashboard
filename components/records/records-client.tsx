@@ -378,6 +378,8 @@ export default function RecordsClient({
       const CHUNK = 1000;
       let inserted = 0; // 신규 추가
       let updated = 0; // record_key 일치 기존 갱신
+      let feedbackWritten = 0; // 판정 컬럼으로 함께 만든 피드백
+      let feedbackSkipped = 0; // 기존 피드백이 있어 건너뛴 판정
       const resultByKey = new Map<
         string,
         {
@@ -400,6 +402,8 @@ export default function RecordsClient({
         }
         inserted += res.inserted ?? 0;
         updated += res.updated ?? 0;
+        feedbackWritten += res.feedbackWritten ?? 0;
+        feedbackSkipped += res.feedbackSkipped ?? 0;
         for (const rr of res.results ?? []) {
           resultByKey.set(rr.record_key, {
             action: rr.action,
@@ -459,8 +463,12 @@ export default function RecordsClient({
       }
       setShowUpload(false);
       setPage(1);
+      const fbNote =
+        feedbackWritten + feedbackSkipped > 0
+          ? ` · 피드백 ${feedbackWritten}건 등록${feedbackSkipped ? ` (기존 ${feedbackSkipped}건 유지)` : ""}`
+          : "";
       setToast(
-        `적재 완료 — 신규 ${inserted} · 갱신 ${updated} · 파일 내 중복 ${duplicate} · 실패 ${meta.failedCount}`,
+        `적재 완료 — 신규 ${inserted} · 갱신 ${updated} · 파일 내 중복 ${duplicate} · 실패 ${meta.failedCount}${fbNote}`,
       );
       setTimeout(() => setToast(null), 5000);
       // 목록은 서버에서 다시 받아 즉시 갱신하고, 업로드 이력 등 나머지는 refresh 로 동기화한다.

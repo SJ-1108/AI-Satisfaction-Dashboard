@@ -198,6 +198,12 @@ export interface ParsedSatisfaction {
   // 업로드 엑셀 추가 컬럼 — 없거나 비면 null.
   device_type: string | null; // Device Type → 기기 종류
   guardrail_label: string | null; // Guardrail Label → 가드레일
+  /**
+   * 업로드 파일에 피드백 컬럼(원인 분류·피드백 내용 등)이 함께 들어온 경우(자동 판정 결과).
+   * rating=down 이고 판정값이 하나라도 있을 때만 채워지며, 적재 시 feedback 행을 함께 만든다.
+   * record_key 계산에는 포함하지 않는다(중복 판단 기준 불변).
+   */
+  feedback?: UploadFeedback | null;
   // ── 아래는 row별 로그(upload_batch_rows)용 부가정보. 클라이언트에서만 사용하고
   //    satisfaction 적재 payload·record_key 계산에는 포함하지 않는다(서버 전송 전 제거). ──
   /** 원본 파일 행 번호(헤더 제외 1-base) */
@@ -241,6 +247,27 @@ export interface UploadBatchRow extends UploadRowLog {
   created_at: string;
 }
 
+/**
+ * 자동 판정 단계. '1단' = 규칙상 명확해 자동 확정, '2단' = 초안만 채우고 담당자 확인 필요.
+ * null 은 사람이 직접 작성한 피드백.
+ */
+export type AutoTier = "1단" | "2단";
+export const AUTO_TIERS: AutoTier[] = ["1단", "2단"];
+
+/**
+ * 업로드 파일의 피드백 컬럼 묶음(자동 판정 결과). 적재 시 feedback 행으로 저장된다.
+ * status 는 normalizeStatus 로 저장값 도메인에 맞춰 둔 값.
+ */
+export interface UploadFeedback {
+  status: FeedbackStatus;
+  cause_category: string | null;
+  related_department: string | null;
+  action: string | null;
+  memo: string | null;
+  auto_tier: AutoTier | null;
+  auto_confidence: number | null;
+}
+
 /** feedback: 불만족 관리 내부 피드백 (satisfaction_id 1:1) */
 export interface Feedback {
   id: string;
@@ -256,6 +283,14 @@ export interface Feedback {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
+  // ── 자동 판정 표시. DB 컬럼이 아니라 detail_reason 의 '[자동판정] …' 표식을 해석한 값
+  //    (lib/auto-judgement.ts). 사람이 직접 작성한 행은 null / false. ──
+  /** 자동 판정 단계('1단'·'2단'), 사람이 작성한 행은 null */
+  auto_tier?: AutoTier | null;
+  /** 판정 확신도 0~1 (참고용) */
+  auto_confidence?: number | null;
+  /** 2단 건이 아직 담당자 확인 전이면 true. 모달에서 저장하면 false */
+  needs_review?: boolean;
 }
 
 /** profiles: 계정 (auth.users 연결) */

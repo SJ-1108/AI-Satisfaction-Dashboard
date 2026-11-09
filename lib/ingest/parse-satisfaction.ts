@@ -1,5 +1,13 @@
 import * as XLSX from "xlsx";
-import type { ParsedSatisfaction, Rating, UploadRowLog } from "@/lib/types";
+import {
+  AUTO_TIERS,
+  normalizeStatus,
+  type AutoTier,
+  type ParsedSatisfaction,
+  type Rating,
+  type UploadFeedback,
+  type UploadRowLog,
+} from "@/lib/types";
 import { makeRecordKey } from "@/lib/ingest/record-key";
 import { cleanText } from "@/lib/ingest/clean-text";
 import { REASON_LABELS } from "@/lib/reasons";
@@ -17,6 +25,38 @@ import { REASON_LABELS } from "@/lib/reasons";
 
 /** 표준 컬럼 key (DB 컬럼명 기준) — 파서/적재/record_key 가 공유하는 유일한 식별자 */
 type ColumnKey = keyof RawFields;
+
+/**
+ * 선택 컬럼: 피드백(자동 판정 결과). 업로드 파일에 이 컬럼들이 있으면 rating=down 행에 한해
+ * 적재 시 feedback 행을 함께 만든다. 없으면 기존과 동일하게 평가 원본만 적재한다.
+ * (헤더 별칭은 불만족 관리 내보내기 열 이름 · 자동 판정 도구 출력 열 이름을 모두 받는다)
+ */
+type FeedbackKey = keyof FeedbackRawFields;
+interface FeedbackRawFields {
+  fb_cause_category: string;
+  fb_related_department: string;
+  fb_status: string;
+  fb_action: string;
+  fb_memo: string;
+  fb_auto_tier: string;
+  fb_auto_confidence: string;
+}
+const FEEDBACK_ALIASES: Record<FeedbackKey, string[]> = {
+  fb_cause_category: ["cause category", "원인 분류", "원인분류"],
+  fb_related_department: ["related department", "유관 부서", "유관부서"],
+  fb_status: ["status", "처리 상태", "처리상태", "진행 상태"],
+  fb_action: ["action", "피드백 내용", "피드백내용", "조치 내용"],
+  fb_memo: ["memo", "메모", "판정 메모", "확인 포인트"],
+  fb_auto_tier: ["auto tier", "단계", "판정 단계"],
+  fb_auto_confidence: ["auto confidence", "확신도"],
+};
+const FEEDBACK_ALIAS_TO_KEY: Map<string, FeedbackKey> = (() => {
+  const m = new Map<string, FeedbackKey>();
+  (Object.keys(FEEDBACK_ALIASES) as FeedbackKey[]).forEach((key) => {
+    for (const alias of FEEDBACK_ALIASES[key]) m.set(normalizeHeader(alias), key);
+  });
+  return m;
+})();
 
 /**
  * 헤더 정규화 — 컬럼명 표기 차이를 흡수해 같은 의미의 헤더를 같은 토큰으로 만든다.
@@ -120,6 +160,65 @@ export interface ParseResult {
   totalRows: number;
   /** 파일 내부에서 record_key 가 겹친(중복) 행 수 */
   duplicateInFile: number;
+  /** 피드백(자동 판정) 컬럼 매핑 결과. 파일에 없으면 모두 null */
+  feedbackMapping: Record<FeedbackKey, string | null>;
+  /** 피드백이 함께 적재될 행 수(rating=down 이고 판정값이 있는 유효 행) */
+  feedbackCount: number;
+}
+
+/** 피드백 컬럼 헤더 매핑 (없으면 null). 첫 번째로 매칭된 헤더를 사용 */
+function buildFeedbackMapping(
+  headers: string[],
+): Record<FeedbackKey, string | null> {
+  const mapping = {} as Record<FeedbackKey, string | null>;
+  (Object.keys(FEEDBACK_ALIASES) as FeedbackKey[]).forEach((f) => {
+    mapping[f] = null;
+  });
+  for (const raw of headers) {
+    const key = FEEDBACK_ALIAS_TO_KEY.get(normalizeHeader(raw));
+    if (key && mapping[key] == null) mapping[key] = raw;
+  }
+  return mapping;
+}
+
+/**
+ * 한 행의 피드백 컬럼을 읽어 UploadFeedback 으로 만든다.
+ * 원인 분류·피드백 내용·처리 상태 중 하나도 없으면 null(피드백 없음).
+ * 상태는 저장값 도메인으로 정규화('처리완료'→'조치완료', 미매핑→'미확인').
+ */
+function extractFeedback(
+  row: Record<string, unknown>,
+  mapping: Record<FeedbackKey, string | null>,
+): UploadFeedback | null {
+  const get = (key: FeedbackKey): string => {
+    const header = mapping[key];
+    if (!header) return "";
+    const raw = row[header];
+    return raw == null ? "" : String(raw).trim();
+  };
+  const cause = get("fb_cause_category");
+  const action = get("fb_action");
+  const statusRaw = get("fb_status");
+  if (!cause && !action && !statusRaw) return null;
+
+  const tierRaw = get("fb_auto_tier");
+  const auto_tier = (AUTO_TIERS as string[]).includes(tierRaw)
+    ? (tierRaw as AutoTier)
+    : null;
+  const confRaw = get("fb_auto_confidence");
+  const conf = confRaw ? Number(confRaw) : NaN;
+  const auto_confidence =
+    Number.isFinite(conf) && conf >= 0 && conf <= 1 ? Math.round(conf * 100) / 100 : null;
+
+  return {
+    status: normalizeStatus(statusRaw || null),
+    cause_category: cause || null,
+    related_department: get("fb_related_department") || null,
+    action: action || null,
+    memo: get("fb_memo") || null,
+    auto_tier,
+    auto_confidence,
+  };
 }
 
 /** 파일(File)을 행 객체 배열로 읽는다 (CSV/XLSX 공통, SheetJS). */
@@ -237,7 +336,9 @@ function normalizeDate(value: unknown): string | null {
 export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
   const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
   const mapping = buildMapping(headers);
+  const feedbackMapping = buildFeedbackMapping(headers);
   const requiredMissing = REQUIRED_FIELDS.filter((f) => !mapping[f]);
+  let feedbackCount = 0;
 
   const valid: ParsedSatisfaction[] = [];
   const errors: RowError[] = [];
@@ -267,6 +368,8 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
       requiredMissing,
       totalRows: rows.length,
       duplicateInFile: 0,
+      feedbackMapping,
+      feedbackCount: 0,
     };
   }
 
@@ -340,6 +443,16 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
     };
     record.record_key = makeRecordKey(record);
 
+    // 피드백 컬럼(자동 판정 결과)은 불만족(down) 행에만 붙인다. record_key 계산 뒤에 붙여
+    // 중복 판단 기준에는 영향을 주지 않는다.
+    if (record.rating === "down") {
+      const fb = extractFeedback(row, feedbackMapping);
+      if (fb) {
+        record.feedback = fb;
+        feedbackCount++;
+      }
+    }
+
     if (seenKeys.has(record.record_key)) duplicateInFile++;
     seenKeys.add(record.record_key);
 
@@ -355,5 +468,7 @@ export function mapAndValidate(rows: Record<string, unknown>[]): ParseResult {
     requiredMissing,
     totalRows: rows.length,
     duplicateInFile,
+    feedbackMapping,
+    feedbackCount,
   };
 }
