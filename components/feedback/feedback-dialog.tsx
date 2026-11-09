@@ -150,6 +150,39 @@ export default function FeedbackDialog({
           <ReadField label="기기 종류">{row.device_type ?? "-"}</ReadField>
           <ReadField label="가드레일">{row.guardrail_label ?? "-"}</ReadField>
 
+          {/* 자동 판정 건: 단계·확신도·확인 포인트(메모)를 읽기 전용으로 보여 준다.
+              2단은 아래 초안을 담당자가 확인·수정 후 저장하면 '확인 필요' 표시가 사라진다. */}
+          {row.auto_tier && (
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: `1px solid ${row.needs_review ? "#f3cfc3" : "#cdd9ff"}`,
+                background: row.needs_review ? "#fdf3ef" : "#f3f6ff",
+                fontSize: 13,
+                lineHeight: 1.55,
+                color: "#3a4150",
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                자동 판정 {row.auto_tier}
+                {row.auto_confidence != null && (
+                  <span style={{ fontWeight: 500, color: "#6b7280" }}>
+                    {" "}· 확신도 {row.auto_confidence}
+                  </span>
+                )}
+                {row.needs_review && (
+                  <span style={{ marginLeft: 8, color: "#8a4a33" }}>담당자 확인 필요</span>
+                )}
+              </div>
+              {row.memo ? (
+                <div style={{ whiteSpace: "pre-wrap" }}>{row.memo}</div>
+              ) : (
+                <div style={{ color: "#9aa1ad" }}>확인 포인트 없음</div>
+              )}
+            </div>
+          )}
+
           {/* 원인 분류 (칩) */}
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#3a4150", marginBottom: 8 }}>

@@ -162,6 +162,8 @@ export default function FeedbackClient({
   const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [causeFilter, setCauseFilter] = useState<string>("all");
   const [deptFilter, setDeptFilter] = useState<string>("all");
+  // 자동 판정 필터: 전체 / 확인 필요(2단·미확인) / 자동 확정(1단) / 자동 판정 전체 / 수동 작성
+  const [autoFilter, setAutoFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -286,6 +288,10 @@ export default function FeedbackClient({
         !parseDepartments(r.related_department).includes(deptFilter)
       )
         return false;
+      if (autoFilter === "review" && !(r.auto_tier === "2단" && r.needs_review)) return false;
+      if (autoFilter === "tier1" && r.auto_tier !== "1단") return false;
+      if (autoFilter === "auto" && !r.auto_tier) return false;
+      if (autoFilter === "manual" && (r.auto_tier || !r.hasFeedback)) return false;
       if (from && kstDatePart(r.created_at) < from) return false;
       if (to && kstDatePart(r.created_at) > to) return false;
       if (q) {
@@ -299,6 +305,7 @@ export default function FeedbackClient({
     reasonFilter,
     causeFilter,
     deptFilter,
+    autoFilter,
     search,
     dateFrom,
     dateTo,
@@ -307,6 +314,7 @@ export default function FeedbackClient({
 
   function resetFilters() {
     setSearch("");
+    setAutoFilter("all");
     setReasonFilter("all");
     setStatusFilter("all");
     setCauseFilter("all");
@@ -397,6 +405,9 @@ export default function FeedbackClient({
       "처리 상태 (status)": statusLabel(r.status),
       "담당자명 (updated_by)": r.updated_by ?? "",
       "수정일시 (updated_at)": r.updated_at ? formatKstDateTime(r.updated_at) : "",
+      "판정 (auto_tier)": r.auto_tier
+        ? `${r.auto_tier}${r.needs_review ? " 확인 필요" : ""}`
+        : "",
     }));
     exportRows(flat, `feedback_${new Date().toISOString().slice(0, 10)}`, format);
   }
@@ -418,6 +429,14 @@ export default function FeedbackClient({
     { label: "전체", value: "all" },
     ...DEPARTMENTS.map((d) => ({ label: d, value: d })),
   ];
+  const autoOptions = [
+    { label: "전체", value: "all" },
+    { label: "확인 필요", value: "review" },
+    { label: "자동 확정(1단)", value: "tier1" },
+    { label: "자동 판정 전체", value: "auto" },
+    { label: "수동 작성", value: "manual" },
+  ];
+  const reviewCount = allRows.filter((r) => r.auto_tier === "2단" && r.needs_review).length;
 
   const kpis = [
     { label: "불만족 총건수", value: allRows.length, color: "#1a1d23" },
@@ -797,6 +816,35 @@ export default function FeedbackClient({
               ariaLabel="유관 부서 필터"
             />
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={filterLabel}>판정</span>
+            <Dropdown
+              value={autoFilter}
+              options={autoOptions}
+              onChange={(v) => {
+                setAutoFilter(v);
+                setPage(1);
+              }}
+              width={150}
+              ariaLabel="자동 판정 필터"
+            />
+            {reviewCount > 0 && (
+              <span
+                title="자동 판정 2단 건 중 담당자 확인 전"
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#8a4a33",
+                  background: "#fbe9e3",
+                  borderRadius: 999,
+                  padding: "3px 9px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                확인 필요 {reviewCount}
+              </span>
+            )}
+          </div>
           <input
             placeholder="질의어 입력"
             style={searchInput}
@@ -919,9 +967,35 @@ export default function FeedbackClient({
                     </td>
                     <td
                       style={{ ...td, ...cellText }}
-                      title={r.updated_by ?? undefined}
+                      title={
+                        r.auto_tier
+                          ? `자동 판정 ${r.auto_tier}${
+                              r.auto_confidence != null ? ` · 확신도 ${r.auto_confidence}` : ""
+                            }${r.needs_review ? " · 담당자 확인 전" : ""}`
+                          : (r.updated_by ?? undefined)
+                      }
                     >
-                      {r.updated_by ?? "-"}
+                      {/* 확인 전 2단 = '확인 필요', 자동 확정 1단 = '자동 1단',
+                          담당자가 확인·저장한 2단 = 담당자명(일반 행과 동일) */}
+                      {r.needs_review || r.auto_tier === "1단" ? (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            lineHeight: "18px",
+                            padding: "0 7px",
+                            borderRadius: 999,
+                            whiteSpace: "nowrap",
+                            color: r.needs_review ? "#8a4a33" : "#2f6bff",
+                            background: r.needs_review ? "#fbe9e3" : "#eef3ff",
+                          }}
+                        >
+                          {r.needs_review ? "확인 필요" : "자동 1단"}
+                        </span>
+                      ) : (
+                        (r.updated_by ?? "-")
+                      )}
                     </td>
                     <td style={td}>
                       <button

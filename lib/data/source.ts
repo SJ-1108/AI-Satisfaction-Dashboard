@@ -10,6 +10,7 @@ import {
   getDummySatisfaction,
 } from "@/lib/data/dummy-store";
 import type {
+  AutoTier,
   Feedback,
   ResetLog,
   Satisfaction,
@@ -418,7 +419,7 @@ async function loadEmpNoToNameMap(
 
 // ── feedback ────────────────────────────────────────────────
 const FEEDBACK_COLS =
-  "id, satisfaction_id, status, detail_reason, cause_category, related_department, action, memo, created_by, updated_by, created_at, updated_at";
+  "id, satisfaction_id, status, detail_reason, cause_category, related_department, action, memo, created_by, updated_by, created_at, updated_at, auto_tier, auto_confidence, needs_review";
 
 /** feedback 전체 행 조회. satisfaction 과 동일한 폴백 전략. 실패 시 throw. */
 async function readFeedbackRows(admin: SupabaseClient): Promise<unknown[]> {
@@ -464,6 +465,11 @@ async function readFeedback(): Promise<Feedback[]> {
       : null,
     created_at: f.created_at as string,
     updated_at: f.updated_at as string,
+    // 자동 판정 표시(0010). 컬럼이 아직 없는 DB 에서는 undefined → null/false 로 폴백
+    auto_tier: (f.auto_tier as AutoTier | null | undefined) ?? null,
+    auto_confidence:
+      f.auto_confidence == null ? null : Number(f.auto_confidence as number | string),
+    needs_review: Boolean(f.needs_review),
   }));
 }
 

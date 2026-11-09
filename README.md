@@ -67,6 +67,25 @@ scripts/seed-accounts.mjs   시드 스크립트
 middleware.ts               라우트 가드
 ```
 
+## 업로드 파일의 피드백 컬럼 (자동 판정 연동)
+
+데이터 업로드 파일에 아래 컬럼이 함께 있으면, `rating=down` 행에 한해 평가 원본 적재와 동시에
+`feedback` 행을 만든다(이미 피드백이 있는 건은 건너뜀 — 사람 기록 보존). 컬럼이 없으면 기존과 동일.
+
+| 컬럼(별칭) | 저장 위치 |
+|---|---|
+| 원인 분류 / cause_category | feedback.cause_category |
+| 유관 부서 / related_department | feedback.related_department |
+| 처리 상태 / status | feedback.status ('처리완료'는 저장값 '조치완료'로 정규화) |
+| 피드백 내용 / action | feedback.action |
+| 메모 / memo | feedback.memo (확인 포인트) |
+| 단계 / auto_tier ('1단'·'2단') | feedback.auto_tier — 2단이면 needs_review=true |
+| 확신도 / auto_confidence (0~1) | feedback.auto_confidence |
+
+- 마이그레이션: `supabase/migrations/0010_feedback_auto_judgement.sql` (auto_tier·auto_confidence·needs_review)
+- 불만족 관리 화면: 판정 필터(확인 필요 / 자동 확정 / 수동 작성), 담당자명 칸 배지, 모달 상단 확인 포인트. 담당자가 저장하면 needs_review 해제
+- 판정 파일 생성 도구: `Feedback_Automation` 폴더의 `/판정` 명령(Claude Code, API 미사용)
+
 ## 보안 메모 (NFR-2)
 
 - `SUPABASE_SERVICE_ROLE_KEY`, `METABASE_API_KEY` 는 **서버 환경변수에만** 둡니다.

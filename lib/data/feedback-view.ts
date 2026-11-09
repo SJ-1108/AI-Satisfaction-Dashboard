@@ -1,4 +1,4 @@
-import type { Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
+import type { AutoTier, Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
 import { computeDisplayNo } from "@/lib/data/display-no";
 
 /**
@@ -33,6 +33,11 @@ export interface FeedbackRow {
   created_by: string | null;
   updated_by: string | null;
   updated_at: string | null;
+
+  // 자동 판정 표시 — 사람이 직접 작성한 건은 null / false
+  auto_tier: AutoTier | null;
+  auto_confidence: number | null;
+  needs_review: boolean;
 }
 
 /** down 평가 + feedback 을 조인해 화면용 행 배열로 만든다. */
@@ -73,6 +78,10 @@ export function buildFeedbackRows(
       created_by: f?.created_by ?? null,
       updated_by: f?.updated_by ?? null,
       updated_at: f?.updated_at ?? null,
+
+      auto_tier: f?.auto_tier ?? null,
+      auto_confidence: f?.auto_confidence ?? null,
+      needs_review: Boolean(f?.needs_review),
     };
   });
 
@@ -117,11 +126,15 @@ export function upsertFeedback(
       updated_by: actorEmpNo,
       created_at: now,
       updated_at: now,
+      auto_tier: null,
+      auto_confidence: null,
+      needs_review: false,
     };
     return [...existing, created];
   }
 
-  // 갱신: created_by 유지, updated_by/updated_at 만 갱신
+  // 갱신: created_by 유지, updated_by/updated_at 만 갱신.
+  // 담당자가 저장했으므로 자동 판정 확인 대기(needs_review)는 해제한다(auto_tier 는 이력으로 유지).
   const prev = existing[idx];
   const updated: Feedback = {
     ...prev,
@@ -133,6 +146,7 @@ export function upsertFeedback(
     memo: edit.memo,
     updated_by: actorEmpNo,
     updated_at: now,
+    needs_review: false,
   };
   const next = existing.slice();
   next[idx] = updated;

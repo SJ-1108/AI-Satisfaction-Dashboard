@@ -34,6 +34,8 @@ export async function saveFeedback(
     related_department: edit.related_department,
     action: edit.action,
     memo: edit.memo,
+    // 담당자가 직접 저장 → 자동 판정 확인 대기 해제(auto_tier 는 이력으로 남긴다)
+    needs_review: false,
   };
 
   // 기존 피드백 여부 확인 (satisfaction_id 1:1)
