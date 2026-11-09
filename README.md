@@ -82,7 +82,7 @@ middleware.ts               라우트 가드
 | 단계 / auto_tier ('1단'·'2단') · 확신도 / auto_confidence | feedback.detail_reason 에 `[자동판정] 단계=2단; 확신도=0.55; 확인필요=1` 형식으로 보관 (`lib/auto-judgement.ts`, DB 스키마 변경 없음) |
 
 - 불만족 관리 화면: 판정 필터(확인 필요 / 자동 확정 / 수동 작성), 담당자명 칸 배지, 모달 상단 확인 포인트. 담당자가 저장하면 확인필요 해제
-- 판정 파일 생성 도구: 레포 안 `tools/judge/` + Claude Code 명령 `/판정 <업로드 원본>` (API 미사용). 절차는 `tools/judge/docs/운영_안내_v1.0_261109.md`
+- 판정 파일 생성 도구: 레포 안 `tools/judge/` + Claude Code 명령 `/판정 <업로드 원본>` (API 미사용). 절차는 `tools/judge/docs/운영_안내_v1.0_261109.html`(브라우저로 열기, 담당자용) / 같은 내용 `.md`
 
 ## 보안 메모 (NFR-2)
 
