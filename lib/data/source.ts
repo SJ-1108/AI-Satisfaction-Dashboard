@@ -9,8 +9,8 @@ import {
   getDummyResetLogs,
   getDummySatisfaction,
 } from "@/lib/data/dummy-store";
+import { decodeAutoMark } from "@/lib/auto-judgement";
 import type {
-  AutoTier,
   Feedback,
   ResetLog,
   Satisfaction,
@@ -419,7 +419,7 @@ async function loadEmpNoToNameMap(
 
 // ── feedback ────────────────────────────────────────────────
 const FEEDBACK_COLS =
-  "id, satisfaction_id, status, detail_reason, cause_category, related_department, action, memo, created_by, updated_by, created_at, updated_at, auto_tier, auto_confidence, needs_review";
+  "id, satisfaction_id, status, detail_reason, cause_category, related_department, action, memo, created_by, updated_by, created_at, updated_at";
 
 /** feedback 전체 행 조회. satisfaction 과 동일한 폴백 전략. 실패 시 throw. */
 async function readFeedbackRows(admin: SupabaseClient): Promise<unknown[]> {
@@ -447,7 +447,10 @@ async function readFeedback(): Promise<Feedback[]> {
     loadActorNameMap(admin),
   ]);
 
-  return (rows as Record<string, unknown>[]).map((f) => ({
+  return (rows as Record<string, unknown>[]).map((f) => {
+    // 자동 판정 표식은 detail_reason 문자열에서 해석한다(스키마 변경 없음)
+    const mark = decodeAutoMark(f.detail_reason as string | null);
+    return {
     id: f.id as string,
     satisfaction_id: f.satisfaction_id as string,
     // 저장값으로 정규화: 과거 표기 '처리완료'가 남아 있어도 '조치완료'로 흡수
@@ -465,12 +468,11 @@ async function readFeedback(): Promise<Feedback[]> {
       : null,
     created_at: f.created_at as string,
     updated_at: f.updated_at as string,
-    // 자동 판정 표시(0010). 컬럼이 아직 없는 DB 에서는 undefined → null/false 로 폴백
-    auto_tier: (f.auto_tier as AutoTier | null | undefined) ?? null,
-    auto_confidence:
-      f.auto_confidence == null ? null : Number(f.auto_confidence as number | string),
-    needs_review: Boolean(f.needs_review),
-  }));
+    auto_tier: mark?.tier ?? null,
+    auto_confidence: mark?.confidence ?? null,
+    needs_review: mark?.needsReview ?? false,
+    };
+  });
 }
 
 const getCachedFeedback = unstable_cache(readFeedback, ["feedback-all"], {

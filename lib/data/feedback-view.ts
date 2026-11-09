@@ -1,5 +1,6 @@
 import type { AutoTier, Feedback, FeedbackStatus, Satisfaction } from "@/lib/types";
 import { computeDisplayNo } from "@/lib/data/display-no";
+import { markReviewed } from "@/lib/auto-judgement";
 
 /**
  * 불만족(down) 평가 ↔ feedback 1:1 조인 뷰 (FR-4).
@@ -139,7 +140,7 @@ export function upsertFeedback(
   const updated: Feedback = {
     ...prev,
     status: edit.status,
-    detail_reason: edit.detail_reason,
+    detail_reason: markReviewed(edit.detail_reason),
     cause_category: edit.cause_category,
     related_department: edit.related_department,
     action: edit.action,

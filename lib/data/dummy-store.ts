@@ -3,6 +3,7 @@ import { DUMMY_SATISFACTION } from "@/lib/data/dummy-satisfaction";
 import { DUMMY_FEEDBACK } from "@/lib/data/dummy-feedback";
 import { accumulateSatisfaction } from "@/lib/data/accumulate-satisfaction";
 import { upsertFeedback, type FeedbackEdit } from "@/lib/data/feedback-view";
+import { encodeAutoMark } from "@/lib/auto-judgement";
 import { kstDatePart } from "@/lib/format-date";
 import type {
   Feedback,
@@ -101,7 +102,14 @@ export function appendDummyRows(valid: ParsedSatisfaction[]): {
       id: ex?.id ?? `fb-${sid}`,
       satisfaction_id: sid,
       status: r.feedback.status,
-      detail_reason: ex?.detail_reason ?? null,
+      // DB 모드와 같은 방식으로 detail_reason 에 자동 판정 표식을 남긴다
+      detail_reason: r.feedback.auto_tier
+        ? encodeAutoMark({
+            tier: r.feedback.auto_tier,
+            confidence: r.feedback.auto_confidence,
+            needsReview: r.feedback.auto_tier === "2단",
+          })
+        : (ex?.detail_reason ?? null),
       cause_category: r.feedback.cause_category,
       related_department: r.feedback.related_department,
       action: r.feedback.action,

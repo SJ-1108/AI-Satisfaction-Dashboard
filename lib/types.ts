@@ -283,7 +283,8 @@ export interface Feedback {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
-  // ── 자동 판정 표시(0010). 사람이 직접 작성한 행은 null / false. ──
+  // ── 자동 판정 표시. DB 컬럼이 아니라 detail_reason 의 '[자동판정] …' 표식을 해석한 값
+  //    (lib/auto-judgement.ts). 사람이 직접 작성한 행은 null / false. ──
   /** 자동 판정 단계('1단'·'2단'), 사람이 작성한 행은 null */
   auto_tier?: AutoTier | null;
   /** 판정 확신도 0~1 (참고용) */

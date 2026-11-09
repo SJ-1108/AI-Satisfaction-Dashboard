@@ -12,6 +12,7 @@ import {
   loadSatisfactionIndex,
 } from "@/lib/data/source";
 import { computeDisplayNo } from "@/lib/data/display-no";
+import { decodeAutoMark, encodeAutoMark } from "@/lib/auto-judgement";
 import { kstDatePart } from "@/lib/format-date";
 import {
   querySatisfaction,
@@ -256,13 +257,13 @@ export async function appendSatisfactionRows(
     const sids = withFeedback.map((r) => idByKey.get(r.record_key)!);
     const existingFb = new Map<
       string,
-      { status: string; cause_category: string | null; action: string | null; auto_tier: string | null }
+      { status: string; cause_category: string | null; action: string | null; detail_reason: string | null }
     >();
     for (let i = 0; i < sids.length; i += DB_CHUNK_SIZE) {
       const slice = sids.slice(i, i + DB_CHUNK_SIZE);
       const { data, error: fbErr } = await admin
         .from("feedback")
-        .select("satisfaction_id, status, cause_category, action, auto_tier")
+        .select("satisfaction_id, status, cause_category, action, detail_reason")
         .in("satisfaction_id", slice);
       if (fbErr) {
         return { ok: false, error: `기존 피드백 조회 실패: ${fbErr.message}` };
@@ -272,7 +273,7 @@ export async function appendSatisfactionRows(
           status: f.status as string,
           cause_category: (f.cause_category as string | null) ?? null,
           action: (f.action as string | null) ?? null,
-          auto_tier: (f.auto_tier as string | null) ?? null,
+          detail_reason: (f.detail_reason as string | null) ?? null,
         });
       }
     }
@@ -283,7 +284,10 @@ export async function appendSatisfactionRows(
       const ex = existingFb.get(sid);
       const isEmpty =
         !ex ||
-        (ex.status === "미확인" && !ex.cause_category && !ex.action && !ex.auto_tier);
+        (ex.status === "미확인" &&
+          !ex.cause_category &&
+          !ex.action &&
+          !decodeAutoMark(ex.detail_reason));
       if (!isEmpty) {
         feedbackSkipped++;
         continue;
@@ -292,13 +296,18 @@ export async function appendSatisfactionRows(
       toWrite.push({
         satisfaction_id: sid,
         status: fb.status,
+        // 자동 판정 표식(단계·확신도·확인 필요)은 detail_reason 에 문자열로 보관 — 스키마 변경 없음
+        detail_reason: fb.auto_tier
+          ? encodeAutoMark({
+              tier: fb.auto_tier,
+              confidence: fb.auto_confidence,
+              needsReview: fb.auto_tier === "2단",
+            })
+          : (ex?.detail_reason ?? null),
         cause_category: fb.cause_category,
         related_department: fb.related_department,
         action: fb.action,
         memo: fb.memo,
-        auto_tier: fb.auto_tier,
-        auto_confidence: fb.auto_confidence,
-        needs_review: fb.auto_tier === "2단",
         created_by: user.id,
         updated_by: user.id,
       });
