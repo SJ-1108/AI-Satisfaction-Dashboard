@@ -884,13 +884,13 @@ export default function FeedbackClient({
               {/* 평가일시: "YYYY-MM-DD HH:MM:SS"(19자, nowrap)가 옆 열과 겹치지 않도록 확보 */}
               <col style={{ width: "12%" }} />
               <col style={{ width: "12%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "13%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "11%" }} />
               <col style={{ width: "7%" }} />
               <col style={{ width: "10%" }} />
               <col style={{ width: "8%" }} />
               <col style={{ width: "9%" }} />
-              <col style={{ width: "6%" }} />
+              <col style={{ width: "9%" }} />
               <col style={{ width: "7%" }} />
             </colgroup>
             <thead>
@@ -979,8 +979,8 @@ export default function FeedbackClient({
                       {/* 자동 판정 건(확인 전 2단·자동 확정 1단)은 담당자명 대신 'AI 분류'.
                           2단은 옆에 '확인 필요' 표시. 담당자가 확인·저장하면 담당자명으로 전환 */}
                       {r.needs_review || r.auto_tier === "1단" ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ color: "#2f6bff", fontWeight: 600 }}>AI 분류</span>
+                        <span style={{ display: "inline-flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 4 }}>
+                          <span style={{ color: "#2f6bff", fontWeight: 600, whiteSpace: "nowrap" }}>AI 분류</span>
                           {r.needs_review && (
                             <span
                               style={{
