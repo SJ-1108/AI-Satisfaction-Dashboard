@@ -5,6 +5,8 @@
 const fs = require('fs'), path = require('path');
 const XLSX = require('xlsx'); // 레포 루트 node_modules (npm install 후 사용)
 const root = path.resolve(__dirname, '..');
+const VERSION = fs.existsSync(path.join(root, 'VERSION')) ? fs.readFileSync(path.join(root, 'VERSION'), 'utf8').trim() : '-';
+const PROMPT_FILE = (fs.readdirSync(path.join(root, 'prompts')).find(n => /^불만족_피드백_판정_프롬프트_v.*.md$/.test(n))) || '-';
 const args = process.argv.slice(2);
 const [resFile, srcArg] = args.filter(a => !a.startsWith('--'));
 if (!resFile || !srcArg) { console.error('사용법: node scripts/export.js <판정결과.json> <입력.json|원본파일> [--out 파일]'); process.exit(1); }
@@ -88,5 +90,13 @@ const out = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(out, XLSX.utils.json_to_sheet(upload), '업로드');
 XLSX.utils.book_append_sheet(out, XLSX.utils.json_to_sheet(review.length ? review : [{ 안내: '2단 건 없음' }]), '확인필요(2단)');
 XLSX.utils.book_append_sheet(out, XLSX.utils.json_to_sheet(auto.length ? auto : [{ 안내: '1단 건 없음' }]), '자동확정(1단)');
+const info = [
+  { 항목: '판정기 버전', 값: VERSION },
+  { 항목: '프롬프트 파일', 값: PROMPT_FILE },
+  { 항목: '원본 파일', 값: srcFile ? path.basename(srcFile) : srcArg },
+  { 항목: '실행 시각', 값: new Date().toISOString().slice(0, 19).replace('T', ' ') },
+  { 항목: '판정 건수', 값: results.length + '건 (1단 ' + auto.length + ', 2단 ' + review.length + ')' },
+];
+XLSX.utils.book_append_sheet(out, XLSX.utils.json_to_sheet(info), '정보');
 XLSX.writeFile(out, outFile);
 console.log(`검증 통과 ${results.length}건 (1단 ${auto.length}, 2단 ${review.length}) · 모드 ${mode === 'upload' ? '업로드 원본(첫 시트를 그대로 대시보드에 업로드)' : '대시보드 내보내기'} → ${outFile}`);

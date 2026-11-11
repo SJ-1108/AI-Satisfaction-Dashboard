@@ -36,3 +36,6 @@ scripts/accounts.json
 
 # Claude Code 로컬 설정 (머신별 — 커밋 제외)
 .claude/settings.local.json
+
+# 판정기 배포 패키지 빌드 산출물
+/dist
