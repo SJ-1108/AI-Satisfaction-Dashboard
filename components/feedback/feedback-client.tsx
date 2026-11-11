@@ -967,7 +967,7 @@ export default function FeedbackClient({
                       {r.action || "-"}
                     </td>
                     <td
-                      style={{ ...td, ...cellText }}
+                      style={{ ...td, ...cellText, padding: "12px 8px" }}
                       title={
                         r.auto_tier
                           ? `자동 판정 ${r.auto_tier}${
@@ -979,7 +979,7 @@ export default function FeedbackClient({
                       {/* 자동 판정 건(확인 전 2단·자동 확정 1단)은 담당자명 대신 'AI 분류'.
                           2단은 옆에 '확인 필요' 표시. 담당자가 확인·저장하면 담당자명으로 전환 */}
                       {r.needs_review || r.auto_tier === "1단" ? (
-                        <span style={{ display: "inline-flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 4 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
                           <span style={{ color: "#2f6bff", fontWeight: 600, whiteSpace: "nowrap" }}>AI 분류</span>
                           {r.needs_review && (
                             <span
