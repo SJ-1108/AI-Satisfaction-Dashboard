@@ -99,7 +99,7 @@ const promptFile = path.join(outDir, '시스템프롬프트_조립본.md');
 fs.writeFileSync(promptFile, system);
 
 const VERSION = fs.existsSync(path.join(root, 'VERSION')) ? fs.readFileSync(path.join(root, 'VERSION'), 'utf8').trim() : '-';
-console.log(`판정기 버전: ${VERSION}`);
+console.log(`자동분류 버전: ${VERSION}`);
 console.log(`입력 형식: ${mode === 'upload' ? '업로드 원본(불만족 행만 대상)' : '대시보드 내보내기(미처리 건만 대상)'}`);
 console.log(`원본 ${total}행 중 판정 대상 ${rows.length}건`);
 console.log(`입력 파일: ${inputFile}`);

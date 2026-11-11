@@ -17,4 +17,4 @@
 외부 유료 API는 쓰지 않는다. 판정은 내 PC의 Claude Code가 한다.
 
 [문제가 생기면]
-검은 창의 메시지를 캡처해 AI 전략팀에 전달한다.
+%LOCALAPPDATA%\FeedbackJudge\최근_실행_로그.txt 파일을 AI 전략팀에 전달한다 (화면 내용이 그대로 저장됨).

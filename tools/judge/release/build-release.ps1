@@ -71,7 +71,7 @@ $tmpExe = Join-Path $dist 'judge_launcher.exe'
 if (Test-Path $exe) { Remove-Item $exe -Force }
 if (Test-Path $tmpExe) { Remove-Item $tmpExe -Force }
 & $csc /nologo /target:exe /platform:anycpu /optimize+ /out:"$tmpExe" `
-  /r:System.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Windows.Forms.dll `
+  /r:System.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll `
   /resource:"$payload,payload.zip" (Join-Path $PSScriptRoot 'launcher\Program.cs') $verCs
 if ($LASTEXITCODE -ne 0) { throw 'csc 컴파일 실패' }
 Move-Item $tmpExe $exe -Force
