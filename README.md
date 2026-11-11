@@ -82,8 +82,8 @@ middleware.ts               라우트 가드
 | 단계 / auto_tier ('1단'·'2단') · 확신도 / auto_confidence | feedback.detail_reason 에 `[자동판정] 단계=2단; 확신도=0.55; 확인필요=1` 형식으로 보관 (`lib/auto-judgement.ts`, DB 스키마 변경 없음) |
 
 - 불만족 관리 화면: 판정 필터(확인 필요 / 자동 확정 / 수동 작성), 담당자명 칸 배지, 모달 상단 확인 포인트. 담당자가 저장하면 확인필요 해제
-- 판정 파일 생성: 담당자는 배포된 `판정기_v<버전>.exe`(단일 파일)를 실행해 Metabase 파일을 고르면 Claude Code가 `/판정`을 실행해 `<파일명>_판정.xlsx`를 원본 옆에 만든다(API 미사용, Claude Code 설치·로그인 필요). 도구 본체는 `tools/judge/`, 담당자용 절차는 `tools/judge/docs/운영_안내_v1.0_261109.html`
-- 판정기 배포: `tools/judge/VERSION` 올리고 `tools/judge/CHANGELOG.md` 적은 뒤 `powershell -ExecutionPolicy Bypass -File tools/judge/release/build-release.ps1` → `dist/판정기_v<버전>.exe`(런처 C# 소스 `tools/judge/release/launcher/Program.cs`, Windows 내장 csc.exe로 컴파일, 포터블 Node·xlsx·프롬프트·스킬 내장). 개발자는 레포에서 `claude` 세션을 열고 `/판정 <파일>`로 직접 실행 가능
+- 판정 파일 생성: 담당자는 배포된 `불만족평가_피드백_자동분류_v<버전>.exe`(단일 파일)를 실행해 Metabase 파일을 고르면 Claude Code가 `/판정`을 실행해 `<파일명>_판정.xlsx`를 원본 옆에 만든다(API 미사용, Claude Code 설치·로그인 필요). 도구 본체는 `tools/judge/`, 담당자용 절차는 `tools/judge/docs/운영_안내_v1.0_261109.html`
+- 자동분류 exe 배포: `tools/judge/VERSION` 올리고 `tools/judge/CHANGELOG.md` 적은 뒤 `powershell -ExecutionPolicy Bypass -File tools/judge/release/build-release.ps1` → `dist/불만족평가_피드백_자동분류_v<버전>.exe`(런처 C# 소스 `tools/judge/release/launcher/Program.cs`, Windows 내장 csc.exe로 컴파일, 포터블 Node·xlsx·프롬프트·스킬 내장). 개발자는 레포에서 `claude` 세션을 열고 `/판정 <파일>`로 직접 실행 가능
 
 ## 보안 메모 (NFR-2)
 

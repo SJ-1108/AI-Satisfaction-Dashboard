@@ -41,13 +41,13 @@
 
 <h1>불만족 피드백 자동 판정 운영 안내</h1>
 <div class="meta"><b>대상</b>AI 답변 만족도 대시보드 등록 담당자</div>
-<div class="meta"><b>적용일</b>2026-11-09 (대시보드 main 배포 완료) · 판정기 v1.2.0 (2026-11-11)</div>
-<div class="meta"><b>한 줄 요약</b>판정기 exe를 실행해 Metabase 파일을 고르고, 나온 파일을 평소처럼 업로드</div>
+<div class="meta"><b>적용일</b>2026-11-09 (대시보드 main 배포 완료) · 자동분류 v1.2.0 (2026-11-11)</div>
+<div class="meta"><b>한 줄 요약</b>자동분류 exe를 실행해 Metabase 파일을 고르고, 나온 파일을 평소처럼 업로드</div>
 
 <h2>1. 무엇이 달라지는지</h2>
 <div class="card">
   <p>지금까지는 Metabase 내보내기 파일을 대시보드에 올린 뒤, 불만족 건마다 사람이 원인 분류·유관 부서·처리 상태·피드백 내용을 직접 입력하는 방식.</p>
-  <p>앞으로는 올리기 전에 <b>판정기 exe로 파일을 한 번 돌리는 단계</b>가 추가됨. 판정 결과가 붙은 파일이 만들어지고, 그 파일을 기존과 같은 업로드 버튼으로 올리면 평가 원본과 피드백이 한 번에 저장됨. 명확한 건은 자동 확정, 애매한 건은 초안만 채워 두고 담당자가 확인.</p>
+  <p>앞으로는 올리기 전에 <b>자동분류 exe로 파일을 한 번 돌리는 단계</b>가 추가됨. 판정 결과가 붙은 파일이 만들어지고, 그 파일을 기존과 같은 업로드 버튼으로 올리면 평가 원본과 피드백이 한 번에 저장됨. 명확한 건은 자동 확정, 애매한 건은 초안만 채워 두고 담당자가 확인.</p>
   <ul>
     <li>외부 유료 API 호출 없음. 판정은 내 PC의 Claude Code가 수행</li>
     <li>DB 변경 없음. 대시보드는 이미 배포 완료</li>
@@ -60,7 +60,7 @@
 <div class="card">
   <ul>
     <li>Claude Code 설치 후 한 번 로그인 (<a href="https://claude.com/claude-code">claude.com/claude-code</a>)</li>
-    <li>AI 전략팀이 전달한 <code>판정기_v1.2.0.exe</code> 를 바탕화면 등 편한 곳에 두기 (설치 없음, 파일 하나)</li>
+    <li>AI 전략팀이 전달한 <code>불만족평가_피드백_자동분류_v1.2.0.exe</code> 를 바탕화면 등 편한 곳에 두기 (설치 없음, 파일 하나)</li>
   </ul>
   <p class="note">처음 실행할 때 exe 안의 판정 도구가 내 PC 로컬 폴더(<code>%LOCALAPPDATA%\FeedbackJudge\v1.2.0</code>)에 자동으로 풀림. 새 버전 exe를 받으면 새 폴더에 따로 풀리므로 이전 것을 지울 필요 없음.</p>
 </div>
@@ -68,7 +68,7 @@
 <h2>3. 매회 절차</h2>
 <div class="card flow">
   <div class="step"><div class="n">1</div><div class="t">Metabase에서 내보내기 파일 다운로드<small>기존과 동일</small></div></div>
-  <div class="step"><div class="n new">2</div><div class="t"><span class="big">판정기 exe를 더블클릭하고 받은 파일 선택</span> <span class="tag">추가되는 단계</span>
+  <div class="step"><div class="n new">2</div><div class="t"><span class="big">자동분류 exe를 더블클릭하고 받은 파일 선택</span> <span class="tag">추가되는 단계</span>
     <small>파일을 exe 아이콘 위로 끌어다 놓아도 됨. 검은 창이 열리고 판정이 진행됨. 50건 기준 10~15분. 창을 닫지 말고 기다리기. 끝나면 결과 파일이 있는 폴더와 대시보드 업로드 화면이 자동으로 열림</small></div></div>
   <div class="step"><div class="n">3</div><div class="t">원본 파일 옆에 생긴 <code>원본파일명_판정.xlsx</code> 를 대시보드 <b>데이터 조회</b> → <b>업로드</b>에 올리기
     <small>미리보기에 "피드백 포함 N"이 보이면 정상. 완료 메시지에 "피드백 N건 등록" 표시</small></div></div>
@@ -105,7 +105,7 @@
   <tr><td>AI 검색이 참조하는 데이터 범위 (신규 기능 반영 등)</td><td><code>tools/judge/docs/참조데이터범위_v1.0_261109.md</code></td></tr>
   <tr><td>유관 부서 추가·변경</td><td><code>tools/judge/docs/유관부서_배정기준_v1.0_261109.md</code> (<code>lib/departments.ts</code> 목록과 일치 유지)</td></tr>
 </table>
-<p class="note">기준을 고치면 AI 전략팀이 <code>tools/judge/VERSION</code>을 올리고 새 판정기 exe를 만들어 전달. 결과 파일 "정보" 시트에 어느 버전으로 판정했는지 남음. 변경 내용은 <code>tools/judge/CHANGELOG.md</code>.</p>
+<p class="note">기준을 고치면 AI 전략팀이 <code>tools/judge/VERSION</code>을 올리고 새 자동분류 exe를 만들어 전달. 결과 파일 "정보" 시트에 어느 버전으로 판정했는지 남음. 변경 내용은 <code>tools/judge/CHANGELOG.md</code>.</p>
 
 <h2>7. 문제가 생겼을 때</h2>
 <table>

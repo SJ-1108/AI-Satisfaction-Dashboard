@@ -1,4 +1,4 @@
-﻿# 판정기 배포 실행 파일 빌드: dist\판정기_v<VERSION>.exe (단일 파일, 설치 불필요)
+﻿# 피드백 자동분류 배포 실행 파일 빌드: dist\불만족평가_피드백_자동분류_v<VERSION>.exe (단일 파일, 설치 불필요)
 # 실행: powershell -ExecutionPolicy Bypass -File tools\judge\release\build-release.ps1 [-SkipNode]
 #   -SkipNode : 포터블 Node 다운로드 생략(테스트용, 실행 PC에 node 가 있어야 함)
 # 필요한 것: Windows 내장 csc.exe(.NET Framework 4), npm(xlsx 패키지 설치용), 인터넷(처음 한 번 Node zip 다운로드)
@@ -11,10 +11,10 @@ $ver = (Get-Content (Join-Path $repo 'tools\judge\VERSION') -Raw).Trim()
 $dist = Join-Path $repo 'dist'
 $stage = Join-Path $dist 'stage'
 $payload = Join-Path $dist 'payload.zip'
-$exe = Join-Path $dist "판정기_v$ver.exe"
+$exe = Join-Path $dist "불만족평가_피드백_자동분류_v$ver.exe"
 New-Item -ItemType Directory -Force $dist | Out-Null
 
-Write-Host "== 판정기 $ver 빌드"
+Write-Host "== 피드백 자동분류 $ver 빌드"
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Force $stage | Out-Null
 

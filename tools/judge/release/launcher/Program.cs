@@ -1,4 +1,4 @@
-// 불만족 피드백 판정기 런처. 빌드: build-release.ps1 (Windows 내장 csc.exe 사용, 별도 도구 불필요)
+// 불만족 평가 피드백 자동분류 런처. 빌드: build-release.ps1 (Windows 내장 csc.exe 사용, 별도 도구 불필요)
 // 동작: 내장 payload.zip(프롬프트·스크립트·Node 실행 파일·Claude Code 명령)을 %LOCALAPPDATA%\FeedbackJudge\v<버전>\ 에 풀고,
 //       그 폴더에서 claude -p "/판정 <파일>" 을 실행한 뒤 결과 파일을 원본 옆에 복사한다.
 using System;
@@ -17,7 +17,7 @@ static class Program
     static int Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
-        Console.Title = "불만족 피드백 판정기 v" + Version.Value;
+        Console.Title = "불만족 평가 피드백 자동분류 v" + Version.Value;
         try { return Run(args); }
         catch (Exception ex)
         {
@@ -64,7 +64,7 @@ static class Program
 
         Console.WriteLine();
         Console.WriteLine("======================================================");
-        Console.WriteLine(" 불만족 피드백 판정기 v" + Version.Value);
+        Console.WriteLine(" 불만족 평가 피드백 자동분류 v" + Version.Value);
         Console.WriteLine(" 대상 파일: " + file);
         Console.WriteLine(" 불만족 행만 골라 판정합니다. 50건 기준 10~15분 걸립니다.");
         Console.WriteLine(" 이 창을 닫지 말고 기다리세요.");
@@ -121,7 +121,7 @@ static class Program
     {
         string marker = Path.Combine(baseDir, ".extracted");
         if (File.Exists(marker)) return;
-        Console.WriteLine(" 처음 실행: 판정기 파일을 준비하는 중... (" + baseDir + ")");
+        Console.WriteLine(" 처음 실행: 자동분류 파일을 준비하는 중... (" + baseDir + ")");
         if (Directory.Exists(baseDir)) Directory.Delete(baseDir, true);
         Directory.CreateDirectory(baseDir);
         using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("payload.zip"))
