@@ -1,5 +1,5 @@
 // 불만족 피드백 판정기 런처. 빌드: build-release.ps1 (Windows 내장 csc.exe 사용, 별도 도구 불필요)
-// 동작: 내장 payload.zip(프롬프트·스크립트·Node 실행 파일·Claude Code 명령)을 %LOCALAPPDATA%\불만족판정기\v<버전>\ 에 풀고,
+// 동작: 내장 payload.zip(프롬프트·스크립트·Node 실행 파일·Claude Code 명령)을 %LOCALAPPDATA%\FeedbackJudge\v<버전>\ 에 풀고,
 //       그 폴더에서 claude -p "/판정 <파일>" 을 실행한 뒤 결과 파일을 원본 옆에 복사한다.
 using System;
 using System.Diagnostics;
@@ -48,7 +48,8 @@ static class Program
             return 1;
         }
 
-        string baseDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "불만족판정기", "v" + Version.Value);
+        // 폴더 이름은 영문으로 둔다: Node 가 한글 경로 안의 모듈을 불러올 때 크래시하는 경우가 있음
+        string baseDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FeedbackJudge", "v" + Version.Value);
         EnsureExtracted(baseDir);
 
         string claude = FindClaude();
@@ -130,9 +131,11 @@ static class Program
             {
                 foreach (var e in za.Entries)
                 {
-                    string dest = Path.GetFullPath(Path.Combine(baseDir, e.FullName.Replace('/', Path.DirectorySeparatorChar)));
+                    // .NET Framework 의 ZipFile.CreateFromDirectory 는 구분자를  로 쓰기도 한다
+                    string rel = e.FullName.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+                    string dest = Path.GetFullPath(Path.Combine(baseDir, rel));
                     if (!dest.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase)) continue;
-                    if (e.FullName.EndsWith("/")) { Directory.CreateDirectory(dest); continue; }
+                    if (rel.EndsWith(Path.DirectorySeparatorChar.ToString()) || e.Name.Length == 0) { Directory.CreateDirectory(dest); continue; }
                     Directory.CreateDirectory(Path.GetDirectoryName(dest));
                     e.ExtractToFile(dest, true);
                 }

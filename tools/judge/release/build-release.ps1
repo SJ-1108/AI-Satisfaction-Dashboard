@@ -4,7 +4,7 @@
 # 필요한 것: Windows 내장 csc.exe(.NET Framework 4), npm(xlsx 패키지 설치용), 인터넷(처음 한 번 Node zip 다운로드)
 param([switch]$SkipNode)
 $ErrorActionPreference = 'Stop'
-$NodeVersion = 'v22.11.0'
+$NodeVersion = 'v24.15.0'
 
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $ver = (Get-Content (Join-Path $repo 'tools\judge\VERSION') -Raw).Trim()

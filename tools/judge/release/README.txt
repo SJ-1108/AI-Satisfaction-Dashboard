@@ -12,7 +12,7 @@
 
 [동작 방식]
 처음 실행할 때 exe 안의 판정 도구(프롬프트·스크립트·Node 실행 파일)를
-%LOCALAPPDATA%\불만족판정기\v<버전>\ 에 풀어 두고 그 폴더에서 Claude Code를 실행한다.
+%LOCALAPPDATA%\FeedbackJudge\v<버전>\ 에 풀어 두고 그 폴더에서 Claude Code를 실행한다.
 새 버전 exe를 받으면 새 버전 폴더에 따로 풀리므로 이전 것을 지울 필요 없다.
 외부 유료 API는 쓰지 않는다. 판정은 내 PC의 Claude Code가 한다.
 

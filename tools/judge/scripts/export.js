@@ -94,7 +94,7 @@ const info = [
   { 항목: '판정기 버전', 값: VERSION },
   { 항목: '프롬프트 파일', 값: PROMPT_FILE },
   { 항목: '원본 파일', 값: srcFile ? path.basename(srcFile) : srcArg },
-  { 항목: '실행 시각', 값: new Date().toISOString().slice(0, 19).replace('T', ' ') },
+  { 항목: '실행 시각', 값: (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`)(new Date()) },
   { 항목: '판정 건수', 값: results.length + '건 (1단 ' + auto.length + ', 2단 ' + review.length + ')' },
 ];
 XLSX.utils.book_append_sheet(out, XLSX.utils.json_to_sheet(info), '정보');
