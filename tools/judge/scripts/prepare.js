@@ -90,7 +90,7 @@ const inputFile = path.join(outDir, `입력_${stamp}.json`);
 fs.writeFileSync(inputFile, JSON.stringify({ mode, source: path.resolve(file), records: rows.map(({ no, dt, q, a, reason, cmt, dev, gr }) => ({ no, dt, q, a, reason, cmt, dev, gr })) }, null, 1));
 
 const rd = f => fs.readFileSync(path.join(root, f), 'utf8');
-const system = rd('prompts/불만족_피드백_판정_프롬프트_v1.1.md')
+const system = rd('prompts/불만족_피드백_판정_프롬프트_v1.2.md')
   .replace('{{참조데이터범위}}', rd('docs/참조데이터범위_v1.0_261109.md'))
   .replace('{{유관부서배정기준}}', rd('docs/유관부서_배정기준_v1.0_261109.md'))
   .replace('{{대표라벨규칙표}}', rd('docs/대표라벨_규칙표_v1.0_261109.md'))
