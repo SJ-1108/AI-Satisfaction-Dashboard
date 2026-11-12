@@ -106,7 +106,7 @@ const outlineBtn: React.CSSProperties = {
 };
 const searchInput: React.CSSProperties = {
   flex: 1,
-  minWidth: 200,
+  minWidth: 140,
   height: 42,
   padding: "0 14px",
   fontSize: 13,
@@ -776,7 +776,7 @@ export default function FeedbackClient({
                 setReasonFilter(v);
                 setPage(1);
               }}
-              width={150}
+              width={140}
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -800,7 +800,7 @@ export default function FeedbackClient({
                 setCauseFilter(v);
                 setPage(1);
               }}
-              width={150}
+              width={140}
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -812,7 +812,7 @@ export default function FeedbackClient({
                 setDeptFilter(v);
                 setPage(1);
               }}
-              width={170}
+              width={150}
               searchable
               ariaLabel="유관 부서 필터"
             />
@@ -829,21 +829,37 @@ export default function FeedbackClient({
               width={150}
               ariaLabel="자동 판정 필터"
             />
+            {/* 확인 필요 토글: 누르면 판정 필터를 "확인 필요"로, 다시 누르면 전체로.
+                드롭다운의 "확인 필요" 옵션과 같은 조건이며 건수를 함께 보여 준다. */}
             {reviewCount > 0 && (
-              <span
-                title="자동 판정 2단 건 중 담당자 확인 전"
+              <button
+                type="button"
+                title={
+                  autoFilter === "review"
+                    ? "확인 필요 필터 해제"
+                    : "자동 판정 2단 건 중 담당자 확인 전 건만 보기"
+                }
+                aria-pressed={autoFilter === "review"}
+                onClick={() => {
+                  setAutoFilter(autoFilter === "review" ? "all" : "review");
+                  setPage(1);
+                }}
                 style={{
+                  height: 30,
+                  padding: "0 10px",
                   fontSize: 12,
                   fontWeight: 700,
-                  color: "#8a4a33",
-                  background: "#fbe9e3",
+                  fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
+                  color: autoFilter === "review" ? "#fff" : "#8a4a33",
+                  background: autoFilter === "review" ? "#c2583a" : "#fbe9e3",
+                  border: "1px solid " + (autoFilter === "review" ? "#c2583a" : "#f3d3c8"),
                   borderRadius: 999,
-                  padding: "3px 9px",
                   whiteSpace: "nowrap",
+                  cursor: "pointer",
                 }}
               >
                 확인 필요 {reviewCount}
-              </span>
+              </button>
             )}
           </div>
           <input
