@@ -82,9 +82,9 @@ export default function Combobox({
           padding: "0 36px 0 12px",
           fontSize: 13,
           fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-          color: "#3a4150",
-          background: "#fff",
-          border: `1px solid ${open ? "#2f6bff" : "#e2e5ea"}`,
+          color: "var(--text-2)",
+          background: "var(--panel)",
+          border: `1px solid ${open ? "var(--primary)" : "var(--border-strong)"}`,
           borderRadius: 10,
           outline: "none",
           boxSizing: "border-box",
@@ -120,7 +120,7 @@ export default function Combobox({
           background: "transparent",
           border: "none",
           cursor: "pointer",
-          color: "#9aa1ad",
+          color: "var(--muted-3)",
         }}
       >
         <svg
@@ -151,10 +151,10 @@ export default function Combobox({
             left: 0,
             zIndex: 60,
             width: "100%",
-            background: "#fff",
-            border: "1px solid #e9ebef",
+            background: "var(--panel)",
+            border: "1px solid var(--border)",
             borderRadius: 10,
-            boxShadow: "0 10px 28px rgba(16,24,40,.14)",
+            boxShadow: "var(--shadow-pop)",
             padding: 6,
             // 항목 5개 높이(약 34px/개)만 노출하고 나머지는 스크롤
             maxHeight: 190,
@@ -162,7 +162,7 @@ export default function Combobox({
           }}
         >
           {filtered.length === 0 ? (
-            <div style={{ padding: "9px 12px", fontSize: 13, color: "#9aa1ad" }}>
+            <div style={{ padding: "9px 12px", fontSize: 13, color: "var(--muted-3)" }}>
               검색 결과 없음
             </div>
           ) : (
@@ -183,9 +183,9 @@ export default function Combobox({
                     borderRadius: 7,
                     cursor: "pointer",
                     fontSize: 13,
-                    color: isSel ? "#2f6bff" : "#3a4150",
+                    color: isSel ? "var(--primary)" : "var(--text-2)",
                     fontWeight: isSel ? 700 : 500,
-                    background: hovered === o ? "#f3f5f9" : "transparent",
+                    background: hovered === o ? "var(--panel-alt)" : "transparent",
                     whiteSpace: "nowrap",
                   }}
                 >

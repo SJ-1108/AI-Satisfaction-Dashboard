@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTheme } from "@/components/theme-provider";
 import { reasonLabel } from "@/lib/reasons";
 import { formatKstDateTime } from "@/lib/format-date";
 import type { FeedbackRow, FeedbackEdit } from "@/lib/data/feedback-view";
@@ -36,6 +37,7 @@ export default function FeedbackDialog({
   onSave: (edit: FeedbackEdit) => void;
   onClose: () => void;
 }) {
+  const { theme } = useTheme();
   const [cause, setCause] = useState<string | null>(row.cause_category ?? null);
   // 유관 부서: 쉼표 구분 문자열 ↔ 칩 배열 (기존 단일/쉼표 값 모두 호환)
   const [depts, setDepts] = useState<string[]>(() =>
@@ -89,7 +91,7 @@ export default function FeedbackDialog({
         position: "fixed",
         inset: 0,
         zIndex: 100,
-        background: "rgba(16,24,40,.45)",
+        background: "var(--overlay)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -102,9 +104,9 @@ export default function FeedbackDialog({
           maxWidth: 820,
           height: 900,
           maxHeight: "90vh",
-          background: "#fff",
+          background: "var(--panel)",
           borderRadius: 16,
-          boxShadow: "0 20px 60px rgba(16,24,40,.3)",
+          boxShadow: "var(--shadow-dialog)",
           padding: 28,
           display: "flex",
           flexDirection: "column",
@@ -124,7 +126,7 @@ export default function FeedbackDialog({
             <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px" }}>
               피드백 입력
             </h2>
-            <div style={{ fontSize: 12, color: "#9aa1ad" }}>No. {row.record_no}</div>
+            <div style={{ fontSize: 12, color: "var(--muted-3)" }}>No. {row.record_no}</div>
           </div>
           <CloseButton onClick={onClose} />
         </div>
@@ -163,35 +165,35 @@ export default function FeedbackDialog({
               style={{
                 padding: "12px 14px",
                 borderRadius: 10,
-                border: `1px solid ${row.needs_review ? "#f3cfc3" : "#cdd9ff"}`,
-                background: row.needs_review ? "#fdf3ef" : "#f3f6ff",
+                border: `1px solid ${row.needs_review ? "var(--warn-soft-border)" : "var(--primary-soft-border)"}`,
+                background: row.needs_review ? "var(--warn-soft)" : "var(--primary-soft)",
                 fontSize: 13,
                 lineHeight: 1.55,
-                color: "#3a4150",
+                color: "var(--text-2)",
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: 4 }}>
                 자동 판정 {row.auto_tier}
                 {row.auto_confidence != null && (
-                  <span style={{ fontWeight: 500, color: "#6b7280" }}>
+                  <span style={{ fontWeight: 500, color: "var(--muted-2)" }}>
                     {" "}· 확신도 {row.auto_confidence}
                   </span>
                 )}
                 {row.needs_review && (
-                  <span style={{ marginLeft: 8, color: "#8a4a33" }}>담당자 확인 필요</span>
+                  <span style={{ marginLeft: 8, color: "var(--warn-ink)" }}>담당자 확인 필요</span>
                 )}
               </div>
               {row.memo ? (
                 <div style={{ whiteSpace: "pre-wrap" }}>{row.memo}</div>
               ) : (
-                <div style={{ color: "#9aa1ad" }}>확인 포인트 없음</div>
+                <div style={{ color: "var(--muted-3)" }}>확인 포인트 없음</div>
               )}
             </div>
           )}
 
           {/* 원인 분류 (칩) */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#3a4150", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>
               원인 분류
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -205,13 +207,13 @@ export default function FeedbackDialog({
                       display: "inline-flex",
                       alignItems: "center",
                       padding: "9px 16px",
-                      border: `1px solid ${sel ? "#2f6bff" : "#e2e5ea"}`,
+                      border: `1px solid ${sel ? "var(--primary)" : "var(--border-strong)"}`,
                       borderRadius: 999,
                       cursor: "pointer",
                       fontSize: 13,
                       fontWeight: 600,
-                      color: sel ? "#fff" : "#3a4150",
-                      background: sel ? "#2f6bff" : "#fff",
+                      color: sel ? "var(--on-primary)" : "var(--text-2)",
+                      background: sel ? "var(--primary)" : "var(--panel)",
                       userSelect: "none",
                     }}
                   >
@@ -224,7 +226,7 @@ export default function FeedbackDialog({
 
           {/* 유관 부서 (드롭다운 선택 → 칩 누적, 칩 X로 해제) */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#3a4150", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>
               유관 부서
             </div>
             {/* 드롭다운(고정 너비) + 칩 영역(남은 폭, 우측에서만 줄바꿈) 나란히 배치 */}
@@ -259,10 +261,10 @@ export default function FeedbackDialog({
                       gap: 6,
                       height: 32,
                       padding: "0 8px 0 12px",
-                      border: "1px solid #cdd9ff",
+                      border: "1px solid var(--primary-soft-border)",
                       borderRadius: 999,
-                      background: "#eef3ff",
-                      color: "#2f6bff",
+                      background: "var(--primary-soft)",
+                      color: "var(--primary)",
                       fontSize: 13,
                       fontWeight: 600,
                       whiteSpace: "nowrap",
@@ -286,7 +288,7 @@ export default function FeedbackDialog({
                         border: "none",
                         borderRadius: 999,
                         background: "transparent",
-                        color: "#2f6bff",
+                        color: "var(--primary)",
                         cursor: "pointer",
                       }}
                     >
@@ -308,7 +310,7 @@ export default function FeedbackDialog({
 
           {/* 피드백 내용 */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#3a4150", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>
               피드백 내용
             </div>
             <textarea
@@ -323,8 +325,8 @@ export default function FeedbackDialog({
                 fontSize: 13,
                 lineHeight: 1.5,
                 fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-                color: "#1a1d23",
-                border: "1px solid #e2e5ea",
+                color: "var(--text)",
+                border: "1px solid var(--border-strong)",
                 borderRadius: 10,
                 outline: "none",
                 resize: "none",
@@ -335,7 +337,7 @@ export default function FeedbackDialog({
 
           {/* 처리 상태 (상태별 지정색 칩 — 모달에서 선택 → 목록의 상태값과 연동) */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#3a4150", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)", marginBottom: 8 }}>
               처리 상태
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -362,8 +364,8 @@ export default function FeedbackDialog({
                       lineHeight: 1,
                       // 선택: 진한 색(ink) 채움 + 흰 글자 / 비선택: 연한 틴트 + 진한 글자.
                       // 밝은 상태색(검토중 등)도 진↔연 명도 대비로 확실히 구분된다.
-                      color: sel ? "#fff" : statusInk(color),
-                      background: sel ? statusInk(color) : statusTint(color),
+                      color: sel ? "var(--on-primary)" : statusInk(color, theme),
+                      background: sel ? statusInk(color, theme) : statusTint(color, theme),
                     }}
                   >
                     {statusLabel(s)}
@@ -374,10 +376,10 @@ export default function FeedbackDialog({
           </div>
 
           {/* 작성자 + 최근 저장일시 */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#6b7280" }}>
-            <span style={{ fontWeight: 600, color: "#3a4150" }}>작성자</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--muted-2)" }}>
+            <span style={{ fontWeight: 600, color: "var(--text-2)" }}>작성자</span>
             <span>{author}</span>
-            <span style={{ fontSize: 12, color: "#9aa1ad" }}>
+            <span style={{ fontSize: 12, color: "var(--muted-3)" }}>
               {savedAt ? `· 최근 저장 ${savedAt}` : "· 저장 이력 없음"}
             </span>
           </div>
@@ -395,9 +397,9 @@ export default function FeedbackDialog({
               fontSize: 13,
               fontWeight: 600,
               fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-              color: "#5a616e",
-              background: "#fff",
-              border: "1px solid #e2e5ea",
+              color: "var(--text-3)",
+              background: "var(--panel)",
+              border: "1px solid var(--border-strong)",
               borderRadius: 10,
               cursor: "pointer",
             }}
@@ -414,8 +416,8 @@ export default function FeedbackDialog({
               fontSize: 13,
               fontWeight: 700,
               fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-              color: "#fff",
-              background: "#2f6bff",
+              color: "var(--on-primary)",
+              background: "var(--primary)",
               border: "none",
               borderRadius: 10,
               cursor: saving ? "not-allowed" : "pointer",

@@ -1,4 +1,5 @@
 import { Chart as ChartJS } from "chart.js";
+import { getActiveTheme, type Theme } from "./theme";
 
 /**
  * 대시보드·불만족 관리 탭 차트 공통 스타일 (Chart.js / canvas).
@@ -20,10 +21,29 @@ import { Chart as ChartJS } from "chart.js";
  * (선명도는 이 색 + weight 로만 확보하고 fontSize 는 각 차트의 기존 값을 유지)
  */
 export const CHART_TEXT_COLOR = "#5a616e";
+/** 다크 테마 축 tick·범례 텍스트 색 — 다크 보조 텍스트(--text-3)와 동일 */
+export const CHART_TEXT_COLOR_DARK = "#b7bdc7";
 /** 공통 폰트 두께 — 기존 400 → 500(400~500 범위). fontSize 는 키우지 않는다. */
 export const CHART_FONT_WEIGHT = 500;
 /** grid 라인 색 — 기존 수준의 연한 회색(텍스트보다 옅게). */
 export const CHART_GRID_COLOR = "#f0f2f5";
+/** 다크 테마 grid 라인 색 — 패널보다 살짝 밝게 */
+export const CHART_GRID_COLOR_DARK = "#2e333c";
+
+/**
+ * 테마별 canvas 색 묶음. canvas 는 CSS 변수를 못 읽으므로 컴포넌트가 useTheme() 의 값을
+ * 넘겨 options 를 만들고, 테마가 바뀌면 다시 렌더해 반영한다.
+ * panel: 도넛 조각 경계선(= 카드 배경색).
+ */
+export function chartColors(theme: Theme = getActiveTheme()): {
+  text: string;
+  grid: string;
+  panel: string;
+} {
+  return theme === "dark"
+    ? { text: CHART_TEXT_COLOR_DARK, grid: CHART_GRID_COLOR_DARK, panel: "#1e2128" }
+    : { text: CHART_TEXT_COLOR, grid: CHART_GRID_COLOR, panel: "#fff" };
+}
 
 /** grid 공통 스타일 — 텍스트 색과 분리 관리 */
 export const CHART_GRID = { color: CHART_GRID_COLOR } as const;
@@ -62,7 +82,7 @@ export const COMMON_PIE_PROPS = {
  * (devicePixelRatio 는 window 접근이라 클라이언트에서만 유효)
  */
 export function applyChartDefaults() {
-  ChartJS.defaults.color = CHART_TEXT_COLOR;
+  ChartJS.defaults.color = chartColors().text;
   ChartJS.defaults.font.weight = CHART_FONT_WEIGHT;
   // 차트 텍스트(축 눈금 등)를 13px 로 통일. 개별 축의 font.size 도 13 으로 맞춘다.
   ChartJS.defaults.font.size = 13;

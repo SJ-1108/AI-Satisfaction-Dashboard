@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Chart } from "chart.js";
 import { valueLabelState } from "./chart-value-labels";
+import { chartColors } from "./chart-style";
+import { getActiveTheme } from "./theme";
 
 /**
  * 차트가 있는 페이지의 PDF 내보내기(인쇄) 공용 훅.
@@ -35,6 +37,39 @@ function snapshotChartsToImages(): {
     .map((c) => Chart.getChart(c))
     .filter((ch): ch is Chart => Boolean(ch));
   valueLabelState.show = true;
+  // 다크 모드라도 인쇄·PDF 는 라이트 팔레트(@media print 와 동일)로 스냅샷을 뜬다.
+  // canvas 는 CSS 변수를 못 읽으므로 축 텍스트·grid·도넛 경계색을 잠시 라이트 값으로 바꾼다.
+  const light = chartColors("light");
+  const dark = chartColors("dark");
+  const wasDark = getActiveTheme() === "dark";
+  const prevDefaultColor = Chart.defaults.color;
+  const undo: Array<() => void> = [];
+  if (wasDark) {
+    Chart.defaults.color = light.text;
+    for (const ch of charts) {
+      const scales = (ch.options.scales ?? {}) as Record<
+        string,
+        { grid?: { color?: unknown } } | undefined
+      >;
+      for (const sc of Object.values(scales)) {
+        if (sc?.grid && sc.grid.color === dark.grid) {
+          const prev = sc.grid.color;
+          sc.grid.color = light.grid;
+          undo.push(() => {
+            sc.grid!.color = prev;
+          });
+        }
+      }
+      for (const ds of ch.data.datasets) {
+        if (ds.borderColor === dark.panel) {
+          ds.borderColor = light.panel;
+          undo.push(() => {
+            ds.borderColor = dark.panel;
+          });
+        }
+      }
+    }
+  }
   charts.forEach((ch) => ch.update());
   const imgs: HTMLImageElement[] = [];
   const hidden: HTMLCanvasElement[] = [];
@@ -65,8 +100,10 @@ function snapshotChartsToImages(): {
     hidden.forEach((c) => {
       c.style.display = "";
     });
-    // 값 라벨 OFF → 화면 차트를 원래(라벨 없는) 상태로 동기 재렌더.
+    // 값 라벨 OFF → 화면 차트를 원래(라벨 없는) 상태로 동기 재렌더. 라이트 강제도 원복.
     valueLabelState.show = false;
+    undo.forEach((fn) => fn());
+    Chart.defaults.color = prevDefaultColor;
     charts.forEach((ch) => ch.update());
   };
   return { imgs, restore };

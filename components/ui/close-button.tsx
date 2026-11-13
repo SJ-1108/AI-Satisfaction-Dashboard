@@ -12,7 +12,7 @@ export default function CloseButton({ onClick }: { onClick: () => void }) {
         justifyContent: "center",
         background: "transparent",
         border: "none",
-        color: "#9aa1ad",
+        color: "var(--muted-3)",
         fontSize: 16,
         cursor: "pointer",
         borderRadius: 7,

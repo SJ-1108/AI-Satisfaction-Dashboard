@@ -84,7 +84,7 @@ export default function DateRangePicker({
     height: 28,
     border: "none",
     background: "transparent",
-    color: "#5a616e",
+    color: "var(--text-3)",
     fontSize: 15,
     cursor: "pointer",
     borderRadius: 7,
@@ -109,26 +109,26 @@ export default function DateRangePicker({
           gap: 8,
           height: 42,
           padding: "0 14px",
-          border: `1px solid ${open ? "#2f6bff" : "#e2e5ea"}`,
+          border: `1px solid ${open ? "var(--primary)" : "var(--border-strong)"}`,
           borderRadius: 10,
-          background: "#fff",
+          background: "var(--panel)",
           cursor: "pointer",
           fontSize: 13,
-          color: "#3a4150",
+          color: "var(--text-2)",
           userSelect: "none",
         }}
       >
-        <span style={{ color: from ? "#3a4150" : "#9aa1ad" }}>
+        <span style={{ color: from ? "var(--text-2)" : "var(--muted-3)" }}>
           {from || "시작일"}
         </span>
-        <span style={{ color: "#b0b6c0" }}>~</span>
-        <span style={{ color: to ? "#3a4150" : "#9aa1ad" }}>{to || "종료일"}</span>
+        <span style={{ color: "var(--muted-3)" }}>~</span>
+        <span style={{ color: to ? "var(--text-2)" : "var(--muted-3)" }}>{to || "종료일"}</span>
         <svg
           width="15"
           height="15"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#9aa1ad"
+          stroke="var(--muted-3)"
           strokeWidth="2"
           strokeLinecap="round"
           style={{ marginLeft: 2 }}
@@ -147,10 +147,10 @@ export default function DateRangePicker({
             left: 0,
             zIndex: 60,
             width: 276,
-            background: "#fff",
-            border: "1px solid #e9ebef",
+            background: "var(--panel)",
+            border: "1px solid var(--border)",
             borderRadius: 12,
-            boxShadow: "0 10px 28px rgba(16,24,40,.14)",
+            boxShadow: "var(--shadow-pop)",
             padding: 16,
           }}
         >
@@ -165,7 +165,7 @@ export default function DateRangePicker({
             <button style={navBtn} onClick={prevMonth} aria-label="이전 달">
               ‹
             </button>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1d23" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
               {view.y}년 {view.m + 1}월
             </div>
             <button style={navBtn} onClick={nextMonth} aria-label="다음 달">
@@ -187,7 +187,7 @@ export default function DateRangePicker({
                 style={{
                   textAlign: "center",
                   fontSize: 11,
-                  color: "#9aa1ad",
+                  color: "var(--muted-3)",
                   padding: "4px 0",
                 }}
               >
@@ -222,11 +222,11 @@ export default function DateRangePicker({
                     lineHeight: "32px",
                     borderRadius: 7,
                     cursor: "pointer",
-                    color: selected ? "#fff" : inRange ? "#2f6bff" : "#3a4150",
+                    color: selected ? "var(--on-primary)" : inRange ? "var(--primary)" : "var(--text-2)",
                     background: selected
-                      ? "#2f6bff"
+                      ? "var(--primary)"
                       : inRange
-                        ? "#eef3ff"
+                        ? "var(--primary-soft)"
                         : "transparent",
                     fontWeight: selected ? 700 : 500,
                   }}
@@ -253,9 +253,9 @@ export default function DateRangePicker({
                 fontSize: 13,
                 fontWeight: 600,
                 fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-                color: "#5a616e",
-                background: "#fff",
-                border: "1px solid #e2e5ea",
+                color: "var(--text-3)",
+                background: "var(--panel)",
+                border: "1px solid var(--border-strong)",
                 borderRadius: 9,
                 cursor: "pointer",
               }}
@@ -270,8 +270,8 @@ export default function DateRangePicker({
                 fontSize: 13,
                 fontWeight: 700,
                 fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-                color: "#fff",
-                background: "#2f6bff",
+                color: "var(--on-primary)",
+                background: "var(--primary)",
                 border: "none",
                 borderRadius: 9,
                 cursor: "pointer",

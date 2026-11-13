@@ -1,3 +1,4 @@
+import { getActiveTheme, type Theme } from "./theme";
 /**
  * DB 테이블 타입 정의.
  * satisfaction ↔ feedback 은 satisfaction.id 1:1 관계 (satisfaction_id).
@@ -66,7 +67,13 @@ export function statusTextColor(bg: string): string {
  * 검정 쪽으로 반복해서 섞고(색상 hue 유지), 이미 어두운 색은 그대로 둔다.
  * (검토중 #8fb0f2·보류 #97a2b4 처럼 '중간 밝기' 색도 확실히 진하게 만들어 가독성 확보.)
  */
-export function onWhiteText(color: string): string {
+export function onWhiteText(
+  color: string,
+  theme: Theme = getActiveTheme(),
+): string {
+  // 렌더 중에는 반드시 useTheme() 의 theme 을 넘길 것 — 전역값은 페이지 세그먼트가
+  // 하이드레이션되기 전에 바뀔 수 있어 서버 마크업과 불일치가 난다.
+  if (theme === "dark") return onDarkText(color);
   let c = color;
   for (let i = 0; i < 8 && relativeLuminance(c) > 0.3; i++) {
     c = mixToward(c, "#1a1d23", 0.4);
@@ -74,8 +81,22 @@ export function onWhiteText(color: string): string {
   return c;
 }
 
+/** 다크 패널 위 텍스트용 보정 — 충분히 밝아질 때까지 흰색 쪽으로 섞는다(색상 유지). */
+function onDarkText(color: string): string {
+  let c = color;
+  for (let i = 0; i < 8 && relativeLuminance(c) < 0.35; i++) {
+    c = mixToward(c, "#ffffff", 0.4);
+  }
+  return c;
+}
+
 /** 상태색의 연한 틴트 배경(pill·드롭다운 버튼). 흰색 쪽으로 섞어 옅게. */
-export function statusTint(color: string): string {
+export function statusTint(
+  color: string,
+  theme: Theme = getActiveTheme(),
+): string {
+  // 다크 테마: 패널색(#1e2128) 쪽으로 섞어 어두운 틴트를 만든다.
+  if (theme === "dark") return mixToward(color, "#1e2128", 0.72);
   return mixToward(color, "#ffffff", 0.8);
 }
 
@@ -84,7 +105,11 @@ export function statusTint(color: string): string {
  * 원색이 밝으면 충분히 어두워질 때까지 검정 쪽으로 반복해서 섞고,
  * 이미 어두운 색(처리완료·처리 불가 등)은 그대로 둔다. 색상(hue)은 유지.
  */
-export function statusInk(color: string): string {
+export function statusInk(
+  color: string,
+  theme: Theme = getActiveTheme(),
+): string {
+  if (theme === "dark") return onDarkText(color);
   let c = color;
   for (let i = 0; i < 8 && relativeLuminance(c) > 0.4; i++) {
     c = mixToward(c, "#1a1d23", 0.4);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTheme } from "@/components/theme-provider";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -42,7 +43,7 @@ import { valueLabelsPlugin } from "@/lib/chart-value-labels";
 import DateRangePicker from "@/components/ui/date-range-picker";
 import {
   applyChartDefaults,
-  CHART_GRID,
+  chartColors,
   CHART_TEXT_COLOR,
   COMMON_LINE_PROPS,
   COMMON_PIE_PROPS,
@@ -96,7 +97,6 @@ const DISSAT = "#e0635d"; // 불만족 (KPI/표 강조)
 const DONUT_RADIUS = 115; // 바깥 반지름(px)
 const DONUT_CUTOUT = 90; // 안쪽 반지름(px) → 링 두께 = 25px
 
-const GRID = CHART_GRID;
 // 범례는 모두 canvas 대신 HTML(ChartLegend)로 그린다 — canvas 텍스트는 ClearType
 // 서브픽셀 힌팅을 못 써 DOM 텍스트보다 물렁하게 보이므로, 범례를 HTML로 빼
 // 일반 텍스트와 동일한 선명도로 맞춘다. 각 차트 options 의 legend 는 display:false.
@@ -129,10 +129,10 @@ function rangeForGranularity(
 
 // ── 인라인 스타일 (디자인 수치 재현) ──
 const cardStyle: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #eceef1",
+  background: "var(--panel)",
+  border: "1px solid var(--border)",
   borderRadius: 14,
-  boxShadow: "0 1px 2px rgba(16,24,40,.03)",
+  boxShadow: "var(--shadow-sm)",
 };
 const sectionTitle: React.CSSProperties = {
   fontSize: 18,
@@ -155,9 +155,9 @@ const exportBtnStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-  color: "#5a616e",
-  background: "#fff",
-  border: "1px solid #e2e5ea",
+  color: "var(--text-3)",
+  background: "var(--panel)",
+  border: "1px solid var(--border-strong)",
   borderRadius: 10,
   cursor: "pointer",
 };
@@ -167,31 +167,31 @@ const resetBtnStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-  color: "#2f6bff",
-  background: "#fff",
-  border: "1px solid #2f6bff",
+  color: "var(--primary)",
+  background: "var(--panel)",
+  border: "1px solid var(--primary)",
   borderRadius: 9,
   cursor: "pointer",
 };
 const th: React.CSSProperties = {
   padding: "12px 14px",
   fontWeight: 600,
-  color: "#6b7280",
+  color: "var(--muted-2)",
   whiteSpace: "nowrap",
-  borderBottom: "1px solid #edeff2",
+  borderBottom: "1px solid var(--border)",
   textAlign: "center",
 };
 const td: React.CSSProperties = {
   padding: "13px 14px",
   textAlign: "center",
-  color: "#6b7280",
+  color: "var(--muted-2)",
 };
 /** 처리 현황 테이블 합계 행 셀 — 본문보다 진하고 굵게. */
 const tfootTd: React.CSSProperties = {
   padding: "13px 14px",
   textAlign: "center",
   fontWeight: 700,
-  color: "#3a4150",
+  color: "var(--text-2)",
   whiteSpace: "nowrap",
 };
 
@@ -223,11 +223,16 @@ export default function DashboardClient({
   const [superDpr] = useState(() =>
     typeof window !== "undefined" ? 2 * (window.devicePixelRatio || 1) : 2,
   );
+  // 테마(라이트/다크) — canvas 는 CSS 변수를 못 읽으므로 축 텍스트·grid·도넛 경계색을
+  // 테마별 값으로 골라 options 에 넣는다. 토글 시 theme 이 바뀌어 다시 렌더된다.
+  const { theme } = useTheme();
+  const cc = chartColors(theme);
+  const GRID = { color: cc.grid };
   useEffect(() => {
-    // 공통 차트 기본값(폰트·색) 적용.
+    // 공통 차트 기본값(폰트·색) 적용. 테마가 바뀌면 다시 적용.
     applyChartDefaults();
     setMounted(true);
-  }, []);
+  }, [theme]);
 
   // PDF 내보내기(인쇄) — 차트 스냅샷 + A4 리플로우 공용 훅. 차트 컨테이너에는
   // className="pdf-chart-box" 를 지정한다. (zoom 미사용 이유는 훅 주석 참조)
@@ -361,6 +366,7 @@ export default function DashboardClient({
         backgroundColor: [BLUE, RED],
         // 원인 분류 도넛과 링 두께를 맞추기 위해 흰 테두리 공통(COMMON_PIE_PROPS)
         ...COMMON_PIE_PROPS,
+        borderColor: cc.panel,
       },
     ],
   };
@@ -505,6 +511,7 @@ export default function DashboardClient({
         ),
         // 작은 조각도 경계가 또렷하도록 공통 도넛 속성 적용
         ...COMMON_PIE_PROPS,
+        borderColor: cc.panel,
         // 최소 각도로 보장한 얇은 조각의 색이 흰 경계(2px)에 다시 묻히지 않도록 1px.
         borderWidth: 1,
       },
@@ -634,10 +641,10 @@ export default function DashboardClient({
   }));
 
   const stats = [
-    { label: "총 평가수", value: allKpis.total.toLocaleString(), color: "#1a1d23" },
+    { label: "총 평가수", value: allKpis.total.toLocaleString(), color: "var(--text)" },
     { label: "만족 👍", value: allKpis.up.toLocaleString(), color: BLUE },
     { label: "불만족 👎", value: allKpis.down.toLocaleString(), color: DISSAT },
-    { label: "만족률", value: `${allKpis.rate}%`, color: "#1a1d23" },
+    { label: "만족률", value: `${allKpis.rate}%`, color: "var(--text)" },
   ];
 
   return (
@@ -673,7 +680,7 @@ export default function DashboardClient({
             height="15"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#5a616e"
+            stroke="var(--text-3)"
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -688,7 +695,7 @@ export default function DashboardClient({
       </div>
 
       {!hasRecords ? (
-        <div style={{ ...cardStyle, padding: "40px 24px", color: "#8a909c" }}>
+        <div style={{ ...cardStyle, padding: "40px 24px", color: "var(--muted)" }}>
           업로드된 데이터가 없습니다.
         </div>
       ) : (
@@ -712,7 +719,7 @@ export default function DashboardClient({
                 <div
                   style={{
                     fontSize: 13,
-                    color: "#8a909c",
+                    color: "var(--muted)",
                     marginBottom: 12,
                     fontWeight: 500,
                   }}
@@ -736,8 +743,8 @@ export default function DashboardClient({
           {/* 기간별 만족도 평가 조회 — 회색 패널로 그룹화(누적 현황과 시각적 구분) */}
           <div
             style={{
-              background: "#f7f5f1",
-              border: "1px solid #ece7de",
+              background: "var(--panel-alt)",
+              border: "1px solid var(--border)",
               borderRadius: 14,
               padding: "20px 22px",
             }}
@@ -762,7 +769,7 @@ export default function DashboardClient({
               }}
             >
               <div style={sectionTitle}>기간별 만족도 평가 조회</div>
-              <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>
+              <div style={{ fontSize: 13, color: "var(--muted-2)", fontWeight: 500 }}>
                 총 평가{" "}
                 <b style={{ color: BLUE, fontWeight: 700 }}>
                   {kpis.total.toLocaleString()}
@@ -775,8 +782,8 @@ export default function DashboardClient({
             <div
               style={{
                 display: "inline-flex",
-                background: "#fff",
-                border: "1px solid #e2e5ea",
+                background: "var(--panel)",
+                border: "1px solid var(--border-strong)",
                 borderRadius: 9,
                 padding: 3,
               }}
@@ -795,7 +802,7 @@ export default function DashboardClient({
                       fontWeight: 600,
                       fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
                       borderRadius: 7,
-                      color: active ? "#fff" : "#6b7280",
+                      color: active ? "var(--on-primary)" : "var(--muted-2)",
                       background: active ? BLUE : "transparent",
                       boxShadow: active
                         ? "0 1px 2px rgba(36,80,200,.3)"
@@ -811,7 +818,7 @@ export default function DashboardClient({
 
             {/* 날짜 범위 (달력 팝오버) */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>
+              <span style={{ fontSize: 13, color: "var(--muted-2)", fontWeight: 500 }}>
                 기간
               </span>
               <DateRangePicker
@@ -831,7 +838,7 @@ export default function DashboardClient({
 
           {/* 3) 기간 기준 그래프/표 */}
           {!hasData ? (
-            <div style={{ ...cardStyle, padding: "40px 24px", color: "#8a909c" }}>
+            <div style={{ ...cardStyle, padding: "40px 24px", color: "var(--muted)" }}>
               선택한 기간에 데이터가 없습니다.
             </div>
           ) : (
@@ -844,7 +851,7 @@ export default function DashboardClient({
                   alignItems: "center",
                   fontSize: 15,
                   fontWeight: 700,
-                  color: "#3a4150",
+                  color: "var(--text-2)",
                   letterSpacing: "-0.3px",
                   margin: "4px 0 14px",
                 }}
@@ -855,7 +862,7 @@ export default function DashboardClient({
                     width: 6,
                     height: 6,
                     borderRadius: "50%",
-                    background: "#3a4150",
+                    background: "var(--text-2)",
                     marginRight: 8,
                   }}
                 />
@@ -929,7 +936,7 @@ export default function DashboardClient({
                   alignItems: "center",
                   fontSize: 15,
                   fontWeight: 700,
-                  color: "#3a4150",
+                  color: "var(--text-2)",
                   letterSpacing: "-0.3px",
                   margin: "4px 0 14px",
                 }}
@@ -940,7 +947,7 @@ export default function DashboardClient({
                     width: 6,
                     height: 6,
                     borderRadius: "50%",
-                    background: "#3a4150",
+                    background: "var(--text-2)",
                     marginRight: 8,
                   }}
                 />
@@ -966,7 +973,7 @@ export default function DashboardClient({
                 >
                   <div style={chartTitle}>불만족 사유별 분포</div>
                   {reasons.length === 0 ? (
-                    <p style={{ color: "#8a909c" }}>불만족 평가가 없습니다.</p>
+                    <p style={{ color: "var(--muted)" }}>불만족 평가가 없습니다.</p>
                   ) : (
                     <div className="pdf-chart-box" style={{ height: 360, position: "relative" }}>
                       {mounted ? (
@@ -989,7 +996,7 @@ export default function DashboardClient({
                 >
                   <div style={chartTitle}>원인 분류별 통계</div>
                   {causes.length === 0 ? (
-                    <p style={{ color: "#8a909c" }}>불만족 평가가 없습니다.</p>
+                    <p style={{ color: "var(--muted)" }}>불만족 평가가 없습니다.</p>
                   ) : (
                     <div className="pdf-donut-wrap">
                       <div className="pdf-chart-box" style={{ height: 300, position: "relative" }}>
@@ -1015,7 +1022,7 @@ export default function DashboardClient({
                   alignItems: "center",
                   fontSize: 15,
                   fontWeight: 700,
-                  color: "#3a4150",
+                  color: "var(--text-2)",
                   letterSpacing: "-0.3px",
                   margin: "4px 0 14px",
                 }}
@@ -1026,7 +1033,7 @@ export default function DashboardClient({
                     width: 6,
                     height: 6,
                     borderRadius: "50%",
-                    background: "#3a4150",
+                    background: "var(--text-2)",
                     marginRight: 8,
                   }}
                 />
@@ -1038,7 +1045,7 @@ export default function DashboardClient({
               >
                 <div style={chartTitle}>불만족 평가 처리 현황</div>
                 {daily.length === 0 ? (
-                  <p style={{ color: "#8a909c" }}>데이터가 없습니다.</p>
+                  <p style={{ color: "var(--muted)" }}>데이터가 없습니다.</p>
                 ) : (
                   <>
                     {/* 범례+막대차트를 한 덩어리로 묶어 인쇄 시 페이지 중간에서 갈라지지 않게 */}
@@ -1075,7 +1082,7 @@ export default function DashboardClient({
                         }}
                       >
                         <thead>
-                          <tr style={{ background: "#f7f8fa" }}>
+                          <tr style={{ background: "var(--panel-alt)" }}>
                             <th style={th}>
                               {granularity === "day" ? "날짜" : "기간"}
                             </th>
@@ -1094,20 +1101,20 @@ export default function DashboardClient({
                           {daily.map((d) => (
                             <tr
                               key={d.date}
-                              style={{ borderBottom: "1px solid #f1f3f5" }}
+                              style={{ borderBottom: "1px solid var(--border-soft)" }}
                             >
                               <td
                                 style={{
                                   padding: "13px 14px",
                                   fontWeight: 500,
-                                  color: "#3a4150",
+                                  color: "var(--text-2)",
                                   whiteSpace: "nowrap",
                                   textAlign: "center",
                                 }}
                               >
                                 {formatBucketLabel(d.date, granularity)}
                               </td>
-                              <td style={{ ...td, color: "#3a4150" }}>{d.total}</td>
+                              <td style={{ ...td, color: "var(--text-2)" }}>{d.total}</td>
                               <td
                                 style={{
                                   ...td,
@@ -1136,12 +1143,12 @@ export default function DashboardClient({
                         <tfoot>
                           <tr
                             style={{
-                              borderTop: "2px solid #e5e8ec",
-                              background: "#f7f8fa",
+                              borderTop: "2px solid var(--border)",
+                              background: "var(--panel-alt)",
                             }}
                           >
                             <td style={tfootTd}>합계</td>
-                            <td style={{ ...tfootTd, color: "#3a4150" }}>
+                            <td style={{ ...tfootTd, color: "var(--text-2)" }}>
                               {dailyTotals.total.toLocaleString()}
                             </td>
                             <td style={{ ...tfootTd, color: DISSAT }}>
@@ -1184,7 +1191,7 @@ export default function DashboardClient({
                 >
                   <div style={chartTitle}>유관 부서별 협의 필요 비중</div>
                   {departments.length === 0 ? (
-                    <p style={{ color: "#8a909c" }}>협의가 필요한 부서가 없습니다.</p>
+                    <p style={{ color: "var(--muted)" }}>협의가 필요한 부서가 없습니다.</p>
                   ) : (
                     <div
                       className="pdf-chart-box"
@@ -1250,7 +1257,7 @@ function ChartLegend({
             gap: 7,
             fontSize: 13,
             fontWeight: 500,
-            color: CHART_TEXT_COLOR,
+            color: "var(--text-3)",
           }}
         >
           <span
@@ -1267,7 +1274,7 @@ function ChartLegend({
           <span>
             {it.label}
             {it.value && (
-              <span style={{ marginLeft: 3, color: "#98a0ad", fontWeight: 500 }}>
+              <span style={{ marginLeft: 3, color: "var(--muted-3)", fontWeight: 500 }}>
                 {it.value}
               </span>
             )}
@@ -1287,7 +1294,7 @@ function ChartLoading() {
         alignItems: "center",
         justifyContent: "center",
         height: "100%",
-        color: "#8a909c",
+        color: "var(--muted)",
         fontSize: 13,
       }}
     >

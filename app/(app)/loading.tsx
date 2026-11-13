@@ -11,7 +11,7 @@ export default function Loading() {
           width: 180,
           height: 26,
           borderRadius: 8,
-          background: "#eef0f3",
+          background: "var(--border)",
           marginBottom: 28,
         }}
         className="skeleton-pulse"
@@ -30,8 +30,8 @@ export default function Loading() {
             style={{
               height: 96,
               borderRadius: 14,
-              background: "#f3f4f7",
-              border: "1px solid #eceef1",
+              background: "var(--panel-alt)",
+              border: "1px solid var(--border)",
             }}
             className="skeleton-pulse"
           />
@@ -41,8 +41,8 @@ export default function Loading() {
         style={{
           height: 320,
           borderRadius: 14,
-          background: "#f3f4f7",
-          border: "1px solid #eceef1",
+          background: "var(--panel-alt)",
+          border: "1px solid var(--border)",
         }}
         className="skeleton-pulse"
       />

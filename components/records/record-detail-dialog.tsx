@@ -24,7 +24,7 @@ export default function RecordDetailDialog({
         position: "fixed",
         inset: 0,
         zIndex: 100,
-        background: "rgba(16,24,40,.45)",
+        background: "var(--overlay)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -37,9 +37,9 @@ export default function RecordDetailDialog({
           width: "100%",
           maxWidth: 560,
           maxHeight: "85vh",
-          background: "#fff",
+          background: "var(--panel)",
           borderRadius: 16,
-          boxShadow: "0 20px 60px rgba(16,24,40,.3)",
+          boxShadow: "var(--shadow-dialog)",
           padding: 28,
           display: "flex",
           flexDirection: "column",
@@ -59,7 +59,7 @@ export default function RecordDetailDialog({
             <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px" }}>
               상세보기
             </h2>
-            <div style={{ fontSize: 12, color: "#9aa1ad" }}>
+            <div style={{ fontSize: 12, color: "var(--muted-3)" }}>
               No. {no} · {formatKstDateTime(row.created_at)}
             </div>
           </div>
@@ -87,8 +87,8 @@ export default function RecordDetailDialog({
                 padding: "3px 9px",
                 fontSize: 12,
                 fontWeight: 600,
-                color: up ? "#2f6bff" : "#e0635d",
-                background: up ? "#eaf1ff" : "#fdecea",
+                color: up ? "var(--primary)" : "var(--down)",
+                background: up ? "var(--primary-soft)" : "var(--down-soft)",
                 borderRadius: 6,
               }}
             >

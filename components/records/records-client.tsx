@@ -40,11 +40,11 @@ const PAGE_SIZES = [10, 20, 50];
 
 // ── 공통 인라인 스타일 (디자인 톤) ──
 const card: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #eceef1",
+  background: "var(--panel)",
+  border: "1px solid var(--border)",
   borderRadius: 14,
   padding: "20px 22px",
-  boxShadow: "0 1px 2px rgba(16,24,40,.03)",
+  boxShadow: "var(--shadow-sm)",
 };
 const exportBtn: React.CSSProperties = {
   height: 40,
@@ -52,9 +52,9 @@ const exportBtn: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-  color: "#5a616e",
-  background: "#fff",
-  border: "1px solid #e2e5ea",
+  color: "var(--text-3)",
+  background: "var(--panel)",
+  border: "1px solid var(--border-strong)",
   borderRadius: 10,
   cursor: "pointer",
 };
@@ -64,8 +64,8 @@ const primaryBtn: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-  color: "#fff",
-  background: "#2f6bff",
+  color: "var(--on-primary)",
+  background: "var(--primary)",
   border: "none",
   borderRadius: 10,
   cursor: "pointer",
@@ -77,9 +77,9 @@ const dangerBtn: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-  color: "#e0635d",
-  background: "#fff",
-  border: "1px solid #f0c4c1",
+  color: "var(--down)",
+  background: "var(--panel)",
+  border: "1px solid var(--down-soft-border)",
   borderRadius: 10,
   cursor: "pointer",
   whiteSpace: "nowrap",
@@ -90,9 +90,9 @@ const outlineBtn: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-  color: "#2f6bff",
-  background: "#fff",
-  border: "1px solid #2f6bff",
+  color: "var(--primary)",
+  background: "var(--panel)",
+  border: "1px solid var(--primary)",
   borderRadius: 10,
   cursor: "pointer",
 };
@@ -103,28 +103,28 @@ const searchInputStyle: React.CSSProperties = {
   padding: "0 14px",
   fontSize: 13,
   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-  color: "#1a1d23",
-  border: "1px solid #e2e5ea",
+  color: "var(--text)",
+  border: "1px solid var(--border-strong)",
   borderRadius: 10,
   outline: "none",
 };
 const filterLabel: React.CSSProperties = {
   fontSize: 13,
-  color: "#6b7280",
+  color: "var(--muted-2)",
   fontWeight: 500,
 };
 const th: React.CSSProperties = {
   padding: "12px 14px",
   fontWeight: 600,
-  color: "#6b7280",
-  borderBottom: "1px solid #edeff2",
+  color: "var(--muted-2)",
+  borderBottom: "1px solid var(--border)",
   textAlign: "center",
   whiteSpace: "nowrap",
 };
 const td: React.CSSProperties = {
   padding: "13px 14px",
   textAlign: "center",
-  color: "#3a4150",
+  color: "var(--text-2)",
 };
 const tdEllipsis: React.CSSProperties = {
   ...td,
@@ -137,7 +137,7 @@ const stickyTh: React.CSSProperties = {
   ...th,
   position: "sticky",
   top: 0,
-  background: "#f7f8fa",
+  background: "var(--panel-alt)",
   zIndex: 1,
 };
 
@@ -303,7 +303,7 @@ export default function RecordsClient({
     const active = sortKey === key;
     return {
       arrow: active ? (sortDir === "asc" ? "▲" : "▼") : "▼",
-      color: active ? "#2f6bff" : "#cdd2da",
+      color: active ? "var(--primary)" : "var(--faint)",
     };
   }
 
@@ -628,7 +628,7 @@ export default function RecordsClient({
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#3a4150",
+              color: "var(--text-2)",
               background: "transparent",
               border: "none",
               borderRadius: 9,
@@ -660,9 +660,9 @@ export default function RecordsClient({
               fontSize: 13,
               fontWeight: 600,
               fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-              color: "#e0635d",
-              background: "#fff",
-              border: "1px solid #f0c4c1",
+              color: "var(--down)",
+              background: "var(--panel)",
+              border: "1px solid var(--down-soft-border)",
               borderRadius: 9,
               cursor: "pointer",
               whiteSpace: "nowrap",
@@ -687,9 +687,9 @@ export default function RecordsClient({
             marginBottom: 16,
             fontSize: 13,
             fontWeight: 600,
-            color: "#a13d38",
-            background: "#fdecea",
-            border: "1px solid #f0c4c1",
+            color: "var(--down-ink)",
+            background: "var(--down-soft)",
+            border: "1px solid var(--down-soft-border)",
             borderRadius: 10,
           }}
         >
@@ -718,18 +718,18 @@ export default function RecordsClient({
             marginBottom: histOpen && batches.length > 0 ? 14 : 0,
           }}
         >
-          <span style={{ fontSize: 10, color: "#9aa1ad" }}>
+          <span style={{ fontSize: 10, color: "var(--muted-3)" }}>
             {histOpen ? "▼" : "▶"}
           </span>{" "}
           최근 업로드 이력{" "}
-          <span style={{ color: "#9aa1ad", fontWeight: 600 }}>
+          <span style={{ color: "var(--muted-3)", fontWeight: 600 }}>
             ({batches.length})
           </span>
         </div>
 
         {histOpen &&
           (batches.length === 0 ? (
-            <p style={{ margin: "12px 0 0", color: "#8a909c", fontSize: 13 }}>
+            <p style={{ margin: "12px 0 0", color: "var(--muted)", fontSize: 13 }}>
               아직 업로드 이력이 없습니다.
             </p>
           ) : (
@@ -743,7 +743,7 @@ export default function RecordsClient({
                 }}
               >
                 <thead>
-                  <tr style={{ background: "#f7f8fa" }}>
+                  <tr style={{ background: "var(--panel-alt)" }}>
                     {["파일", "업로더", "시각", "행", "신규", "갱신", "파일 내 중복", "실패", "상태"].map(
                       (h) => (
                         <th key={h} style={th}>
@@ -755,11 +755,11 @@ export default function RecordsClient({
                 </thead>
                 <tbody>
                   {batches.map((b) => (
-                    <tr key={b.id} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                    <tr key={b.id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                       <td
                         style={{
                           ...td,
-                          color: "#2f6bff",
+                          color: "var(--primary)",
                           fontWeight: 500,
                           whiteSpace: "nowrap",
                         }}
@@ -783,9 +783,9 @@ export default function RecordsClient({
                             padding: "3px 10px",
                             fontSize: 12,
                             fontWeight: 600,
-                            color: b.status === "completed" ? "#1f9d6a" : "#6b7280",
+                            color: b.status === "completed" ? "var(--ok-ink)" : "var(--muted-2)",
                             background:
-                              b.status === "completed" ? "#e7f7ef" : "#eef0f3",
+                              b.status === "completed" ? "var(--ok-soft)" : "var(--border)",
                             borderRadius: 6,
                           }}
                         >
@@ -892,7 +892,7 @@ export default function RecordsClient({
               <col style={{ width: "13%" }} />
             </colgroup>
             <thead>
-              <tr style={{ background: "#f7f8fa" }}>
+              <tr style={{ background: "var(--panel-alt)" }}>
                 <th
                   style={{ ...th, cursor: "pointer", userSelect: "none" }}
                   onClick={() => toggleSort("created_at")}
@@ -922,13 +922,13 @@ export default function RecordsClient({
             <tbody style={{ opacity: listLoading ? 0.55 : 1, transition: "opacity .15s" }}>
               {listLoading && result.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                  <td colSpan={7} style={{ ...td, padding: 44, color: "var(--muted-3)" }}>
                     불러오는 중…
                   </td>
                 </tr>
               ) : result.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                  <td colSpan={7} style={{ ...td, padding: 44, color: "var(--muted-3)" }}>
                     조건에 맞는 데이터가 없습니다.
                   </td>
                 </tr>
@@ -937,9 +937,9 @@ export default function RecordsClient({
                   <tr
                     key={r.id}
                     onClick={() => setDetail(r)}
-                    style={{ borderBottom: "1px solid #f1f3f5", cursor: "pointer" }}
+                    style={{ borderBottom: "1px solid var(--border-soft)", cursor: "pointer" }}
                   >
-                    <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
+                    <td style={{ ...td, color: "var(--muted-2)", fontWeight: 500 }}>
                       {displayNo[r.id] ?? r.record_no}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
@@ -949,7 +949,7 @@ export default function RecordsClient({
                       {r.query ?? "-"}
                     </td>
                     <td
-                      style={{ ...tdEllipsis, color: "#6b7280" }}
+                      style={{ ...tdEllipsis, color: "var(--muted-2)" }}
                       title={r.summary_text ?? undefined}
                     >
                       {r.summary_text ?? "-"}
@@ -958,13 +958,13 @@ export default function RecordsClient({
                       <RatingBadge rating={r.rating} />
                     </td>
                     <td
-                      style={{ ...tdEllipsis, color: r.reason ? "#5a616e" : "#9aa1ad" }}
+                      style={{ ...tdEllipsis, color: r.reason ? "var(--text-3)" : "var(--muted-3)" }}
                       title={r.reason ? reasonLabel(r.reason) : undefined}
                     >
                       {r.reason ? reasonLabel(r.reason) : "-"}
                     </td>
                     <td
-                      style={{ ...tdEllipsis, color: "#9aa1ad" }}
+                      style={{ ...tdEllipsis, color: "var(--muted-3)" }}
                       title={r.comment ?? undefined}
                     >
                       {r.comment ?? "-"}
@@ -1026,7 +1026,7 @@ export default function RecordsClient({
             position: "fixed",
             inset: 0,
             zIndex: 100,
-            background: "rgba(16,24,40,.45)",
+            background: "var(--overlay)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1038,16 +1038,16 @@ export default function RecordsClient({
             style={{
               width: "100%",
               maxWidth: 420,
-              background: "#fff",
+              background: "var(--panel)",
               borderRadius: 16,
-              boxShadow: "0 20px 60px rgba(16,24,40,.3)",
+              boxShadow: "var(--shadow-dialog)",
               padding: 28,
             }}
           >
             <h2 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px" }}>
               데이터 초기화
             </h2>
-            <p style={{ margin: "0 0 22px", fontSize: 14, lineHeight: 1.6, color: "#5a616e" }}>
+            <p style={{ margin: "0 0 22px", fontSize: 14, lineHeight: 1.6, color: "var(--text-3)" }}>
               업로드된 평가·피드백·업로드 이력이 <strong>모두 삭제</strong>됩니다.
               이 작업은 <strong>되돌릴 수 없습니다.</strong> 계속할까요?
             </p>
@@ -1061,9 +1061,9 @@ export default function RecordsClient({
                   fontSize: 13,
                   fontWeight: 600,
                   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-                  color: "#5a616e",
-                  background: "#fff",
-                  border: "1px solid #e2e5ea",
+                  color: "var(--text-3)",
+                  background: "var(--panel)",
+                  border: "1px solid var(--border-strong)",
                   borderRadius: 10,
                   cursor: "pointer",
                 }}
@@ -1079,8 +1079,8 @@ export default function RecordsClient({
                   fontSize: 13,
                   fontWeight: 700,
                   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-                  color: "#fff",
-                  background: "#e0635d",
+                  color: "var(--on-primary)",
+                  background: "var(--down)",
                   border: "none",
                   borderRadius: 10,
                   cursor: resetting ? "not-allowed" : "pointer",
@@ -1102,7 +1102,7 @@ export default function RecordsClient({
             position: "fixed",
             inset: 0,
             zIndex: 100,
-            background: "rgba(16,24,40,.45)",
+            background: "var(--overlay)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1114,9 +1114,9 @@ export default function RecordsClient({
             style={{
               width: "100%",
               maxWidth: 460,
-              background: "#fff",
+              background: "var(--panel)",
               borderRadius: 16,
-              boxShadow: "0 20px 60px rgba(16,24,40,.3)",
+              boxShadow: "var(--shadow-dialog)",
               padding: 28,
             }}
           >
@@ -1135,7 +1135,7 @@ export default function RecordsClient({
                 margin: "0 0 18px",
                 fontSize: 14,
                 lineHeight: 1.6,
-                color: "#5a616e",
+                color: "var(--text-3)",
               }}
             >
               선택한 기간의 평가 데이터를 삭제합니다. 기준은 <strong>평가 시각</strong>
@@ -1162,20 +1162,20 @@ export default function RecordsClient({
                 marginBottom: 18,
                 fontSize: 13,
                 lineHeight: 1.7,
-                color: "#3a4150",
-                background: "#f7f8fa",
-                border: "1px solid #eceef1",
+                color: "var(--text-2)",
+                background: "var(--panel-alt)",
+                border: "1px solid var(--border)",
                 borderRadius: 10,
               }}
             >
               {!delFrom || !delTo ? (
-                <span style={{ color: "#6b7280" }}>기간을 선택하세요.</span>
+                <span style={{ color: "var(--muted-2)" }}>기간을 선택하세요.</span>
               ) : delCounting ? (
-                <span style={{ color: "#6b7280" }}>삭제 대상 확인 중…</span>
+                <span style={{ color: "var(--muted-2)" }}>삭제 대상 확인 중…</span>
               ) : delPreview === null ? (
-                <span style={{ color: "#6b7280" }}>건수를 확인할 수 없습니다.</span>
+                <span style={{ color: "var(--muted-2)" }}>건수를 확인할 수 없습니다.</span>
               ) : delPreview.records === 0 ? (
-                <span style={{ color: "#6b7280" }}>
+                <span style={{ color: "var(--muted-2)" }}>
                   선택한 기간에 데이터가 없습니다.
                 </span>
               ) : (
@@ -1184,7 +1184,7 @@ export default function RecordsClient({
                     평가 <strong>{delPreview.records.toLocaleString()}건</strong>
                   </div>
                   {delPreview.feedback > 0 && (
-                    <div style={{ color: "#a13d38" }}>
+                    <div style={{ color: "var(--down-ink)" }}>
                       불만족 관리 입력{" "}
                       <strong>{delPreview.feedback.toLocaleString()}건</strong>도 함께
                       삭제됩니다 (사유·원인·조치·메모)
@@ -1199,7 +1199,7 @@ export default function RecordsClient({
                 margin: "0 0 22px",
                 fontSize: 13,
                 lineHeight: 1.6,
-                color: "#a13d38",
+                color: "var(--down-ink)",
               }}
             >
               이 작업은 <strong>되돌릴 수 없습니다.</strong> 평가 데이터는 파일을 다시
@@ -1216,9 +1216,9 @@ export default function RecordsClient({
                   fontSize: 13,
                   fontWeight: 600,
                   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-                  color: "#5a616e",
-                  background: "#fff",
-                  border: "1px solid #e2e5ea",
+                  color: "var(--text-3)",
+                  background: "var(--panel)",
+                  border: "1px solid var(--border-strong)",
                   borderRadius: 10,
                   cursor: "pointer",
                 }}
@@ -1240,8 +1240,8 @@ export default function RecordsClient({
                   fontSize: 13,
                   fontWeight: 700,
                   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-                  color: "#fff",
-                  background: "#e0635d",
+                  color: "var(--on-primary)",
+                  background: "var(--down)",
                   border: "none",
                   borderRadius: 10,
                   cursor:
@@ -1272,7 +1272,7 @@ export default function RecordsClient({
             position: "fixed",
             inset: 0,
             zIndex: 100,
-            background: "rgba(16,24,40,.45)",
+            background: "var(--overlay)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1285,9 +1285,9 @@ export default function RecordsClient({
               width: "100%",
               maxWidth: 620,
               maxHeight: "80vh",
-              background: "#fff",
+              background: "var(--panel)",
               borderRadius: 16,
-              boxShadow: "0 20px 60px rgba(16,24,40,.3)",
+              boxShadow: "var(--shadow-dialog)",
               padding: 28,
               display: "flex",
               flexDirection: "column",
@@ -1307,13 +1307,13 @@ export default function RecordsClient({
               </h2>
               <CloseButton onClick={() => setShowResetHistory(false)} />
             </div>
-            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#8a909c" }}>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--muted)" }}>
               데이터 초기화 이력을 최신순으로 확인할 수 있습니다.
             </p>
 
             <div style={{ flex: 1, overflowY: "auto" }}>
               {resetLogs.length === 0 ? (
-                <p style={{ margin: 0, padding: "28px 0", textAlign: "center", color: "#9aa1ad", fontSize: 13 }}>
+                <p style={{ margin: 0, padding: "28px 0", textAlign: "center", color: "var(--muted-3)", fontSize: 13 }}>
                   초기화 이력이 없습니다.
                 </p>
               ) : (
@@ -1325,7 +1325,7 @@ export default function RecordsClient({
                   }}
                 >
                   <thead>
-                    <tr style={{ background: "#f7f8fa" }}>
+                    <tr style={{ background: "var(--panel-alt)" }}>
                       <th style={stickyTh}>No.</th>
                       <th style={stickyTh}>초기화 일시</th>
                       <th style={stickyTh}>이름</th>
@@ -1334,8 +1334,8 @@ export default function RecordsClient({
                   </thead>
                   <tbody>
                     {resetLogs.slice(0, 20).map((log, i) => (
-                      <tr key={log.id} style={{ borderBottom: "1px solid #f1f3f5" }}>
-                        <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
+                      <tr key={log.id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
+                        <td style={{ ...td, color: "var(--muted-2)", fontWeight: 500 }}>
                           {i + 1}
                         </td>
                         <td style={{ ...td, whiteSpace: "nowrap" }}>
@@ -1370,8 +1370,8 @@ function RatingBadge({ rating }: { rating: Rating }) {
         padding: "3px 9px",
         fontSize: 12,
         fontWeight: 600,
-        color: up ? "#2f6bff" : "#e0635d",
-        background: up ? "#eaf1ff" : "#fdecea",
+        color: up ? "var(--primary)" : "var(--down)",
+        background: up ? "var(--primary-soft)" : "var(--down-soft)",
         borderRadius: 6,
       }}
     >

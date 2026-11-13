@@ -7,12 +7,12 @@ export default function ReadField({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ padding: "12px 14px", background: "#f7f8fa", borderRadius: 10 }}>
-      <div style={{ fontSize: 11, color: "#9aa1ad", marginBottom: 4 }}>{label}</div>
+    <div style={{ padding: "12px 14px", background: "var(--panel-alt)", borderRadius: 10 }}>
+      <div style={{ fontSize: 11, color: "var(--muted-3)", marginBottom: 4 }}>{label}</div>
       <div
         style={{
           fontSize: 13,
-          color: "#3a4150",
+          color: "var(--text-2)",
           lineHeight: 1.6,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",

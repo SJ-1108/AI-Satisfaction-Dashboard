@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { emailToEmpNo } from "@/lib/empno";
 import Sidebar from "@/components/sidebar";
 import SignOutButton from "@/components/sign-out-button";
+import ThemeToggle from "@/components/theme-toggle";
 
 /**
  * 인증된 영역의 공통 셸 (메뉴 ①②③).
@@ -52,6 +53,7 @@ export default async function AppLayout({
         <div className="brand">AI 답변 만족도 평가</div>
         <Sidebar />
         <div className="spacer" />
+        <ThemeToggle />
         <div className="user-box">
           <div>
             {name ? `${name} ` : ""}

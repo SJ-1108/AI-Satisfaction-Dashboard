@@ -76,9 +76,9 @@ export default function Dropdown({
           height: 42,
           padding: "0 12px",
           fontSize: 13,
-          color: "#3a4150",
-          background: "#fff",
-          border: `1px solid ${open ? "#2f6bff" : "#e2e5ea"}`,
+          color: "var(--text-2)",
+          background: "var(--panel)",
+          border: `1px solid ${open ? "var(--primary)" : "var(--border-strong)"}`,
           borderRadius: 10,
           cursor: "pointer",
           userSelect: "none",
@@ -93,7 +93,7 @@ export default function Dropdown({
         >
           {selected?.label ?? value}
         </span>
-        <span style={{ color: "#9aa1ad", fontSize: 9, marginLeft: 6 }}>▼</span>
+        <span style={{ color: "var(--muted-3)", fontSize: 9, marginLeft: 6 }}>▼</span>
       </div>
 
       {open && (
@@ -107,10 +107,10 @@ export default function Dropdown({
             // 일반 드롭다운은 내용에 맞춰 트리거 폭 이상으로 넓어지게(minWidth).
             ...(searchable ? { width } : { minWidth: width }),
             boxSizing: "border-box",
-            background: "#fff",
-            border: "1px solid #e9ebef",
+            background: "var(--panel)",
+            border: "1px solid var(--border)",
             borderRadius: 10,
-            boxShadow: "0 10px 28px rgba(16,24,40,.14)",
+            boxShadow: "var(--shadow-pop)",
             padding: 6,
           }}
         >
@@ -132,8 +132,8 @@ export default function Dropdown({
                 padding: "0 10px",
                 marginBottom: 6,
                 fontSize: 13,
-                color: "#3a4150",
-                border: "1px solid #e2e5ea",
+                color: "var(--text-2)",
+                border: "1px solid var(--border-strong)",
                 borderRadius: 8,
                 outline: "none",
               }}
@@ -152,7 +152,7 @@ export default function Dropdown({
                 style={{
                   padding: "9px 12px",
                   fontSize: 13,
-                  color: "#9aa1ad",
+                  color: "var(--muted-3)",
                   whiteSpace: "nowrap",
                 }}
               >
@@ -172,9 +172,9 @@ export default function Dropdown({
                       borderRadius: 7,
                       cursor: "pointer",
                       fontSize: 13,
-                      color: isSel ? "#2f6bff" : "#3a4150",
+                      color: isSel ? "var(--primary)" : "var(--text-2)",
                       fontWeight: isSel ? 700 : 500,
-                      background: hovered === o.value ? "#f3f5f9" : "transparent",
+                      background: hovered === o.value ? "var(--panel-alt)" : "transparent",
                       // 고정폭(searchable)에선 긴 부서명이 잘리지 않게 줄바꿈(어절 단위)
                       whiteSpace: searchable ? "normal" : "nowrap",
                       wordBreak: searchable ? "keep-all" : "normal",

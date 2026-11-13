@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTheme } from "@/components/theme-provider";
 import { useRouter } from "next/navigation";
 import {
   buildFeedbackRows,
@@ -54,6 +55,7 @@ import { Doughnut } from "react-chartjs-2";
 import { useChartPdfExport } from "@/lib/use-chart-pdf-export";
 import {
   applyChartDefaults,
+  chartColors,
   CHART_TEXT_COLOR,
   COMMON_PIE_PROPS,
 } from "@/lib/chart-style";
@@ -74,11 +76,11 @@ const DONUT_CUTOUT = 90;
 
 // ── 공통 인라인 스타일 ──
 const card: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #eceef1",
+  background: "var(--panel)",
+  border: "1px solid var(--border)",
   borderRadius: 14,
   padding: "20px 22px",
-  boxShadow: "0 1px 2px rgba(16,24,40,.03)",
+  boxShadow: "var(--shadow-sm)",
 };
 const exportBtn: React.CSSProperties = {
   height: 40,
@@ -86,9 +88,9 @@ const exportBtn: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-  color: "#5a616e",
-  background: "#fff",
-  border: "1px solid #e2e5ea",
+  color: "var(--text-3)",
+  background: "var(--panel)",
+  border: "1px solid var(--border-strong)",
   borderRadius: 10,
   cursor: "pointer",
 };
@@ -98,9 +100,9 @@ const outlineBtn: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-  color: "#2f6bff",
-  background: "#fff",
-  border: "1px solid #2f6bff",
+  color: "var(--primary)",
+  background: "var(--panel)",
+  border: "1px solid var(--primary)",
   borderRadius: 10,
   cursor: "pointer",
 };
@@ -111,28 +113,28 @@ const searchInput: React.CSSProperties = {
   padding: "0 14px",
   fontSize: 13,
   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-  color: "#1a1d23",
-  border: "1px solid #e2e5ea",
+  color: "var(--text)",
+  border: "1px solid var(--border-strong)",
   borderRadius: 10,
   outline: "none",
 };
 const filterLabel: React.CSSProperties = {
   fontSize: 13,
-  color: "#6b7280",
+  color: "var(--muted-2)",
   fontWeight: 500,
 };
 const th: React.CSSProperties = {
   padding: "12px 14px",
   fontWeight: 600,
-  color: "#6b7280",
-  borderBottom: "1px solid #edeff2",
+  color: "var(--muted-2)",
+  borderBottom: "1px solid var(--border)",
   textAlign: "center",
   whiteSpace: "nowrap",
 };
 const td: React.CSSProperties = {
   padding: "12px 14px",
   textAlign: "center",
-  color: "#3a4150",
+  color: "var(--text-2)",
 };
 /** 한 줄 노출 후 말줄임 (질의어·AI답변·의견) — 데이터 조회 표와 동일하게 컬럼이 섞여 보이지 않도록 단일 행 처리 */
 const cellText: React.CSSProperties = {
@@ -180,11 +182,14 @@ export default function FeedbackClient({
   const [superDpr] = useState(() =>
     typeof window !== "undefined" ? 2 * (window.devicePixelRatio || 1) : 2,
   );
+  // 테마(라이트/다크) — 도넛 조각 경계색은 canvas 라 테마별 값을 직접 넣는다.
+  const { theme } = useTheme();
+  const cc = chartColors(theme);
   useEffect(() => {
-    // 공통 차트 기본값(폰트·색) 적용.
+    // 공통 차트 기본값(폰트·색) 적용. 테마가 바뀌면 다시 적용.
     applyChartDefaults();
     setMounted(true);
-  }, []);
+  }, [theme]);
 
   // PDF 내보내기(인쇄) — 차트 스냅샷 + A4 리플로우 공용 훅. 차트 컨테이너에 pdf-chart-box 지정.
   const { exportPdf } = useChartPdfExport();
@@ -225,6 +230,7 @@ export default function FeedbackClient({
           (c) => CAUSE_CHART_COLORS[c.category] ?? CAUSE_FALLBACK_COLOR,
         ),
         ...COMMON_PIE_PROPS,
+        borderColor: cc.panel,
         // 최소 각도로 보장한 얇은 조각의 색이 흰 경계(2px)에 다시 묻히지 않도록 1px.
         borderWidth: 1,
       },
@@ -440,11 +446,11 @@ export default function FeedbackClient({
   const reviewCount = allRows.filter((r) => r.auto_tier === "2단" && r.needs_review).length;
 
   const kpis = [
-    { label: "불만족 총건수", value: allRows.length, color: "#1a1d23" },
+    { label: "불만족 총건수", value: allRows.length, color: "var(--text)" },
     ...FEEDBACK_STATUSES.map((s) => ({
       label: statusLabel(s),
       value: statusCounts[s],
-      color: onWhiteText(STATUS_COLOR[s]),
+      color: onWhiteText(STATUS_COLOR[s], theme),
     })),
   ];
 
@@ -483,9 +489,9 @@ export default function FeedbackClient({
             fontSize: 13,
             fontWeight: 600,
             fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-            color: "#5a616e",
-            background: "#fff",
-            border: "1px solid #e2e5ea",
+            color: "var(--text-3)",
+            background: "var(--panel)",
+            border: "1px solid var(--border-strong)",
             borderRadius: 10,
             cursor: "pointer",
           }}
@@ -497,7 +503,7 @@ export default function FeedbackClient({
             height="15"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#5a616e"
+            stroke="var(--text-3)"
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -527,7 +533,7 @@ export default function FeedbackClient({
             <div
               style={{
                 fontSize: 13,
-                color: "#8a909c",
+                color: "var(--muted)",
                 marginBottom: 10,
                 fontWeight: 500,
               }}
@@ -563,7 +569,7 @@ export default function FeedbackClient({
             원인 분류별 통계
           </div>
           {causeCounts.length === 0 ? (
-            <p style={{ color: "#8a909c", fontSize: 13 }}>데이터가 없습니다.</p>
+            <p style={{ color: "var(--muted)", fontSize: 13 }}>데이터가 없습니다.</p>
           ) : (
             // 도넛(좌) + 범례 세로 일렬(우) 묶음을 카드 가운데 정렬한다.
             <div
@@ -586,7 +592,7 @@ export default function FeedbackClient({
                       alignItems: "center",
                       justifyContent: "center",
                       height: "100%",
-                      color: "#8a909c",
+                      color: "var(--muted)",
                       fontSize: 13,
                     }}
                   >
@@ -616,7 +622,7 @@ export default function FeedbackClient({
                         gap: 8,
                         fontSize: 13,
                         fontWeight: 500,
-                        color: CHART_TEXT_COLOR,
+                        color: "var(--text-3)",
                       }}
                     >
                       <span
@@ -651,7 +657,7 @@ export default function FeedbackClient({
               marginBottom: 16,
             }}
           >
-            <span style={{ fontSize: 13, color: "#8a909c" }}>
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>
               미확인 외 상태로 처리된 비율
             </span>
             <span
@@ -659,7 +665,7 @@ export default function FeedbackClient({
                 fontSize: 32,
                 fontWeight: 700,
                 letterSpacing: "-1px",
-                color: "#1a1d23",
+                color: "var(--text)",
               }}
             >
               {handled}%
@@ -668,7 +674,7 @@ export default function FeedbackClient({
 
           {/* 최근 처리 5건 */}
           {recentHandled.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#9aa1ad", margin: 0 }}>
+            <p style={{ fontSize: 13, color: "var(--muted-3)", margin: 0 }}>
               처리된 건이 없습니다.
             </p>
           ) : (
@@ -679,34 +685,34 @@ export default function FeedbackClient({
                 <col style={{ width: "48%" }} />
               </colgroup>
               <thead>
-                <tr style={{ background: "#f7f8fa" }}>
-                  <th style={{ ...th, padding: "9px 12px", color: "#5a616e", fontWeight: 500 }}>상태</th>
-                  <th style={{ ...th, padding: "9px 12px", color: "#5a616e", fontWeight: 500 }}>원인 분류</th>
-                  <th style={{ ...th, padding: "9px 12px", color: "#5a616e", fontWeight: 500 }}>피드백 내용</th>
+                <tr style={{ background: "var(--panel-alt)" }}>
+                  <th style={{ ...th, padding: "9px 12px", color: "var(--text-3)", fontWeight: 500 }}>상태</th>
+                  <th style={{ ...th, padding: "9px 12px", color: "var(--text-3)", fontWeight: 500 }}>원인 분류</th>
+                  <th style={{ ...th, padding: "9px 12px", color: "var(--text-3)", fontWeight: 500 }}>피드백 내용</th>
                 </tr>
               </thead>
               <tbody>
                 {recentHandled.map((r) => (
-                  <tr key={r.satisfaction_id} style={{ borderBottom: "1px solid #f1f3f5" }}>
+                  <tr key={r.satisfaction_id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                     <td
                       style={{
                         ...td,
                         padding: "9px 12px",
-                        color: statusInk(STATUS_COLOR[r.status]),
+                        color: statusInk(STATUS_COLOR[r.status], theme),
                         fontWeight: 500,
                         whiteSpace: "nowrap",
                       }}
                     >
                       {statusLabel(r.status)}
                     </td>
-                    <td style={{ ...td, padding: "9px 12px", color: "#5a616e", fontWeight: 500 }}>
+                    <td style={{ ...td, padding: "9px 12px", color: "var(--text-3)", fontWeight: 500 }}>
                       {r.cause_category?.trim() || "미분류"}
                     </td>
                     <td
                       style={{
                         ...td,
                         padding: "9px 12px",
-                        color: "#5a616e",
+                        color: "var(--text-3)",
                         fontWeight: 500,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -850,9 +856,9 @@ export default function FeedbackClient({
                   fontSize: 12,
                   fontWeight: 700,
                   fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-                  color: autoFilter === "review" ? "#fff" : "#8a4a33",
-                  background: autoFilter === "review" ? "#c2583a" : "#fbe9e3",
-                  border: "1px solid " + (autoFilter === "review" ? "#c2583a" : "#f3d3c8"),
+                  color: autoFilter === "review" ? "var(--on-primary)" : "var(--warn-ink)",
+                  background: autoFilter === "review" ? "var(--warn)" : "var(--warn-soft)",
+                  border: "1px solid " + (autoFilter === "review" ? "var(--warn)" : "var(--warn-soft-border)"),
                   borderRadius: 999,
                   whiteSpace: "nowrap",
                   cursor: "pointer",
@@ -910,7 +916,7 @@ export default function FeedbackClient({
               <col style={{ width: "7%" }} />
             </colgroup>
             <thead>
-              <tr style={{ background: "#f7f8fa" }}>
+              <tr style={{ background: "var(--panel-alt)" }}>
                 <th style={th}>No.</th>
                 <th style={th}>평가일시</th>
                 <th style={th}>질의어</th>
@@ -927,14 +933,14 @@ export default function FeedbackClient({
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={{ ...td, padding: 44, color: "#9aa1ad" }}>
+                  <td colSpan={11} style={{ ...td, padding: 44, color: "var(--muted-3)" }}>
                     조건에 맞는 불만족 건이 없습니다.
                   </td>
                 </tr>
               ) : (
                 rows.map((r) => (
-                  <tr key={r.satisfaction_id} style={{ borderBottom: "1px solid #f1f3f5" }}>
-                    <td style={{ ...td, color: "#6b7280", fontWeight: 500 }}>
+                  <tr key={r.satisfaction_id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
+                    <td style={{ ...td, color: "var(--muted-2)", fontWeight: 500 }}>
                       {r.record_no}
                     </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
@@ -944,13 +950,13 @@ export default function FeedbackClient({
                       {r.query ?? "-"}
                     </td>
                     <td
-                      style={{ ...td, ...cellText, color: "#6b7280" }}
+                      style={{ ...td, ...cellText, color: "var(--muted-2)" }}
                       title={r.summary_text ?? undefined}
                     >
                       {r.summary_text ?? "-"}
                     </td>
                     <td
-                      style={{ ...td, ...cellText, color: "#5a616e" }}
+                      style={{ ...td, ...cellText, color: "var(--text-3)" }}
                       title={r.reason ? reasonLabel(r.reason) : undefined}
                     >
                       {r.reason ? reasonLabel(r.reason) : "-"}
@@ -965,19 +971,19 @@ export default function FeedbackClient({
                       />
                     </td>
                     <td
-                      style={{ ...td, ...cellText, color: "#6b7280" }}
+                      style={{ ...td, ...cellText, color: "var(--muted-2)" }}
                       title={r.cause_category ?? undefined}
                     >
                       {r.cause_category ?? "-"}
                     </td>
                     <td
-                      style={{ ...td, ...cellText, color: "#5a616e" }}
+                      style={{ ...td, ...cellText, color: "var(--text-3)" }}
                       title={r.related_department ?? undefined}
                     >
                       {r.related_department ?? "-"}
                     </td>
                     <td
-                      style={{ ...td, ...cellText, color: "#3a4150" }}
+                      style={{ ...td, ...cellText, color: "var(--text-2)" }}
                       title={r.action ?? undefined}
                     >
                       {r.action || "-"}
@@ -996,7 +1002,7 @@ export default function FeedbackClient({
                           2단은 옆에 '확인 필요' 표시. 담당자가 확인·저장하면 담당자명으로 전환 */}
                       {r.needs_review || r.auto_tier === "1단" ? (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-                          <span style={{ color: "#2f6bff", fontWeight: 600, whiteSpace: "nowrap" }}>AI 분류</span>
+                          <span style={{ color: "var(--primary)", fontWeight: 600, whiteSpace: "nowrap" }}>AI 분류</span>
                           {r.needs_review && (
                             <span
                               style={{
@@ -1007,8 +1013,8 @@ export default function FeedbackClient({
                                 padding: "0 7px",
                                 borderRadius: 999,
                                 whiteSpace: "nowrap",
-                                color: "#8a4a33",
-                                background: "#fbe9e3",
+                                color: "var(--warn-ink)",
+                                background: "var(--warn-soft)",
                               }}
                             >
                               확인 필요
@@ -1028,8 +1034,8 @@ export default function FeedbackClient({
                           fontSize: 12,
                           fontWeight: 600,
                           fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
-                          color: "#fff",
-                          background: "#2f6bff",
+                          color: "var(--on-primary)",
+                          background: "var(--primary)",
                           border: "none",
                           borderRadius: 8,
                           cursor: "pointer",
@@ -1074,6 +1080,7 @@ function StatusSelect({
   onChange: (s: FeedbackStatus) => void;
   disabled?: boolean;
 }) {
+  const { theme } = useTheme();
   const [open, setOpen] = useState(false);
 
   return (
@@ -1098,9 +1105,9 @@ function StatusSelect({
           padding: "0 10px",
           fontSize: 13,
           fontWeight: 600,
-          color: statusInk(STATUS_COLOR[value]),
-          background: statusTint(STATUS_COLOR[value]),
-          border: `1px solid ${open ? "#2f6bff" : "transparent"}`,
+          color: statusInk(STATUS_COLOR[value], theme),
+          background: statusTint(STATUS_COLOR[value], theme),
+          border: `1px solid ${open ? "var(--primary)" : "transparent"}`,
           borderRadius: 10,
           cursor: disabled ? "not-allowed" : "pointer",
           userSelect: "none",
@@ -1108,7 +1115,7 @@ function StatusSelect({
         }}
       >
         <span style={{ whiteSpace: "nowrap" }}>{statusLabel(value)}</span>
-        <span style={{ color: "#9aa1ad", fontSize: 9 }}>▼</span>
+        <span style={{ color: "var(--muted-3)", fontSize: 9 }}>▼</span>
       </div>
       {open && (
         <div
@@ -1121,10 +1128,10 @@ function StatusSelect({
             transform: "translateX(-50%)",
             zIndex: 60,
             width: 96,
-            background: "#fff",
-            border: "1px solid #e9ebef",
+            background: "var(--panel)",
+            border: "1px solid var(--border)",
             borderRadius: 10,
-            boxShadow: "0 10px 28px rgba(16,24,40,.14)",
+            boxShadow: "var(--shadow-pop)",
             padding: 5,
           }}
         >
@@ -1141,7 +1148,7 @@ function StatusSelect({
                 cursor: "pointer",
                 fontSize: 13,
                 fontWeight: s === value ? 700 : 500,
-                color: s === value ? "#2f6bff" : "#3a4150",
+                color: s === value ? "var(--primary)" : "var(--text-2)",
                 whiteSpace: "nowrap",
               }}
             >

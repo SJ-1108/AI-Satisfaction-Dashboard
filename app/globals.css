@@ -28,6 +28,37 @@
   --down: #e5484d; /* 불만족: 레드 */
   --down-soft: #fde8e8;
 
+  /* 세부 텍스트 단계 (인라인 스타일에서 쓰던 리터럴을 토큰화) */
+  --text-2: #3a4150; /* 본문 강조/표 본문 */
+  --text-3: #5a616e; /* 표 보조 셀·차트 텍스트 */
+  --muted-2: #6b7280; /* 라벨·보조 설명 */
+  --muted-3: #9aa1ad; /* 플레이스홀더·흐린 보조 */
+  --faint: #cdd2da; /* 비활성 아이콘 */
+  --border-soft: #f1f3f5; /* 표 행 구분선 */
+  --row-hover: #fbfaf6;
+  --on-primary: #ffffff; /* 파랑·유색 버튼 위 글자 (두 테마 공통 흰색) */
+  --primary-soft-hover: #dbe7ff;
+  --primary-disabled: #aebfff;
+
+  /* 상태/경고 시맨틱 */
+  --down-soft-border: #f0c4c1;
+  --down-ink: #a13d38;
+  --warn: #c2583a; /* 확인 필요(자동 판정 2단) */
+  --warn-soft: #fbe9e3;
+  --warn-soft-border: #f3d3c8;
+  --warn-ink: #8a4a33;
+  --ok-ink: #1f9d6a;
+  --ok-soft: #e7f7ef;
+  --ok-soft-border: #bce3cd;
+  --info-bg: #fff8e6; /* 미리보기 배너·보류 */
+  --info-border: #f5e2a8;
+  --info-ink: #8a6d12;
+
+  /* 오버레이·팝오버 그림자 */
+  --overlay: rgba(16, 24, 40, 0.45);
+  --shadow-pop: 0 10px 28px rgba(16, 24, 40, 0.14);
+  --shadow-dialog: 0 20px 60px rgba(16, 24, 40, 0.3);
+
   /* 형태 */
   --radius: 14px;
   --radius-sm: 10px;
@@ -44,6 +75,81 @@
   --font-serif: "Pretendard Variable", Pretendard, -apple-system,
     BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo",
     "Malgun Gothic", sans-serif;
+}
+
+/* ── 다크 테마 (사이드바 토글 → <html data-theme="dark">, 저장값 없으면 OS 설정) ── */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #15171c;
+  --panel: #1e2128;
+  --panel-alt: #262a33;
+  --border: #2e333c;
+  --border-strong: #3b414c;
+  --border-soft: #282c35;
+  --row-hover: #23272f;
+
+  --text: #e8eaee;
+  --text-2: #d2d6dd;
+  --text-3: #b7bdc7;
+  --muted: #8e95a1;
+  --muted-2: #a4abb6;
+  --muted-3: #6f7683;
+  --faint: #4b525d;
+
+  --accent: #5b8cff;
+  --primary: #5b8cff;
+  --primary-strong: #86a9ff;
+  --primary-soft: #1f2a45;
+  --primary-soft-border: #31467a;
+  --primary-soft-hover: #273659;
+  --primary-disabled: #3a4a78;
+  --primary-fg: #ffffff;
+  --on-primary: #ffffff;
+
+  --up: #5b8cff;
+  --up-soft: #1f2a45;
+  --down: #f07a74;
+  --down-soft: #3a2426;
+  --down-soft-border: #5c3335;
+  --down-ink: #ff9f9a;
+  --warn: #d9794f;
+  --warn-soft: #3a2a23;
+  --warn-soft-border: #5c4032;
+  --warn-ink: #f2ad8f;
+  --ok-ink: #5fd19c;
+  --ok-soft: #1d3329;
+  --ok-soft-border: #2c5a42;
+  --info-bg: #3a3118;
+  --info-border: #5c4d1f;
+  --info-ink: #e8c866;
+
+  --overlay: rgba(0, 0, 0, 0.62);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --shadow-pop: 0 10px 28px rgba(0, 0, 0, 0.5);
+  --shadow-dialog: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* 다크 테마에서 색을 직접 지정한 클래스들 */
+:root[data-theme="dark"] .status-select.st-new {
+  background: #2e333c;
+  color: #b7bdc7;
+}
+:root[data-theme="dark"] .status-select.st-progress {
+  background: #1f2a45;
+  color: #86a9ff;
+}
+:root[data-theme="dark"] .status-select.st-done {
+  background: #1d3329;
+  color: #5fd19c;
+}
+:root[data-theme="dark"] .status-select.st-hold {
+  background: #3a3118;
+  color: #e8c866;
+}
+:root[data-theme="dark"] .skeleton-pulse {
+  opacity: 0.7;
 }
 
 * {
@@ -169,6 +275,32 @@ summary:focus-visible {
   flex: 1;
 }
 
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  margin-bottom: 10px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.theme-toggle:hover {
+  background: var(--panel-alt);
+  color: var(--text);
+}
+.theme-toggle-icon {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+}
+
 .user-box {
   border-top: 1px solid var(--border);
   padding: 14px 12px 4px;
@@ -217,15 +349,15 @@ summary:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f6f7f9;
+  background: var(--bg);
   padding: 24px;
 }
 
 .login-card {
   width: 100%;
   max-width: 400px;
-  background: #ffffff;
-  border: 1px solid #eceef1;
+  background: var(--panel);
+  border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
   padding: 40px 36px;
@@ -235,12 +367,12 @@ summary:focus-visible {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.4px;
-  color: #1a1d23;
+  color: var(--text);
   margin: 0 0 8px;
 }
 
 .login-card .sub {
-  color: #8a909c;
+  color: var(--muted);
   margin: 0 0 28px;
   font-size: 14px;
   line-height: 1.5;
@@ -254,7 +386,7 @@ summary:focus-visible {
 .login-card .field label {
   font-size: 13px;
   font-weight: 600;
-  color: #3a4150;
+  color: var(--text-2);
   margin-bottom: 8px;
 }
 
@@ -262,18 +394,18 @@ summary:focus-visible {
   height: 48px;
   padding: 0 14px;
   font-size: 15px;
-  color: #1a1d23;
-  border: 1px solid #dfe2e8;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .login-card .field input::placeholder {
-  color: #aab1bd;
+  color: var(--muted-3);
 }
 
 .login-card .field input:focus {
-  border-color: #2f6bff;
+  border-color: var(--accent);
   box-shadow: none;
 }
 
@@ -299,14 +431,14 @@ summary:focus-visible {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: #9aa1ad;
+  color: var(--muted-3);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .login-card .pw-toggle:hover {
-  color: #3a4150;
+  color: var(--text-2);
 }
 
 /* 제출 버튼 — 디자인 수치 (height 50, radius 10) */
@@ -321,7 +453,7 @@ summary:focus-visible {
 }
 
 .login-card .btn-primary:disabled {
-  background: #aebfff;
+  background: var(--primary-disabled);
   opacity: 1;
   cursor: not-allowed;
 }
@@ -344,7 +476,7 @@ summary:focus-visible {
   padding: 11px 13px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--panel);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -417,12 +549,12 @@ summary:focus-visible {
 }
 
 .btn-feedback:hover {
-  background: #dbe7ff;
+  background: var(--primary-soft-hover);
   border-color: var(--accent);
 }
 
 .btn-feedback:active {
-  background: #cdddff;
+  background: var(--primary-soft-border);
 }
 
 /* 액션 컬럼 — 버튼이 잘리지 않도록 폭 확보 */
@@ -438,7 +570,7 @@ summary:focus-visible {
   padding: 9px 11px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--panel);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -512,7 +644,7 @@ summary:focus-visible {
 }
 
 .data-table tbody tr:hover {
-  background: #fbfaf6;
+  background: var(--row-hover);
 }
 
 .data-table tbody tr:last-child td {
@@ -568,12 +700,12 @@ summary:focus-visible {
 
 .badge.up {
   background: var(--up-soft);
-  color: #2559d6;
+  color: var(--primary-strong);
 }
 
 .badge.down {
   background: var(--down-soft);
-  color: #c93a3f;
+  color: var(--down-ink);
 }
 
 /* ── 페이징 ── */
@@ -601,11 +733,11 @@ summary:focus-visible {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
-  background: #fff;
+  background: var(--panel);
 }
 
 .seg-btn {
-  background: #fff;
+  background: var(--panel);
   border: none;
   padding: 9px 18px;
   color: var(--muted);
@@ -772,9 +904,9 @@ summary:focus-visible {
 
 /* ── 개발(더미) 모드 배너 ── */
 .dev-banner {
-  background: #fff8e6;
-  border: 1px solid #f5e2a8;
-  color: #8a6d12;
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  color: var(--info-ink);
   padding: 11px 15px;
   border-radius: var(--radius-sm);
   margin-bottom: 22px;
@@ -792,18 +924,18 @@ summary:focus-visible {
 }
 
 .status-select.st-new {
-  background: #eceef1;
+  background: var(--border);
   color: #6a7180;
 }
 
 .status-select.st-progress {
   background: #eaf0ff;
-  color: #2559d6;
+  color: var(--primary-strong);
 }
 
 .status-select.st-done {
-  background: #e4f4ec;
-  color: #1f8a52;
+  background: var(--ok-soft);
+  color: var(--ok-ink);
 }
 
 .status-select.st-hold {
@@ -849,9 +981,9 @@ summary:focus-visible {
 
 /* ── 토스트 ── */
 .toast {
-  background: #e4f4ec;
-  border: 1px solid #bce3cd;
-  color: #1f8a52;
+  background: var(--ok-soft);
+  border: 1px solid var(--ok-soft-border);
+  color: var(--ok-ink);
   padding: 11px 15px;
   border-radius: var(--radius-sm);
   margin-bottom: 16px;
@@ -876,7 +1008,7 @@ summary:focus-visible {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(31, 30, 29, 0.42);
+  background: var(--overlay);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: flex-start;
@@ -887,7 +1019,7 @@ summary:focus-visible {
 }
 
 .modal {
-  background: #fff;
+  background: var(--panel);
   border-radius: 18px;
   padding: 26px;
   width: 720px;
@@ -1029,6 +1161,73 @@ details > summary.bad {
    대시보드 헤더의 "PDF 내보내기" 버튼 → window.print() 로 진입.
    ────────────────────────────────────────────────────────────── */
 @media print {
+  /* 다크 모드여도 인쇄·PDF 는 라이트 팔레트로 */
+  :root,
+  :root[data-theme="dark"] {
+    color-scheme: light;
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --panel-alt: #f1f3f6;
+    --border: #eceef1;
+    --border-strong: #dfe2e8;
+    --border-soft: #f1f3f5;
+    --row-hover: #fbfaf6;
+    --text: #1a1d23;
+    --text-2: #3a4150;
+    --text-3: #5a616e;
+    --muted: #8a909c;
+    --muted-2: #6b7280;
+    --muted-3: #9aa1ad;
+    --faint: #cdd2da;
+    --accent: #2f6bff;
+    --primary: #2f6bff;
+    --primary-strong: #2559d6;
+    --primary-soft: #eaf0ff;
+    --primary-soft-border: #cdddff;
+    --primary-soft-hover: #dbe7ff;
+    --primary-disabled: #aebfff;
+    --primary-fg: #ffffff;
+    --on-primary: #ffffff;
+    --up: #2f6bff;
+    --up-soft: #e9f0ff;
+    --down: #e5484d;
+    --down-soft: #fde8e8;
+    --down-soft-border: #f0c4c1;
+    --down-ink: #a13d38;
+    --warn: #c2583a;
+    --warn-soft: #fbe9e3;
+    --warn-soft-border: #f3d3c8;
+    --warn-ink: #8a4a33;
+    --ok-ink: #1f9d6a;
+    --ok-soft: #e7f7ef;
+    --ok-soft-border: #bce3cd;
+    --info-bg: #fff8e6;
+    --info-border: #f5e2a8;
+    --info-ink: #8a6d12;
+    --overlay: rgba(16, 24, 40, 0.45);
+    --shadow-sm: none;
+    --shadow: none;
+    --shadow-lg: none;
+    --shadow-pop: none;
+    --shadow-dialog: none;
+  }
+  :root[data-theme="dark"] .status-select.st-new {
+    background: #eceef1;
+    color: #6a7180;
+  }
+  :root[data-theme="dark"] .status-select.st-progress {
+    background: #eaf0ff;
+    color: #2559d6;
+  }
+  :root[data-theme="dark"] .status-select.st-done {
+    background: #e4f4ec;
+    color: #1f8a52;
+  }
+  :root[data-theme="dark"] .status-select.st-hold {
+    background: #fff3d6;
+    color: #97701a;
+  }
+
   html,
   body {
     background: #fff !important;
