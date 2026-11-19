@@ -108,6 +108,7 @@ export function appendDummyRows(valid: ParsedSatisfaction[]): {
             tier: r.feedback.auto_tier,
             confidence: r.feedback.auto_confidence,
             needsReview: r.feedback.auto_tier === "2단",
+            reviewed: false,
           })
         : (ex?.detail_reason ?? null),
       cause_category: r.feedback.cause_category,
@@ -121,6 +122,7 @@ export function appendDummyRows(valid: ParsedSatisfaction[]): {
       auto_tier: r.feedback.auto_tier,
       auto_confidence: r.feedback.auto_confidence,
       needs_review: r.feedback.auto_tier === "2단",
+      auto_reviewed: false,
     };
     fbBySid.set(sid, fb);
     feedbackWritten++;

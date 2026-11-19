@@ -39,6 +39,18 @@ export interface FeedbackRow {
   auto_tier: AutoTier | null;
   auto_confidence: number | null;
   needs_review: boolean;
+  /** 자동 판정 건을 담당자가 확인·저장했으면 true */
+  auto_reviewed: boolean;
+}
+
+/**
+ * 담당자명 칸에 'AI 분류'를 보여 줄 건인지. 자동 판정 건(1단·2단)은 담당자가 한 번 저장하기 전까지
+ * 'AI 분류'이고, 저장한 뒤에는 단계와 무관하게 저장한 사람 이름을 보여 준다.
+ */
+export function showsAiLabel(
+  r: Pick<FeedbackRow, "auto_tier" | "auto_reviewed">,
+): boolean {
+  return Boolean(r.auto_tier) && !r.auto_reviewed;
 }
 
 /** down 평가 + feedback 을 조인해 화면용 행 배열로 만든다. */
@@ -83,6 +95,7 @@ export function buildFeedbackRows(
       auto_tier: f?.auto_tier ?? null,
       auto_confidence: f?.auto_confidence ?? null,
       needs_review: Boolean(f?.needs_review),
+      auto_reviewed: Boolean(f?.auto_reviewed),
     };
   });
 
@@ -130,12 +143,14 @@ export function upsertFeedback(
       auto_tier: null,
       auto_confidence: null,
       needs_review: false,
+      auto_reviewed: false,
     };
     return [...existing, created];
   }
 
   // 갱신: created_by 유지, updated_by/updated_at 만 갱신.
-  // 담당자가 저장했으므로 자동 판정 확인 대기(needs_review)는 해제한다(auto_tier 는 이력으로 유지).
+  // 담당자가 저장했으므로 자동 판정 확인 대기(needs_review)는 해제하고 담당자 확인(auto_reviewed)을
+  // 켠다 → 담당자명 칸이 'AI 분류'에서 저장한 사람 이름으로 바뀐다(auto_tier 는 이력으로 유지).
   const prev = existing[idx];
   const updated: Feedback = {
     ...prev,
@@ -148,6 +163,7 @@ export function upsertFeedback(
     updated_by: actorEmpNo,
     updated_at: now,
     needs_review: false,
+    auto_reviewed: true,
   };
   const next = existing.slice();
   next[idx] = updated;

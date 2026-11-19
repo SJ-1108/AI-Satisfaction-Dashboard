@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTheme } from "@/components/theme-provider";
 import { reasonLabel } from "@/lib/reasons";
 import { formatKstDateTime } from "@/lib/format-date";
-import type { FeedbackRow, FeedbackEdit } from "@/lib/data/feedback-view";
+import { showsAiLabel, type FeedbackRow, type FeedbackEdit } from "@/lib/data/feedback-view";
 import ReadField from "@/components/ui/read-field";
 import CloseButton from "@/components/ui/close-button";
 import Combobox from "@/components/ui/combobox";
@@ -62,9 +62,9 @@ export default function FeedbackDialog({
     new Set([...CAUSE_CATEGORIES, ...(row.cause_category ? [row.cause_category] : [])]),
   );
 
-  // 자동 판정 건(확인 전)은 작성자를 'AI 분류'로 표시. 저장하면 현재 사용자명으로 바뀐다
+  // 자동 판정 건(담당자 저장 전)은 작성자를 'AI 분류'로 표시. 저장하면 현재 사용자명으로 바뀐다
   const author =
-    row.needs_review || row.auto_tier === "1단"
+    showsAiLabel(row)
       ? "AI 분류"
       : row.hasFeedback
         ? (row.updated_by ?? currentUserName)

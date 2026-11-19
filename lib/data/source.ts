@@ -449,7 +449,10 @@ async function readFeedback(): Promise<Feedback[]> {
 
   return (rows as Record<string, unknown>[]).map((f) => {
     // 자동 판정 표식은 detail_reason 문자열에서 해석한다(스키마 변경 없음)
-    const mark = decodeAutoMark(f.detail_reason as string | null);
+    const mark = decodeAutoMark(f.detail_reason as string | null, {
+      created_at: f.created_at as string,
+      updated_at: f.updated_at as string,
+    });
     return {
     id: f.id as string,
     satisfaction_id: f.satisfaction_id as string,
@@ -471,6 +474,7 @@ async function readFeedback(): Promise<Feedback[]> {
     auto_tier: mark?.tier ?? null,
     auto_confidence: mark?.confidence ?? null,
     needs_review: mark?.needsReview ?? false,
+    auto_reviewed: mark?.reviewed ?? false,
     };
   });
 }

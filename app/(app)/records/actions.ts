@@ -302,6 +302,7 @@ export async function appendSatisfactionRows(
               tier: fb.auto_tier,
               confidence: fb.auto_confidence,
               needsReview: fb.auto_tier === "2단",
+              reviewed: false,
             })
           : (ex?.detail_reason ?? null),
         cause_category: fb.cause_category,

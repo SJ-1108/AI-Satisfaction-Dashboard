@@ -316,6 +316,8 @@ export interface Feedback {
   auto_confidence?: number | null;
   /** 2단 건이 아직 담당자 확인 전이면 true. 모달에서 저장하면 false */
   needs_review?: boolean;
+  /** 자동 판정 건(1단·2단)을 담당자가 확인·저장했으면 true. 이때부터 담당자명을 표시한다 */
+  auto_reviewed?: boolean;
 }
 
 /** profiles: 계정 (auth.users 연결) */

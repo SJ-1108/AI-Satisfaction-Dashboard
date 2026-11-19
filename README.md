@@ -79,7 +79,7 @@ middleware.ts               라우트 가드
 | 처리 상태 / status | feedback.status ('처리완료'는 저장값 '조치완료'로 정규화) |
 | 피드백 내용 / action | feedback.action |
 | 메모 / memo | feedback.memo (확인 포인트) |
-| 단계 / auto_tier ('1단'·'2단') · 확신도 / auto_confidence | feedback.detail_reason 에 `[자동판정] 단계=2단; 확신도=0.55; 확인필요=1` 형식으로 보관 (`lib/auto-judgement.ts`, DB 스키마 변경 없음) |
+| 단계 / auto_tier ('1단'·'2단') · 확신도 / auto_confidence | feedback.detail_reason 에 `[자동판정] 단계=2단; 확신도=0.55; 확인필요=1; 담당자확인=0` 형식으로 보관 (`lib/auto-judgement.ts`, DB 스키마 변경 없음). 담당자가 모달에서 저장하면 확인필요=0·담당자확인=1 로 바뀌고, 그때부터 단계와 무관하게 담당자명 칸이 'AI 분류'에서 저장한 사람 이름으로 바뀐다 |
 
 - 불만족 관리 화면: 판정 필터(확인 필요 / 자동 확정 / 수동 작성), 담당자명 칸 배지, 모달 상단 확인 포인트. 담당자가 저장하면 확인필요 해제
 - 판정 파일 생성: 담당자는 배포된 `불만족평가_피드백_자동분류_v<버전>.exe`(단일 파일)를 실행해 Metabase 파일을 고르면 Claude Code가 `/판정`을 실행해 `<파일명>_판정.xlsx`를 원본 옆에 만든다(API 미사용, Claude Code 설치·로그인 필요). 도구 본체는 `tools/judge/`, 담당자용 절차는 `tools/judge/docs/운영_안내_v1.0_261109.html`

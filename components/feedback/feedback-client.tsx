@@ -5,6 +5,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useRouter } from "next/navigation";
 import {
   buildFeedbackRows,
+  showsAiLabel,
   upsertFeedback,
   type FeedbackEdit,
   type FeedbackRow,
@@ -410,7 +411,7 @@ export default function FeedbackClient({
       "피드백 내용 (action)": r.action ?? "",
       "처리 상태 (status)": statusLabel(r.status),
       "담당자명 (updated_by)":
-        r.needs_review || r.auto_tier === "1단" ? "AI 분류" : (r.updated_by ?? ""),
+        showsAiLabel(r) ? "AI 분류" : (r.updated_by ?? ""),
       "수정일시 (updated_at)": r.updated_at ? formatKstDateTime(r.updated_at) : "",
       "판정 (auto_tier)": r.auto_tier
         ? `${r.auto_tier}${r.needs_review ? " 확인 필요" : ""}`
@@ -998,9 +999,9 @@ export default function FeedbackClient({
                           : (r.updated_by ?? undefined)
                       }
                     >
-                      {/* 자동 판정 건(확인 전 2단·자동 확정 1단)은 담당자명 대신 'AI 분류'.
-                          2단은 옆에 '확인 필요' 표시. 담당자가 확인·저장하면 담당자명으로 전환 */}
-                      {r.needs_review || r.auto_tier === "1단" ? (
+                      {/* 자동 판정 건(1단·2단)은 담당자가 저장하기 전까지 담당자명 대신 'AI 분류'.
+                          2단은 옆에 '확인 필요' 표시. 담당자가 저장하면 단계와 무관하게 저장한 사람 이름으로 전환 */}
+                      {showsAiLabel(r) ? (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
                           <span style={{ color: "var(--primary)", fontWeight: 600, whiteSpace: "nowrap" }}>AI 분류</span>
                           {r.needs_review && (
