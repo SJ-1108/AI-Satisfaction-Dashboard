@@ -44,7 +44,7 @@ function cleanText(input, plusAsSpace = 'auto') {
 }
 function excelSerialToKst(v) {
   if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
-    const d = new Date(Math.round((v - 25569) * 86400 * 1000) - 9 * 3600 * 1000);
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000)); // serial은 KST 벽시계 → 그대로 KST 문자열로 출력(9시간 빼면 UTC가 됨)
     return isNaN(d) ? String(v) : d.toISOString().replace('T', ' ').slice(0, 19);
   }
   return String(v ?? '').trim();
